@@ -6,7 +6,7 @@
 
 @layer base {
   :root {
-    --background: 248 251 255;
+    --background: 0 0% 100%;
     --foreground: 225 27% 18%;
 
     --card: 0 0% 100%;
@@ -47,7 +47,7 @@
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(217 91% 70%));
     --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(214 31% 98%));
-    --gradient-subtle: linear-gradient(180deg, hsl(248 251 255), hsl(248 247 252));
+    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(0 0% 98%));
 
     /* Shadows */
     --shadow-card: 0 4px 6px -1px hsl(217 91% 60% / 0.1), 0 2px 4px -1px hsl(217 91% 60% / 0.06);
@@ -57,7 +57,7 @@
     /* Animations */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-    --sidebar-background: 248 251 255;
+    --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 225 27% 18%;
     --sidebar-primary: 217 91% 60%;
     --sidebar-primary-foreground: 0 0% 100%;

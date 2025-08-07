@@ -10,7 +10,7 @@ interface EditAssetDialogProps {
   asset: any;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onUpdate: (assetId: number, updatedAsset: any) => void;
+  onUpdate: (assetId: string, updatedAsset: any) => void;
 }
 
 export const EditAssetDialog = ({ asset, open, onOpenChange, onUpdate }: EditAssetDialogProps) => {
@@ -26,12 +26,12 @@ export const EditAssetDialog = ({ asset, open, onOpenChange, onUpdate }: EditAss
   useEffect(() => {
     if (asset) {
       setFormData({
-        assetId: asset.assetId || "",
+        assetId: asset.asset_id || "",
         name: asset.name || "",
         type: asset.type || "",
         brand: asset.brand || "",
         configuration: asset.configuration || "",
-        serialNumber: asset.serialNumber || "",
+        serialNumber: asset.serial_number || "",
       });
     }
   }, [asset]);

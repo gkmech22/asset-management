@@ -4,36 +4,23 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { UserPlus, UserMinus, Settings, Search, Calendar } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { EditAssetDialog } from "./EditAssetDialog";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import { Asset } from "@/hooks/useAssets";
 
-interface Asset {
-  id: number;
-  assetId: string;
-  name: string;
-  type: string;
-  brand: string;
-  configuration: string;
-  serialNumber: string;
-  assignedTo: string | null;
-  employeeId: string | null;
-  status: string;
-  location: string;
-  assignedDate: string | null;
-}
 
 interface AssetListProps {
   assets: Asset[];
-  onAssign: (assetId: number, userName: string, employeeId: string) => void;
-  onUnassign: (assetId: number) => void;
-  onUpdateAsset: (assetId: number, updatedAsset: any) => void;
-  onUpdateStatus: (assetId: number, status: string) => void;
-  onUpdateLocation: (assetId: number, location: string) => void;
-  onDelete: (assetId: number) => void;
+  onAssign: (assetId: string, userName: string, employeeId: string) => void;
+  onUnassign: (assetId: string) => void;
+  onUpdateAsset: (assetId: string, updatedAsset: any) => void;
+  onUpdateStatus: (assetId: string, status: string) => void;
+  onUpdateLocation: (assetId: string, location: string) => void;
+  onDelete: (assetId: string) => void;
   dateRange?: DateRange;
   typeFilter?: string;
   brandFilter?: string;
@@ -85,19 +72,19 @@ export const AssetList = ({
   const filteredAssets = assets.filter((asset) => {
     const matchesSearch =
       asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      asset.assetId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      asset.asset_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       asset.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      asset.serialNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (asset.assignedTo && asset.assignedTo.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (asset.employeeId && asset.employeeId.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      asset.serial_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (asset.assigned_to && asset.assigned_to.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (asset.employee_id && asset.employee_id.toLowerCase().includes(searchTerm.toLowerCase())) ||
       asset.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
       asset.location.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesDateRange =
       !dateRange?.from ||
       !dateRange?.to ||
-      !asset.assignedDate ||
-      (new Date(asset.assignedDate) >= dateRange.from && new Date(asset.assignedDate) <= dateRange.to);
+      !asset.assigned_date ||
+      (new Date(asset.assigned_date) >= dateRange.from && new Date(asset.assigned_date) <= dateRange.to);
 
     const matchesType = typeFilter === "all" || asset.type === typeFilter;
     const matchesBrand = brandFilter === "all" || asset.brand === brandFilter;
@@ -202,155 +189,211 @@ export const AssetList = ({
         ) : (
           <>
             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Asset ID</TableHead>
-                    <TableHead>Asset Details</TableHead>
-                    <TableHead>Specifications</TableHead>
-                    <TableHead>Serial Number</TableHead>
-                    <TableHead>Employee ID</TableHead>
-                    <TableHead>Assigned To</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Asset Location</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedAssets.map((asset) => (
-                    <TableRow key={asset.id} className="hover:bg-muted/50">
-                      <TableCell>
-                        <code className="bg-primary/10 text-primary px-2 py-1 rounded text-sm font-medium">
-                          {asset.assetId}
-                        </code>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{asset.name}</div>
-                          <div className="text-sm text-muted-foreground">{asset.type}</div>
+              <ResizablePanelGroup direction="horizontal" className="min-h-[600px] w-full border rounded-lg">
+                <ResizablePanel defaultSize={12} minSize={8}>
+                  <div className="p-2 h-full bg-muted/30">
+                    <div className="font-medium text-xs mb-2 text-muted-foreground">Asset ID</div>
+                    <div className="space-y-2">
+                      {paginatedAssets.map((asset) => (
+                        <div key={asset.id} className="p-2 text-xs bg-background rounded border">
+                          <code className="bg-primary/10 text-primary px-1 py-0.5 rounded text-xs font-medium">
+                            {asset.asset_id}
+                          </code>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="text-sm font-medium">{asset.brand}</div>
+                      ))}
+                    </div>
+                  </div>
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel defaultSize={18} minSize={15}>
+                  <div className="p-2 h-full bg-muted/30">
+                    <div className="font-medium text-xs mb-2 text-muted-foreground">Asset Details</div>
+                    <div className="space-y-2">
+                      {paginatedAssets.map((asset) => (
+                        <div key={asset.id} className="p-2 text-xs bg-background rounded border">
+                          <div className="font-medium text-sm">{asset.name}</div>
+                          <div className="text-xs text-muted-foreground">{asset.type}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel defaultSize={15} minSize={12}>
+                  <div className="p-2 h-full bg-muted/30">
+                    <div className="font-medium text-xs mb-2 text-muted-foreground">Configuration</div>
+                    <div className="space-y-2">
+                      {paginatedAssets.map((asset) => (
+                        <div key={asset.id} className="p-2 text-xs bg-background rounded border">
+                          <div className="text-xs font-medium">{asset.brand}</div>
                           <div className="text-xs text-muted-foreground">{asset.configuration}</div>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <code className="bg-muted px-2 py-1 rounded text-xs">
-                          {asset.serialNumber}
-                        </code>
-                      </TableCell>
-                      <TableCell>
-                        {asset.employeeId ? (
-                          <code className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs">
-                            {asset.employeeId}
+                      ))}
+                    </div>
+                  </div>
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel defaultSize={12} minSize={10}>
+                  <div className="p-2 h-full bg-muted/30">
+                    <div className="font-medium text-xs mb-2 text-muted-foreground">Serial Number</div>
+                    <div className="space-y-2">
+                      {paginatedAssets.map((asset) => (
+                        <div key={asset.id} className="p-2 text-xs bg-background rounded border">
+                          <code className="bg-muted px-1 py-0.5 rounded text-xs">
+                            {asset.serial_number}
                           </code>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {asset.assignedTo ? (
-                          <div className="font-medium">{asset.assignedTo}</div>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">Unassigned</span>
-                        )}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(asset.status)}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{asset.location}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          {asset.assignedDate ? (
-                            <>
-                              <div>Assigned: {formatDate(asset.assignedDate)}</div>
-                            </>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel defaultSize={10} minSize={8}>
+                  <div className="p-2 h-full bg-muted/30">
+                    <div className="font-medium text-xs mb-2 text-muted-foreground">Employee ID</div>
+                    <div className="space-y-2">
+                      {paginatedAssets.map((asset) => (
+                        <div key={asset.id} className="p-2 text-xs bg-background rounded border">
+                          {asset.employee_id ? (
+                            <code className="bg-blue-50 text-blue-700 px-1 py-0.5 rounded text-xs">
+                              {asset.employee_id}
+                            </code>
                           ) : (
-                            <span className="text-muted-foreground">No date</span>
+                            <span className="text-muted-foreground text-xs">-</span>
                           )}
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1 flex-wrap">
-                          {asset.status === "Available" ? (
-                            <Button
-                              size="sm"
-                              onClick={() => {
-                                setSelectedAsset(asset);
-                                setShowAssignDialog(true);
-                              }}
-                              className="bg-gradient-primary hover:shadow-glow transition-smooth"
-                            >
-                              <UserPlus className="h-3 w-3 mr-1" />
-                              Assign
-                            </Button>
-                          ) : asset.status === "Assigned" ? (
+                      ))}
+                    </div>
+                  </div>
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel defaultSize={12} minSize={10}>
+                  <div className="p-2 h-full bg-muted/30">
+                    <div className="font-medium text-xs mb-2 text-muted-foreground">Assigned To</div>
+                    <div className="space-y-2">
+                      {paginatedAssets.map((asset) => (
+                        <div key={asset.id} className="p-2 text-xs bg-background rounded border">
+                          {asset.assigned_to ? (
+                            <div className="font-medium text-xs">{asset.assigned_to}</div>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">Unassigned</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel defaultSize={10} minSize={8}>
+                  <div className="p-2 h-full bg-muted/30">
+                    <div className="font-medium text-xs mb-2 text-muted-foreground">Status</div>
+                    <div className="space-y-2">
+                      {paginatedAssets.map((asset) => (
+                        <div key={asset.id} className="p-2 text-xs bg-background rounded border">
+                          {getStatusBadge(asset.status)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel defaultSize={11} minSize={9}>
+                  <div className="p-2 h-full bg-muted/30">
+                    <div className="font-medium text-xs mb-2 text-muted-foreground">Location</div>
+                    <div className="space-y-2">
+                      {paginatedAssets.map((asset) => (
+                        <div key={asset.id} className="p-2 text-xs bg-background rounded border">
+                          <Badge variant="secondary" className="text-xs">{asset.location}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel defaultSize={25} minSize={20}>
+                  <div className="p-2 h-full bg-muted/30">
+                    <div className="font-medium text-xs mb-2 text-muted-foreground">Actions</div>
+                    <div className="space-y-2">
+                      {paginatedAssets.map((asset) => (
+                        <div key={asset.id} className="p-2 text-xs bg-background rounded border">
+                          <div className="flex gap-1 flex-wrap">
+                            {asset.status === "Available" ? (
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedAsset(asset);
+                                  setShowAssignDialog(true);
+                                }}
+                                className="bg-gradient-primary hover:shadow-glow transition-smooth text-xs h-6"
+                              >
+                                <UserPlus className="h-2 w-2 mr-1" />
+                                Assign
+                              </Button>
+                            ) : asset.status === "Assigned" ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => onUnassign(asset.id)}
+                                className="hover:bg-warning hover:text-warning-foreground text-xs h-6"
+                              >
+                                <UserMinus className="h-2 w-2 mr-1" />
+                                Return
+                              </Button>
+                            ) : null}
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => onUnassign(asset.id)}
-                              className="hover:bg-warning hover:text-warning-foreground"
+                              onClick={() => {
+                                setSelectedAsset(asset);
+                                setShowEditDialog(true);
+                              }}
+                              className="hover:bg-blue-500 hover:text-white text-xs h-6"
                             >
-                              <UserMinus className="h-3 w-3 mr-1" />
-                              Return
+                              <Settings className="h-2 w-2" />
                             </Button>
-                          ) : null}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedAsset(asset);
-                              setShowEditDialog(true);
-                            }}
-                            className="hover:bg-blue-500 hover:text-white"
-                          >
-                            <Settings className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedAsset(asset);
-                              setNewStatus(asset.status);
-                              setShowStatusDialog(true);
-                            }}
-                            className="hover:bg-primary hover:text-primary-foreground"
-                          >
-                            Status
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedAsset(asset);
-                              setNewLocation(asset.location);
-                              setShowLocationDialog(true);
-                            }}
-                            className="hover:bg-primary hover:text-primary-foreground"
-                          >
-                            Location
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              if (confirm("Are you sure you want to delete this asset?")) {
-                                onDelete(asset.id);
-                              }
-                            }}
-                            className="hover:bg-destructive hover:text-destructive-foreground"
-                          >
-                            Delete
-                          </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedAsset(asset);
+                                setNewStatus(asset.status);
+                                setShowStatusDialog(true);
+                              }}
+                              className="hover:bg-primary hover:text-primary-foreground text-xs h-6"
+                            >
+                              Status
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedAsset(asset);
+                                setNewLocation(asset.location);
+                                setShowLocationDialog(true);
+                              }}
+                              className="hover:bg-primary hover:text-primary-foreground text-xs h-6"
+                            >
+                              Location
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                if (confirm("Are you sure you want to delete this asset?")) {
+                                  onDelete(asset.id);
+                                }
+                              }}
+                              className="hover:bg-destructive hover:text-destructive-foreground text-xs h-6"
+                            >
+                              Delete
+                            </Button>
+                          </div>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      ))}
+                    </div>
+                  </div>
+                </ResizablePanel>
+              </ResizablePanelGroup>
             </div>
             {/* Pagination Controls */}
             <div className="flex justify-between items-center mt-4">
@@ -390,7 +433,7 @@ export const AssetList = ({
           <div className="space-y-4">
             <div>
               <Label>Asset: {selectedAsset?.name}</Label>
-              <p className="text-sm text-muted-foreground">{selectedAsset?.assetId}</p>
+              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id}</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="employeeId">Employee ID *</Label>
@@ -444,7 +487,7 @@ export const AssetList = ({
           <div className="space-y-4">
             <div>
               <Label>Asset: {selectedAsset?.name}</Label>
-              <p className="text-sm text-muted-foreground">{selectedAsset?.assetId}</p>
+              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id}</p>
             </div>
             <div className="space-y-2">
               <Label>Status</Label>
@@ -494,7 +537,7 @@ export const AssetList = ({
           <div className="space-y-4">
             <div>
               <Label>Asset: {selectedAsset?.name}</Label>
-              <p className="text-sm text-muted-foreground">{selectedAsset?.assetId}</p>
+              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id}</p>
             </div>
             <div className="space-y-2">
               <Label>Location</Label>

@@ -8,6 +8,8 @@ import { AssetList } from "./AssetList";
 import { DatePickerWithRange } from "./DatePickerWithRange";
 import { BulkUpload } from "./BulkUpload";
 import { DateRange } from "react-day-picker";
+import { useAssets, useCreateAsset, useUpdateAsset, useDeleteAsset, Asset } from "@/hooks/useAssets";
+import { toast } from "sonner";
 
 const locations = [
   "Mumbai Office",
@@ -24,25 +26,13 @@ const locations = [
   "Jaipur WH",
 ];
 
-const mockAssets = Array.from({ length: 150 }, (_, index) => ({
-  id: index + 1,
-  assetId: `AST-${String(index + 1).padStart(3, "0")}`,
-  name: `Device ${index + 1}`,
-  type: ["Laptop", "Tablet", "Smartphone"][index % 3],
-  brand: ["Apple", "Lenovo", "Microsoft", "Samsung", "Dell"][index % 5],
-  configuration: ["16GB RAM, 512GB SSD", "32GB RAM, 1TB SSD", "256GB, Wi-Fi"][index % 3],
-  serialNumber: `SN-${String(index + 1).padStart(3, "0")}`,
-  assignedTo: index % 2 === 0 ? `Employee ${index + 1}` : null,
-  employeeId: index % 2 === 0 ? `EMP${String(index + 1).padStart(3, "0")}` : null,
-  status: index % 5 === 0 ? "Available" : index % 5 === 1 ? "Assigned" : index % 5 === 2 ? "Scrap/Damage" : index % 5 === 3 ? "Sold" : "Others",
-  location: locations[index % locations.length],
-  assignedDate: index % 2 === 0 ? `2024-${String((index % 12) + 1).padStart(2, "0")}-01` : null,
-}));
-
 export const Dashboard = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
-  const [assets, setAssets] = useState(mockAssets);
+  const { data: assets = [], isLoading, error } = useAssets();
+  const createAssetMutation = useCreateAsset();
+  const updateAssetMutation = useUpdateAsset();
+  const deleteAssetMutation = useDeleteAsset();
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [brandFilter, setBrandFilter] = useState<string>("all");
@@ -52,7 +42,7 @@ export const Dashboard = () => {
   // Get unique values for filters
   const assetTypes = [...new Set(assets.map((asset) => asset.type))];
   const assetBrands = [...new Set(assets.map((asset) => asset.brand))];
-  const assetConfigurations = [...new Set(assets.map((asset) => asset.configuration))];
+  const assetConfigurations = [...new Set(assets.map((asset) => asset.configuration).filter(Boolean))];
   const assetLocations = [...new Set(assets.map((asset) => asset.location))];
 
   // Filter assets based on selected filters
@@ -72,67 +62,106 @@ export const Dashboard = () => {
   const scrapDamageAssets = filteredAssets.filter((asset) => asset.status === "Scrap/Damage").length;
 
   const allocatedInRange = filteredAssets.filter((asset) => {
-    if (!asset.assignedDate || !dateRange?.from || !dateRange?.to) return false;
-    const assignedDate = new Date(asset.assignedDate);
+    if (!asset.assigned_date || !dateRange?.from || !dateRange?.to) return false;
+    const assignedDate = new Date(asset.assigned_date);
     return assignedDate >= dateRange.from && assignedDate <= dateRange.to;
   }).length;
 
-  const handleAddAsset = (newAsset: any) => {
-    const asset = {
-      id: assets.length + 1,
-      ...newAsset,
-      status: "Available",
-      location: locations[0], // Default to first location
-      assignedTo: null,
-      employeeId: null,
-      assignedDate: null,
-    };
-    setAssets([...assets, asset]);
-    setShowAddForm(false);
+  const handleAddAsset = async (newAsset: any) => {
+    try {
+      const asset = {
+        asset_id: newAsset.assetId,
+        name: newAsset.name,
+        type: newAsset.type,
+        brand: newAsset.brand,
+        configuration: newAsset.configuration,
+        serial_number: newAsset.serialNumber,
+        status: "Available",
+        location: locations[0],
+        assigned_to: null,
+        employee_id: null,
+        assigned_date: null,
+      };
+      await createAssetMutation.mutateAsync(asset);
+      toast.success("Asset created successfully");
+      setShowAddForm(false);
+    } catch (error) {
+      toast.error("Failed to create asset");
+    }
   };
 
-  const handleAssignAsset = (assetId: number, userName: string, employeeId: string) => {
-    setAssets(
-      assets.map((asset) =>
-        asset.id === assetId
-          ? {
-              ...asset,
-              assignedTo: userName,
-              employeeId,
-              status: "Assigned",
-              assignedDate: new Date().toISOString().split("T")[0],
-            }
-          : asset
-      )
-    );
+  const handleAssignAsset = async (assetId: string, userName: string, employeeId: string) => {
+    try {
+      await updateAssetMutation.mutateAsync({
+        id: assetId,
+        assigned_to: userName,
+        employee_id: employeeId,
+        status: "Assigned",
+        assigned_date: new Date().toISOString(),
+      });
+      toast.success("Asset assigned successfully");
+    } catch (error) {
+      toast.error("Failed to assign asset");
+    }
   };
 
-  const handleUnassignAsset = (assetId: number) => {
-    setAssets(
-      assets.map((asset) =>
-        asset.id === assetId
-          ? { ...asset, assignedTo: null, employeeId: null, status: "Available", assignedDate: null }
-          : asset
-      )
-    );
+  const handleUnassignAsset = async (assetId: string) => {
+    try {
+      await updateAssetMutation.mutateAsync({
+        id: assetId,
+        assigned_to: null,
+        employee_id: null,
+        status: "Available",
+        assigned_date: null,
+      });
+      toast.success("Asset returned successfully");
+    } catch (error) {
+      toast.error("Failed to return asset");
+    }
   };
 
-  const handleUpdateAsset = (assetId: number, updatedAsset: any) => {
-    setAssets(
-      assets.map((asset) => (asset.id === assetId ? { ...asset, ...updatedAsset } : asset))
-    );
+  const handleUpdateAsset = async (assetId: string, updatedAsset: any) => {
+    try {
+      await updateAssetMutation.mutateAsync({
+        id: assetId,
+        asset_id: updatedAsset.assetId,
+        name: updatedAsset.name,
+        type: updatedAsset.type,
+        brand: updatedAsset.brand,
+        configuration: updatedAsset.configuration,
+        serial_number: updatedAsset.serialNumber,
+      });
+      toast.success("Asset updated successfully");
+    } catch (error) {
+      toast.error("Failed to update asset");
+    }
   };
 
-  const handleUpdateStatus = (assetId: number, status: string) => {
-    setAssets(assets.map((asset) => (asset.id === assetId ? { ...asset, status } : asset)));
+  const handleUpdateStatus = async (assetId: string, status: string) => {
+    try {
+      await updateAssetMutation.mutateAsync({ id: assetId, status });
+      toast.success("Status updated successfully");
+    } catch (error) {
+      toast.error("Failed to update status");
+    }
   };
 
-  const handleUpdateLocation = (assetId: number, location: string) => {
-    setAssets(assets.map((asset) => (asset.id === assetId ? { ...asset, location } : asset)));
+  const handleUpdateLocation = async (assetId: string, location: string) => {
+    try {
+      await updateAssetMutation.mutateAsync({ id: assetId, location });
+      toast.success("Location updated successfully");
+    } catch (error) {
+      toast.error("Failed to update location");
+    }
   };
 
-  const handleDeleteAsset = (assetId: number) => {
-    setAssets(assets.filter((asset) => asset.id !== assetId));
+  const handleDeleteAsset = async (assetId: string) => {
+    try {
+      await deleteAssetMutation.mutateAsync(assetId);
+      toast.success("Asset deleted successfully");
+    } catch (error) {
+      toast.error("Failed to delete asset");
+    }
   };
 
   const handleBulkUpload = (file: File) => {
@@ -158,17 +187,17 @@ export const Dashboard = () => {
       headers.join(","),
       ...filteredAssets.map((asset) =>
         [
-          asset.assetId,
+          asset.asset_id,
           asset.name,
           asset.type,
           asset.brand,
-          asset.configuration,
-          asset.serialNumber,
-          asset.employeeId || "",
-          asset.assignedTo || "",
+          asset.configuration || "",
+          asset.serial_number,
+          asset.employee_id || "",
+          asset.assigned_to || "",
           asset.status,
           asset.location,
-          asset.assignedDate || "",
+          asset.assigned_date || "",
         ].join(",")
       ),
     ].join("\n");
@@ -227,11 +256,11 @@ export const Dashboard = () => {
 
       <div className="container mx-auto px-6 py-8">
         {/* Filters Section */}
-        <Card className="shadow-card mb-8">
-          <CardHeader>
+        <Card className="shadow-card mb-6">
+          <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Filter className="h-5 w-5 text-primary" />
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Filter className="h-4 w-4 text-primary" />
                 Filters
               </CardTitle>
               <Button
@@ -244,8 +273,8 @@ export const Dashboard = () => {
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <CardContent className="pt-0">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
               {/* Asset Type Filter */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Asset Type</label>
@@ -328,52 +357,52 @@ export const Dashboard = () => {
         </Card>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {/* Total Inventory */}
           <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Inventory</CardTitle>
-              <Package className="h-5 w-5 text-primary" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+              <CardTitle className="text-xs font-medium">Total Inventory</CardTitle>
+              <Package className="h-4 w-4 text-primary" />
             </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-primary">{totalInventory}</div>
-              <p className="text-xs text-muted-foreground mt-1">Total assets in system</p>
+            <CardContent className="pt-1">
+              <div className="text-2xl font-bold text-primary">{totalInventory}</div>
+              <p className="text-xs text-muted-foreground">Total assets in system</p>
             </CardContent>
           </Card>
 
           {/* Allocated */}
           <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Allocated</CardTitle>
-              <Users className="h-5 w-5 text-warning" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+              <CardTitle className="text-xs font-medium">Allocated</CardTitle>
+              <Users className="h-4 w-4 text-warning" />
             </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-warning">{allocatedAssets}</div>
-              <p className="text-xs text-muted-foreground mt-1">Currently in use</p>
+            <CardContent className="pt-1">
+              <div className="text-2xl font-bold text-warning">{allocatedAssets}</div>
+              <p className="text-xs text-muted-foreground">Currently in use</p>
             </CardContent>
           </Card>
 
           {/* Current Stock */}
           <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Available Stock</CardTitle>
-              <Package className="h-5 w-5 text-success" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+              <CardTitle className="text-xs font-medium">Available Stock</CardTitle>
+              <Package className="h-4 w-4 text-success" />
             </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-success">{currentStock}</div>
-              <p className="text-xs text-muted-foreground mt-1">Ready for allocation</p>
+            <CardContent className="pt-1">
+              <div className="text-2xl font-bold text-success">{currentStock}</div>
+              <p className="text-xs text-muted-foreground">Ready for allocation</p>
             </CardContent>
           </Card>
 
           {/* Scrap/Damage */}
           <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Scrap/Damage</CardTitle>
-              <Package className="h-5 w-5 text-destructive" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+              <CardTitle className="text-xs font-medium">Scrap/Damage</CardTitle>
+              <Package className="h-4 w-4 text-destructive" />
             </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-destructive">{scrapDamageAssets}</div>
-              <p className="text-xs text-muted-foreground mt-1">Out of service</p>
+            <CardContent className="pt-1">
+              <div className="text-2xl font-bold text-destructive">{scrapDamageAssets}</div>
+              <p className="text-xs text-muted-foreground">Out of service</p>
             </CardContent>
           </Card>
         </div>

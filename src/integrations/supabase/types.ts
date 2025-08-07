@@ -14,7 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      assets: {
+        Row: {
+          asset_id: string
+          assigned_date: string | null
+          assigned_to: string | null
+          brand: string
+          configuration: string | null
+          created_at: string
+          employee_id: string | null
+          id: string
+          location: string
+          name: string
+          serial_number: string
+          status: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          asset_id: string
+          assigned_date?: string | null
+          assigned_to?: string | null
+          brand: string
+          configuration?: string | null
+          created_at?: string
+          employee_id?: string | null
+          id?: string
+          location: string
+          name: string
+          serial_number: string
+          status?: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string
+          assigned_date?: string | null
+          assigned_to?: string | null
+          brand?: string
+          configuration?: string | null
+          created_at?: string
+          employee_id?: string | null
+          id?: string
+          location?: string
+          name?: string
+          serial_number?: string
+          status?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
