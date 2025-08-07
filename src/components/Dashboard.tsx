@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarDays, Laptop, Package, Users, Plus, Filter, Upload, Download, Tablet, Monitor, Smartphone } from "lucide-react";
+import { CalendarDays, Package, Users, Plus, Filter, Upload, Download } from "lucide-react";
 import { AssetForm } from "./AssetForm";
 import { AssetList } from "./AssetList";
 import { DatePickerWithRange } from "./DatePickerWithRange";
@@ -223,30 +223,30 @@ export const Dashboard = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="bg-card border-b shadow-card">
-        <div className="container mx-auto px-6 py-6">
-          <div className="flex items-center justify-between">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+              <h1 className="text-2xl font-semibold bg-gradient-primary bg-clip-text text-transparent">
                 Asset Management System
               </h1>
-              <p className="text-muted-foreground mt-2 text-lg">
+              <p className="text-sm text-muted-foreground mt-1">
                 Track and manage your organization's assets efficiently
               </p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <Button
                 onClick={() => setShowBulkUpload(true)}
                 variant="outline"
-                className="hover:bg-primary hover:text-primary-foreground transition-smooth"
+                className="hover:bg-primary hover:text-primary-foreground transition-smooth text-sm h-8"
               >
-                <Upload className="w-4 h-4 mr-2" />
+                <Upload className="w-3 h-3 mr-1" />
                 Bulk Operations
               </Button>
               <Button
                 onClick={() => setShowAddForm(true)}
-                className="bg-gradient-primary hover:shadow-glow transition-smooth"
+                className="bg-gradient-primary hover:shadow-glow transition-smooth text-sm h-8"
               >
-                <Plus className="w-4 h-4 mr-2" />
+                <Plus className="w-3 h-3 mr-1" />
                 Add Asset
               </Button>
             </div>
@@ -254,38 +254,38 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      <div className="container mx-auto px-6 py-8">
+      <div className="container mx-auto px-4 py-4">
         {/* Filters Section */}
-        <Card className="shadow-card mb-6">
-          <CardHeader className="pb-4">
+        <Card className="shadow-card mb-4">
+          <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Filter className="h-4 w-4 text-primary" />
+              <CardTitle className="flex items-center gap-1 text-base">
+                <Filter className="h-3 w-3 text-primary" />
                 Filters
               </CardTitle>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={clearFilters}
-                className="hover:bg-destructive hover:text-destructive-foreground"
+                className="hover:bg-destructive hover:text-destructive-foreground text-xs h-6"
               >
                 Clear All
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="pt-0">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+          <CardContent className="pt-2">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
               {/* Asset Type Filter */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Asset Type</label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Asset Type</label>
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
+                  <SelectTrigger className="text-xs h-7">
+                    <SelectValue placeholder="All Types" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Types</SelectItem>
                     {assetTypes.map((type) => (
-                      <SelectItem key={type} value={type}>
+                      <SelectItem key={type} value={type} className="text-xs">
                         {type}
                       </SelectItem>
                     ))}
@@ -294,16 +294,16 @@ export const Dashboard = () => {
               </div>
 
               {/* Brand Filter */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Brand</label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Brand</label>
                 <Select value={brandFilter} onValueChange={setBrandFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select brand" />
+                  <SelectTrigger className="text-xs h-7">
+                    <SelectValue placeholder="All Brands" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Brands</SelectItem>
                     {assetBrands.map((brand) => (
-                      <SelectItem key={brand} value={brand}>
+                      <SelectItem key={brand} value={brand} className="text-xs">
                         {brand}
                       </SelectItem>
                     ))}
@@ -312,16 +312,16 @@ export const Dashboard = () => {
               </div>
 
               {/* Configuration Filter */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Configuration</label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Configuration</label>
                 <Select value={configFilter} onValueChange={setConfigFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select config" />
+                  <SelectTrigger className="text-xs h-7">
+                    <SelectValue placeholder="All Configurations" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Configurations</SelectItem>
                     {assetConfigurations.map((config) => (
-                      <SelectItem key={config} value={config}>
+                      <SelectItem key={config} value={config} className="text-xs">
                         {config}
                       </SelectItem>
                     ))}
@@ -330,16 +330,16 @@ export const Dashboard = () => {
               </div>
 
               {/* Location Filter */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Asset Location</label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Asset Location</label>
                 <Select value={locationFilter} onValueChange={setLocationFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select location" />
+                  <SelectTrigger className="text-xs h-7">
+                    <SelectValue placeholder="All Locations" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Locations</SelectItem>
                     {assetLocations.map((location) => (
-                      <SelectItem key={location} value={location}>
+                      <SelectItem key={location} value={location} className="text-xs">
                         {location}
                       </SelectItem>
                     ))}
@@ -348,16 +348,16 @@ export const Dashboard = () => {
               </div>
 
               {/* Date Range Filter */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Allocation Date Range</label>
-                <DatePickerWithRange date={dateRange} setDate={setDateRange} />
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Allocation Date Range</label>
+                <DatePickerWithRange date={dateRange} setDate={setDateRange} className="h-7" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           {/* Total Inventory */}
           <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
@@ -365,7 +365,7 @@ export const Dashboard = () => {
               <Package className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent className="pt-1">
-              <div className="text-2xl font-bold text-primary">{totalInventory}</div>
+              <div className="text-lg font-bold text-primary">{totalInventory}</div>
               <p className="text-xs text-muted-foreground">Total assets in system</p>
             </CardContent>
           </Card>
@@ -377,7 +377,7 @@ export const Dashboard = () => {
               <Users className="h-4 w-4 text-warning" />
             </CardHeader>
             <CardContent className="pt-1">
-              <div className="text-2xl font-bold text-warning">{allocatedAssets}</div>
+              <div className="text-lg font-bold text-warning">{allocatedAssets}</div>
               <p className="text-xs text-muted-foreground">Currently in use</p>
             </CardContent>
           </Card>
@@ -389,7 +389,7 @@ export const Dashboard = () => {
               <Package className="h-4 w-4 text-success" />
             </CardHeader>
             <CardContent className="pt-1">
-              <div className="text-2xl font-bold text-success">{currentStock}</div>
+              <div className="text-lg font-bold text-success">{currentStock}</div>
               <p className="text-xs text-muted-foreground">Ready for allocation</p>
             </CardContent>
           </Card>
@@ -401,7 +401,7 @@ export const Dashboard = () => {
               <Package className="h-4 w-4 text-destructive" />
             </CardHeader>
             <CardContent className="pt-1">
-              <div className="text-2xl font-bold text-destructive">{scrapDamageAssets}</div>
+              <div className="text-lg font-bold text-destructive">{scrapDamageAssets}</div>
               <p className="text-xs text-muted-foreground">Out of service</p>
             </CardContent>
           </Card>
