@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarDays, Package, Users, Plus, Filter, Upload, Download } from "lucide-react";
+import { Package, Users, Plus, Filter, Upload, Download } from "lucide-react";
 import { AssetForm } from "./AssetForm";
 import { AssetList } from "./AssetList";
 import { DatePickerWithRange } from "./DatePickerWithRange";
@@ -64,11 +64,13 @@ export const Dashboard = () => {
   const currentStock = filteredAssets.filter((asset) => asset.status === "Available").length;
   const scrapDamageAssets = filteredAssets.filter((asset) => asset.status === "Scrap/Damage").length;
 
-  const allocatedInRange = filteredAssets.filter((asset) => {
-    if (!asset.assigned_date || !dateRange?.from || !dateRange?.to) return false;
-    const assignedDate = new Date(asset.assigned_date);
-    return assignedDate >= dateRange.from && assignedDate <= dateRange.to;
-  }).length;
+  // Calculate asset type-wise counts for each status
+  const getAssetTypeCounts = (status: string) => {
+    return assetTypes.reduce((acc, type) => {
+      acc[type] = filteredAssets.filter((asset) => asset.type === type && (status === "all" || asset.status === status)).length;
+      return acc;
+    }, {} as Record<string, number>);
+  };
 
   const handleAddAsset = async (newAsset: any) => {
     try {
@@ -229,13 +231,20 @@ export const Dashboard = () => {
       <div className="bg-card border-b shadow-card">
         <div className="container mx-auto px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h1 className="text-2xl font-semibold bg-gradient-primary bg-clip-text text-transparent">
-                Asset Management System
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                Track and manage your organization's assets efficiently
-              </p>
+            <div className="flex items-center gap-4">
+              <img
+                src="https://oc.leadschool.in/lead-group-logo-blue.png"
+                alt="Lead School Logo"
+                className="h-12 bg-white p-1"
+              />
+              <div>
+                <h1 className="text-2xl font-semibold bg-gradient-primary bg-clip-text text-transparent">
+                  Asset Management System
+                </h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Track and manage organization's assets efficiently
+                </p>
+              </div>
             </div>
             <div className="flex gap-2">
               <Button
@@ -263,49 +272,101 @@ export const Dashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           {/* Total Inventory */}
           <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-              <CardTitle className="text-xs font-medium">Total Inventory</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Inventory</CardTitle>
               <Package className="h-4 w-4 text-primary" />
             </CardHeader>
-            <CardContent className="pt-1">
-              <div className="text-lg font-bold text-primary">{totalInventory}</div>
-              <p className="text-xs text-muted-foreground">Total assets in system</p>
+            <CardContent className="pt-2">
+              <div className="flex justify-between items-start">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-primary">{totalInventory}</div>
+                  <p className="text-xs text-muted-foreground mt-2">Total assets in system</p>
+                </div>
+                <div className="text-right text-xs">
+                  {Object.entries(getAssetTypeCounts("all"))
+                    .filter(([_, count]) => count > 0)
+                    .map(([type, count]) => (
+                      <div key={type} className="mb-1">
+                        {type}: {count}
+                      </div>
+                    ))}
+                </div>
+              </div>
             </CardContent>
           </Card>
 
           {/* Allocated */}
           <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-              <CardTitle className="text-xs font-medium">Allocated</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Allocated</CardTitle>
               <Users className="h-4 w-4 text-warning" />
             </CardHeader>
-            <CardContent className="pt-1">
-              <div className="text-lg font-bold text-warning">{allocatedAssets}</div>
-              <p className="text-xs text-muted-foreground">Currently in use</p>
+            <CardContent className="pt-2">
+              <div className="flex justify-between items-start">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-warning">{allocatedAssets}</div>
+                  <p className="text-xs text-muted-foreground mt-2">Currently in use</p>
+                </div>
+                <div className="text-right text-xs">
+                  {Object.entries(getAssetTypeCounts("Assigned"))
+                    .filter(([_, count]) => count > 0)
+                    .map(([type, count]) => (
+                      <div key={type} className="mb-1">
+                        {type}: {count}
+                      </div>
+                    ))}
+                </div>
+              </div>
             </CardContent>
           </Card>
 
-          {/* Current Stock */}
+          {/* Available Stock */}
           <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-              <CardTitle className="text-xs font-medium">Available Stock</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Available Stock</CardTitle>
               <Package className="h-4 w-4 text-success" />
             </CardHeader>
-            <CardContent className="pt-1">
-              <div className="text-lg font-bold text-success">{currentStock}</div>
-              <p className="text-xs text-muted-foreground">Ready for allocation</p>
+            <CardContent className="pt-2">
+              <div className="flex justify-between items-start">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-success">{currentStock}</div>
+                  <p className="text-xs text-muted-foreground mt-2">Ready for allocation</p>
+                </div>
+                <div className="text-right text-xs">
+                  {Object.entries(getAssetTypeCounts("Available"))
+                    .filter(([_, count]) => count > 0)
+                    .map(([type, count]) => (
+                      <div key={type} className="mb-1">
+                        {type}: {count}
+                      </div>
+                    ))}
+                </div>
+              </div>
             </CardContent>
           </Card>
 
           {/* Scrap/Damage */}
           <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-              <CardTitle className="text-xs font-medium">Scrap/Damage</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Scrap/Damage</CardTitle>
               <Package className="h-4 w-4 text-destructive" />
             </CardHeader>
-            <CardContent className="pt-1">
-              <div className="text-lg font-bold text-destructive">{scrapDamageAssets}</div>
-              <p className="text-xs text-muted-foreground">Out of service</p>
+            <CardContent className="pt-2">
+              <div className="flex justify-between items-start">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-destructive">{scrapDamageAssets}</div>
+                  <p className="text-xs text-muted-foreground mt-2">Out of service</p>
+                </div>
+                <div className="text-right text-xs">
+                  {Object.entries(getAssetTypeCounts("Scrap/Damage"))
+                    .filter(([_, count]) => count > 0)
+                    .map(([type, count]) => (
+                      <div key={type} className="mb-1">
+                        {type}: {count}
+                      </div>
+                    ))}
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
