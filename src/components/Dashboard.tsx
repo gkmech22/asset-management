@@ -226,10 +226,10 @@ export const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <div className="bg-card border-b shadow-card">
-        <div className="container mx-auto px-4 py-3">
+        <div className="container mx-auto px-2 py-1">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-4">
               <img
@@ -267,7 +267,7 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-4">
+      <div className="container mx-auto px-4 py-4 flex-grow">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           {/* Total Inventory */}
@@ -520,6 +520,15 @@ export const Dashboard = () => {
           />
         )}
       </div>
+
+      {/* Footer */}
+      <footer className="bg-card border-t shadow-card py-2">
+        <div className="container mx-auto px-4">
+          <p className="text-sm text-muted-foreground">
+            <p className="text-[12px] text-muted-foreground">Crafted by 🤓 IT Infra minds, for IT Infra needs</p>
+          </p>
+        </div>
+      </footer>
 
       {/* Add Asset Modal */}
       {showAddForm && <AssetForm onSubmit={handleAddAsset} onCancel={() => setShowAddForm(false)} />}
