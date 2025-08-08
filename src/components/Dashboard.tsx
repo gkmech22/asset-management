@@ -38,12 +38,14 @@ export const Dashboard = () => {
   const [brandFilter, setBrandFilter] = useState<string>("all");
   const [configFilter, setConfigFilter] = useState<string>("all");
   const [locationFilter, setLocationFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   // Get unique values for filters
   const assetTypes = [...new Set(assets.map((asset) => asset.type))];
   const assetBrands = [...new Set(assets.map((asset) => asset.brand))];
   const assetConfigurations = [...new Set(assets.map((asset) => asset.configuration).filter(Boolean))];
   const assetLocations = [...new Set(assets.map((asset) => asset.location))];
+  const assetStatuses = [...new Set(assets.map((asset) => asset.status))];
 
   // Filter assets based on selected filters
   const filteredAssets = assets.filter((asset) => {
@@ -51,8 +53,9 @@ export const Dashboard = () => {
     const brandMatch = brandFilter === "all" || asset.brand === brandFilter;
     const configMatch = configFilter === "all" || asset.configuration === configFilter;
     const locationMatch = locationFilter === "all" || asset.location === locationFilter;
+    const statusMatch = statusFilter === "all" || asset.status === statusFilter;
 
-    return typeMatch && brandMatch && configMatch && locationMatch;
+    return typeMatch && brandMatch && configMatch && locationMatch && statusMatch;
   });
 
   // Calculate inventory statistics using filtered data
@@ -216,6 +219,7 @@ export const Dashboard = () => {
     setBrandFilter("all");
     setConfigFilter("all");
     setLocationFilter("all");
+    setStatusFilter("all");
     setDateRange(undefined);
   };
 
@@ -255,6 +259,57 @@ export const Dashboard = () => {
       </div>
 
       <div className="container mx-auto px-4 py-4">
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+          {/* Total Inventory */}
+          <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+              <CardTitle className="text-xs font-medium">Total Inventory</CardTitle>
+              <Package className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent className="pt-1">
+              <div className="text-lg font-bold text-primary">{totalInventory}</div>
+              <p className="text-xs text-muted-foreground">Total assets in system</p>
+            </CardContent>
+          </Card>
+
+          {/* Allocated */}
+          <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+              <CardTitle className="text-xs font-medium">Allocated</CardTitle>
+              <Users className="h-4 w-4 text-warning" />
+            </CardHeader>
+            <CardContent className="pt-1">
+              <div className="text-lg font-bold text-warning">{allocatedAssets}</div>
+              <p className="text-xs text-muted-foreground">Currently in use</p>
+            </CardContent>
+          </Card>
+
+          {/* Current Stock */}
+          <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+              <CardTitle className="text-xs font-medium">Available Stock</CardTitle>
+              <Package className="h-4 w-4 text-success" />
+            </CardHeader>
+            <CardContent className="pt-1">
+              <div className="text-lg font-bold text-success">{currentStock}</div>
+              <p className="text-xs text-muted-foreground">Ready for allocation</p>
+            </CardContent>
+          </Card>
+
+          {/* Scrap/Damage */}
+          <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+              <CardTitle className="text-xs font-medium">Scrap/Damage</CardTitle>
+              <Package className="h-4 w-4 text-destructive" />
+            </CardHeader>
+            <CardContent className="pt-1">
+              <div className="text-lg font-bold text-destructive">{scrapDamageAssets}</div>
+              <p className="text-xs text-muted-foreground">Out of service</p>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Filters Section */}
         <Card className="shadow-card mb-4">
           <CardHeader className="pb-2">
@@ -274,7 +329,7 @@ export const Dashboard = () => {
             </div>
           </CardHeader>
           <CardContent className="pt-2">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
               {/* Asset Type Filter */}
               <div className="space-y-1">
                 <label className="text-xs font-medium">Asset Type</label>
@@ -347,6 +402,24 @@ export const Dashboard = () => {
                 </Select>
               </div>
 
+              {/* Status Filter */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Status</label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="text-xs h-7">
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    {assetStatuses.map((status) => (
+                      <SelectItem key={status} value={status} className="text-xs">
+                        {status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Date Range Filter */}
               <div className="space-y-1">
                 <label className="text-xs font-medium">Allocation Date Range</label>
@@ -356,71 +429,23 @@ export const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-          {/* Total Inventory */}
-          <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-              <CardTitle className="text-xs font-medium">Total Inventory</CardTitle>
-              <Package className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent className="pt-1">
-              <div className="text-lg font-bold text-primary">{totalInventory}</div>
-              <p className="text-xs text-muted-foreground">Total assets in system</p>
-            </CardContent>
-          </Card>
-
-          {/* Allocated */}
-          <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-              <CardTitle className="text-xs font-medium">Allocated</CardTitle>
-              <Users className="h-4 w-4 text-warning" />
-            </CardHeader>
-            <CardContent className="pt-1">
-              <div className="text-lg font-bold text-warning">{allocatedAssets}</div>
-              <p className="text-xs text-muted-foreground">Currently in use</p>
-            </CardContent>
-          </Card>
-
-          {/* Current Stock */}
-          <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-              <CardTitle className="text-xs font-medium">Available Stock</CardTitle>
-              <Package className="h-4 w-4 text-success" />
-            </CardHeader>
-            <CardContent className="pt-1">
-              <div className="text-lg font-bold text-success">{currentStock}</div>
-              <p className="text-xs text-muted-foreground">Ready for allocation</p>
-            </CardContent>
-          </Card>
-
-          {/* Scrap/Damage */}
-          <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-              <CardTitle className="text-xs font-medium">Scrap/Damage</CardTitle>
-              <Package className="h-4 w-4 text-destructive" />
-            </CardHeader>
-            <CardContent className="pt-1">
-              <div className="text-lg font-bold text-destructive">{scrapDamageAssets}</div>
-              <p className="text-xs text-muted-foreground">Out of service</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Asset List */}
-        <AssetList
-          assets={filteredAssets}
-          onAssign={handleAssignAsset}
-          onUnassign={handleUnassignAsset}
-          onUpdateAsset={handleUpdateAsset}
-          onUpdateStatus={handleUpdateStatus}
-          onUpdateLocation={handleUpdateLocation}
-          onDelete={handleDeleteAsset}
-          dateRange={dateRange}
-          typeFilter={typeFilter}
-          brandFilter={brandFilter}
-          configFilter={configFilter}
-        />
+        {/* Asset List (visible only when a specific status is selected, not "All") */}
+        {statusFilter !== "all" && (
+          <AssetList
+            assets={filteredAssets}
+            onAssign={handleAssignAsset}
+            onUnassign={handleUnassignAsset}
+            onUpdateAsset={handleUpdateAsset}
+            onUpdateStatus={handleUpdateStatus}
+            onUpdateLocation={handleUpdateLocation}
+            onDelete={handleDeleteAsset}
+            dateRange={dateRange}
+            typeFilter={typeFilter}
+            brandFilter={brandFilter}
+            configFilter={configFilter}
+            defaultRowsPerPage={100}
+          />
+        )}
       </div>
 
       {/* Add Asset Modal */}
