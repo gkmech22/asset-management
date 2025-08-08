@@ -13,18 +13,23 @@ export const LoginPage = () => {
   useEffect(() => {
     const hash = location.hash;
     if (hash) {
-      const params = new URLSearchParams(hash.replace('#', ''));
-      const accessToken = params.get('access_token');
-      const refreshToken = params.get('refresh_token');
-      const expiresIn = params.get('expires_in');
+      try {
+        const params = new URLSearchParams(hash.replace('#', ''));
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+        const expiresIn = params.get('expires_in');
 
-      if (accessToken && refreshToken && expiresIn) {
-        // Process tokens with Supabase
-        // Assuming signInWithGoogle can handle token exchange
-        signInWithGoogle({ accessToken, refreshToken, expiresIn });
-        
-        // Clean up the URL by removing the hash
-        window.history.replaceState({}, document.title, window.location.pathname);
+        if (accessToken && refreshToken && expiresIn) {
+          // Process tokens with Supabase
+          signInWithGoogle({ accessToken, refreshToken, expiresIn }).catch((error) => {
+            console.error('Error processing OAuth tokens:', error);
+          });
+
+          // Clean up the URL by removing the hash
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      } catch (error) {
+        console.error('Error parsing URL hash:', error);
       }
     }
   }, [location, signInWithGoogle]);
@@ -50,7 +55,7 @@ export const LoginPage = () => {
           <div className="flex items-center justify-center gap-2 mb-4">
             <Package className="h-8 w-8 text-primary" />
             <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              Asset Management
+              Asset Vault Quest
             </h1>
           </div>
           <p className="text-muted-foreground">
