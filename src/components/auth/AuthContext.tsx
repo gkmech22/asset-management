@@ -36,6 +36,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Listen for auth state changes
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event, session);
       setUser(session?.user ?? null);
       setLoading(false);
     });
@@ -47,21 +48,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signInWithGoogle = async (tokens?: { accessToken: string; refreshToken: string; expiresIn: string }) => {
     try {
+      // Dynamically set redirect URL based on environment
+      const redirectTo = process.env.NODE_ENV === 'production' 
+        ? 'https://lead-asset-management.lovable.app/' 
+        : 'http://localhost:8080';
+
       if (tokens) {
         // Handle OAuth redirect tokens
+        console.log('Processing OAuth tokens:', { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken, expiresIn: tokens.expiresIn });
         const { data, error } = await supabase.auth.setSession({
           access_token: tokens.accessToken,
           refresh_token: tokens.refreshToken,
           expires_in: parseInt(tokens.expiresIn),
         });
         if (error) throw error;
+        console.log('Session set:', data.session);
         setUser(data.session?.user ?? null);
       } else {
         // Initiate Google OAuth flow
+        console.log('Initiating Google OAuth with redirectTo:', redirectTo);
         const { error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: 'https://lead-asset-management.lovable.app/', // Production URL
+            redirectTo,
             queryParams: {
               access_type: 'offline',
               prompt: 'consent',
