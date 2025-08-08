@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Package, Users, Plus, Filter, Upload, Download } from "lucide-react";
+import { UserProfile } from "@/components/auth/UserProfile";
 import { AssetForm } from "./AssetForm";
 import { AssetList } from "./AssetList";
 import { DatePickerWithRange } from "./DatePickerWithRange";
@@ -232,11 +233,7 @@ export const Dashboard = () => {
         <div className="container mx-auto px-2 py-1">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-4">
-              <img
-                src="https://oc.leadschool.in/lead-group-logo-blue.png"
-                alt="Lead School Logo"
-                className="h-12 bg-white p-1"
-              />
+              <Package className="h-8 w-8 text-primary" />
               <div>
                 <h1 className="text-2xl font-semibold bg-gradient-primary bg-clip-text text-transparent">
                   Asset Management System
@@ -246,7 +243,7 @@ export const Dashboard = () => {
                 </p>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               <Button
                 onClick={() => setShowBulkUpload(true)}
                 variant="outline"
@@ -262,6 +259,7 @@ export const Dashboard = () => {
                 <Plus className="w-3 h-3 mr-1" />
                 Add Asset
               </Button>
+              <UserProfile />
             </div>
           </div>
         </div>
