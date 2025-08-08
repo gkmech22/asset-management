@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, Users, Plus, Filter, Upload, Download } from "lucide-react";
+import { Package, Users, Plus, Filter, Upload, Download, Search } from "lucide-react";
 import { UserProfile } from "@/components/auth/UserProfile";
 import { AssetForm } from "./AssetForm";
 import { AssetList } from "./AssetList";
@@ -30,6 +31,7 @@ const locations = [
 export const Dashboard = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const { data: assets = [], isLoading, error } = useAssets();
   const createAssetMutation = useCreateAsset();
   const updateAssetMutation = useUpdateAsset();
@@ -48,7 +50,17 @@ export const Dashboard = () => {
   const assetLocations = [...new Set(assets.map((asset) => asset.location))];
   const assetStatuses = [...new Set(assets.map((asset) => asset.status))];
 
-  // Filter assets based on selected filters
+  // Check if any filter or search is active
+  const isFilterOrSearchActive =
+    searchQuery.trim() !== "" ||
+    typeFilter !== "all" ||
+    brandFilter !== "all" ||
+    configFilter !== "all" ||
+    locationFilter !== "all" ||
+    statusFilter !== "" ||
+    dateRange !== undefined;
+
+  // Filter assets based on selected filters and search query
   const filteredAssets = assets.filter((asset) => {
     const typeMatch = typeFilter === "all" || asset.type === typeFilter;
     const brandMatch = brandFilter === "all" || asset.brand === brandFilter;
@@ -56,7 +68,21 @@ export const Dashboard = () => {
     const locationMatch = locationFilter === "all" || asset.location === locationFilter;
     const statusMatch = !statusFilter || statusFilter === "all" || asset.status === statusFilter;
 
-    return typeMatch && brandMatch && configMatch && locationMatch && statusMatch;
+    const searchMatch = searchQuery.trim() === "" || 
+      [
+        asset.asset_id,
+        asset.name,
+        asset.type,
+        asset.brand,
+        asset.configuration || "",
+        asset.serial_number,
+        asset.employee_id || "",
+        asset.assigned_to || "",
+        asset.status,
+        asset.location,
+      ].some((field) => field.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    return typeMatch && brandMatch && configMatch && locationMatch && statusMatch && searchMatch;
   });
 
   // Calculate inventory statistics using filtered data
@@ -224,6 +250,7 @@ export const Dashboard = () => {
     setLocationFilter("all");
     setStatusFilter("");
     setDateRange(undefined);
+    setSearchQuery("");
   };
 
   return (
@@ -383,14 +410,26 @@ export const Dashboard = () => {
                 <Filter className="h-3 w-3 text-primary" />
                 Filters
               </CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={clearFilters}
-                className="hover:bg-destructive hover:text-destructive-foreground text-xs h-6"
-              >
-                Clear All
-              </Button>
+              <div className="flex items-center gap-2">
+                <div className="relative w-64">
+                  <Input
+                    type="text"
+                    placeholder="Search assets..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-8 h-7 text-xs"
+                  />
+                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="hover:bg-destructive hover:text-destructive-foreground text-xs h-6"
+                >
+                  Clear All
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="pt-2">
@@ -483,8 +522,8 @@ export const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Asset List */}
-        {statusFilter && (
+        {/* Asset List - Only render if filters or search is active */}
+        {isFilterOrSearchActive && (
           <AssetList
             assets={filteredAssets}
             onAssign={handleAssignAsset}
@@ -505,7 +544,7 @@ export const Dashboard = () => {
       {/* Fixed Footer */}
       <footer className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t shadow-card py-2">
         <div className="container mx-auto px-4">
-          <p className="text-[12px] text-muted-foreground">
+          <p className="text-[14px] text-muted-foreground">
             Crafted by 🤓 IT Infra minds, for IT Infra needs
           </p>
         </div>
