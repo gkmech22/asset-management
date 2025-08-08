@@ -9,7 +9,7 @@ import { AssetList } from "./AssetList";
 import { DatePickerWithRange } from "./DatePickerWithRange";
 import { BulkUpload } from "./BulkUpload";
 import { DateRange } from "react-day-picker";
-import { useAssets, useCreateAsset, useUpdateAsset, useDeleteAsset, Asset } from "@/hooks/useAssets";
+import { useAssets, useCreateAsset, useUpdateAsset, useDeleteAsset } from "@/hooks/useAssets";
 import { toast } from "sonner";
 
 const locations = [
@@ -227,9 +227,9 @@ export const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <div className="bg-card border-b shadow-card">
+    <div className="flex flex-col min-h-screen">
+      {/* Fixed Header */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-card border-b shadow-card">
         <div className="container mx-auto px-2 py-1">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-4">
@@ -265,10 +265,10 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-4 flex-grow">
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto pt-[60px] pb-[40px] container mx-auto px-4">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-          {/* Total Inventory */}
           <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Inventory</CardTitle>
@@ -295,8 +295,6 @@ export const Dashboard = () => {
               </div>
             </CardContent>
           </Card>
-
-          {/* Allocated */}
           <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Allocated</CardTitle>
@@ -323,8 +321,6 @@ export const Dashboard = () => {
               </div>
             </CardContent>
           </Card>
-
-          {/* Available Stock */}
           <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Available Stock</CardTitle>
@@ -351,8 +347,6 @@ export const Dashboard = () => {
               </div>
             </CardContent>
           </Card>
-
-          {/* Scrap/Damage */}
           <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Scrap/Damage</CardTitle>
@@ -401,7 +395,6 @@ export const Dashboard = () => {
           </CardHeader>
           <CardContent className="pt-2">
             <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
-              {/* Asset Type Filter */}
               <div className="space-y-1">
                 <label className="text-xs font-medium">Asset Type</label>
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
@@ -418,8 +411,6 @@ export const Dashboard = () => {
                   </SelectContent>
                 </Select>
               </div>
-
-              {/* Brand Filter */}
               <div className="space-y-1">
                 <label className="text-xs font-medium">Brand</label>
                 <Select value={brandFilter} onValueChange={setBrandFilter}>
@@ -436,8 +427,6 @@ export const Dashboard = () => {
                   </SelectContent>
                 </Select>
               </div>
-
-              {/* Configuration Filter */}
               <div className="space-y-1">
                 <label className="text-xs font-medium">Configuration</label>
                 <Select value={configFilter} onValueChange={setConfigFilter}>
@@ -454,8 +443,6 @@ export const Dashboard = () => {
                   </SelectContent>
                 </Select>
               </div>
-
-              {/* Location Filter */}
               <div className="space-y-1">
                 <label className="text-xs font-medium">Asset Location</label>
                 <Select value={locationFilter} onValueChange={setLocationFilter}>
@@ -472,8 +459,6 @@ export const Dashboard = () => {
                   </SelectContent>
                 </Select>
               </div>
-
-              {/* Status Filter */}
               <div className="space-y-1">
                 <label className="text-xs font-medium">Status</label>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -490,8 +475,6 @@ export const Dashboard = () => {
                   </SelectContent>
                 </Select>
               </div>
-
-              {/* Date Range Filter */}
               <div className="space-y-1">
                 <label className="text-xs font-medium">Allocation Date Range</label>
                 <DatePickerWithRange date={dateRange} setDate={setDateRange} className="h-7" />
@@ -500,7 +483,7 @@ export const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Asset List (visible only when a status is selected, including "All") */}
+        {/* Asset List */}
         {statusFilter && (
           <AssetList
             assets={filteredAssets}
@@ -519,11 +502,11 @@ export const Dashboard = () => {
         )}
       </div>
 
-      {/* Footer */}
-      <footer className="bg-card border-t shadow-card py-2">
+      {/* Fixed Footer */}
+      <footer className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t shadow-card py-2">
         <div className="container mx-auto px-4">
-          <p className="text-sm text-muted-foreground">
-            <p className="text-[12px] text-muted-foreground">Crafted by 🤓 IT Infra minds, for IT Infra needs</p>
+          <p className="text-[12px] text-muted-foreground">
+            Crafted by 🤓 IT Infra minds, for IT Infra needs
           </p>
         </div>
       </footer>
