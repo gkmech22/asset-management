@@ -282,14 +282,17 @@ export const Dashboard = () => {
                   <div className="text-2xl font-bold text-primary">{totalInventory}</div>
                   <p className="text-xs text-muted-foreground mt-2">Total assets in system</p>
                 </div>
-                <div className="text-right text-xs">
-                  {Object.entries(getAssetTypeCounts("all"))
-                    .filter(([_, count]) => count > 0)
-                    .map(([type, count]) => (
-                      <div key={type} className="mb-1">
-                        {type}: {count}
-                      </div>
-                    ))}
+                <div className="w-1/2 text-right">
+                  <div className="h-24 overflow-y-auto pr-2">
+                    {Object.entries(getAssetTypeCounts("all"))
+                      .filter(([_, count]) => count > 0)
+                      .map(([type, count]) => (
+                        <div key={type} className="flex justify-end mb-1 text-xs">
+                          <span className="mr-2">{type}:</span>
+                          <span className="w-6 text-right">{count}</span>
+                        </div>
+                      ))}
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -307,14 +310,17 @@ export const Dashboard = () => {
                   <div className="text-2xl font-bold text-warning">{allocatedAssets}</div>
                   <p className="text-xs text-muted-foreground mt-2">Currently in use</p>
                 </div>
-                <div className="text-right text-xs">
-                  {Object.entries(getAssetTypeCounts("Assigned"))
-                    .filter(([_, count]) => count > 0)
-                    .map(([type, count]) => (
-                      <div key={type} className="mb-1">
-                        {type}: {count}
-                      </div>
-                    ))}
+                <div className="w-1/2 text-right">
+                  <div className="h-24 overflow-y-auto pr-2">
+                    {Object.entries(getAssetTypeCounts("Assigned"))
+                      .filter(([_, count]) => count > 0)
+                      .map(([type, count]) => (
+                        <div key={type} className="flex justify-end mb-1 text-xs">
+                          <span className="mr-2">{type}:</span>
+                          <span className="w-6 text-right">{count}</span>
+                        </div>
+                      ))}
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -332,14 +338,17 @@ export const Dashboard = () => {
                   <div className="text-2xl font-bold text-success">{currentStock}</div>
                   <p className="text-xs text-muted-foreground mt-2">Ready for allocation</p>
                 </div>
-                <div className="text-right text-xs">
-                  {Object.entries(getAssetTypeCounts("Available"))
-                    .filter(([_, count]) => count > 0)
-                    .map(([type, count]) => (
-                      <div key={type} className="mb-1">
-                        {type}: {count}
-                      </div>
-                    ))}
+                <div className="w-1/2 text-right">
+                  <div className="h-24 overflow-y-auto pr-2">
+                    {Object.entries(getAssetTypeCounts("Available"))
+                      .filter(([_, count]) => count > 0)
+                      .map(([type, count]) => (
+                        <div key={type} className="flex justify-end mb-1 text-xs">
+                          <span className="mr-2">{type}:</span>
+                          <span className="w-6 text-right">{count}</span>
+                        </div>
+                      ))}
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -357,14 +366,17 @@ export const Dashboard = () => {
                   <div className="text-2xl font-bold text-destructive">{scrapDamageAssets}</div>
                   <p className="text-xs text-muted-foreground mt-2">Out of service</p>
                 </div>
-                <div className="text-right text-xs">
-                  {Object.entries(getAssetTypeCounts("Scrap/Damage"))
-                    .filter(([_, count]) => count > 0)
-                    .map(([type, count]) => (
-                      <div key={type} className="mb-1">
-                        {type}: {count}
-                      </div>
-                    ))}
+                <div className="w-1/2 text-right">
+                  <div className="h-24 overflow-y-auto pr-2">
+                    {Object.entries(getAssetTypeCounts("Scrap/Damage"))
+                      .filter(([_, count]) => count > 0)
+                      .map(([type, count]) => (
+                        <div key={type} className="flex justify-end mb-1 text-xs">
+                          <span className="mr-2">{type}:</span>
+                          <span className="w-6 text-right">{count}</span>
+                        </div>
+                      ))}
+                  </div>
                 </div>
               </div>
             </CardContent>
