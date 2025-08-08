@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,6 +7,27 @@ import { Package, Shield, Users, BarChart3 } from 'lucide-react';
 
 export const LoginPage = () => {
   const { user, loading, signInWithGoogle } = useAuth();
+  const location = useLocation();
+
+  // Handle OAuth redirect tokens
+  useEffect(() => {
+    const hash = location.hash;
+    if (hash) {
+      const params = new URLSearchParams(hash.replace('#', ''));
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+      const expiresIn = params.get('expires_in');
+
+      if (accessToken && refreshToken && expiresIn) {
+        // Process tokens with Supabase
+        // Assuming signInWithGoogle can handle token exchange
+        signInWithGoogle({ accessToken, refreshToken, expiresIn });
+        
+        // Clean up the URL by removing the hash
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+  }, [location, signInWithGoogle]);
 
   // Redirect if already authenticated
   if (!loading && user) {
@@ -47,14 +68,14 @@ export const LoginPage = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <Button
-              onClick={signInWithGoogle}
+              onClick={() => signInWithGoogle()}
               className="w-full bg-gradient-primary hover:shadow-glow transition-smooth"
               size="lg"
             >
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
                 <path
                   fill="currentColor"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  d="M22.56 12.25c0-.78-.07-1.53-.20-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                 />
                 <path
                   fill="currentColor"
