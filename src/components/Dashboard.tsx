@@ -38,7 +38,7 @@ export const Dashboard = () => {
   const [brandFilter, setBrandFilter] = useState<string>("all");
   const [configFilter, setConfigFilter] = useState<string>("all");
   const [locationFilter, setLocationFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("");
 
   // Get unique values for filters
   const assetTypes = [...new Set(assets.map((asset) => asset.type))];
@@ -53,7 +53,7 @@ export const Dashboard = () => {
     const brandMatch = brandFilter === "all" || asset.brand === brandFilter;
     const configMatch = configFilter === "all" || asset.configuration === configFilter;
     const locationMatch = locationFilter === "all" || asset.location === locationFilter;
-    const statusMatch = statusFilter === "all" || asset.status === statusFilter;
+    const statusMatch = !statusFilter || statusFilter === "all" || asset.status === statusFilter;
 
     return typeMatch && brandMatch && configMatch && locationMatch && statusMatch;
   });
@@ -219,7 +219,7 @@ export const Dashboard = () => {
     setBrandFilter("all");
     setConfigFilter("all");
     setLocationFilter("all");
-    setStatusFilter("all");
+    setStatusFilter("");
     setDateRange(undefined);
   };
 
@@ -407,7 +407,7 @@ export const Dashboard = () => {
                 <label className="text-xs font-medium">Status</label>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="text-xs h-7">
-                    <SelectValue placeholder="All" />
+                    <SelectValue placeholder="Select Status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All</SelectItem>
@@ -429,8 +429,8 @@ export const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Asset List (visible only when a specific status is selected, not "All") */}
-        {statusFilter !== "all" && (
+        {/* Asset List (visible only when a status is selected, including "All") */}
+        {statusFilter && (
           <AssetList
             assets={filteredAssets}
             onAssign={handleAssignAsset}
