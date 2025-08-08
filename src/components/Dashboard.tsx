@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import { BulkUpload } from "./BulkUpload";
 import { DateRange } from "react-day-picker";
 import { useAssets, useCreateAsset, useUpdateAsset, useDeleteAsset } from "@/hooks/useAssets";
 import { toast } from "sonner";
-import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 const locations = [
   "Mumbai Office",
@@ -43,7 +43,25 @@ export const Dashboard = () => {
   const [configFilter, setConfigFilter] = useState<string>("all");
   const [locationFilter, setLocationFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("");
-  const { user } = useAuth();
+  const [currentUser, setCurrentUser] = useState<string>("unknown_user");
+
+  // Fetch current user from Supabase auth
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.email) {
+          setCurrentUser(user.email);
+        } else {
+          toast.error("Failed to fetch user data. Using fallback user ID.");
+        }
+      } catch (error) {
+        toast.error("Error fetching user data. Using fallback user ID.");
+        console.error("Supabase auth error:", error);
+      }
+    };
+    fetchUser();
+  }, []);
 
   const assetTypes = [...new Set(assets.map((asset) => asset.type))];
   const assetBrands = [...new Set(assets.map((asset) => asset.brand))];
@@ -112,9 +130,9 @@ export const Dashboard = () => {
         assigned_to: null,
         employee_id: null,
         assigned_date: null,
-        created_by: user?.name || "System",
+        created_by: currentUser,
         created_at: new Date().toISOString(),
-        updated_by: user?.name || "System",
+        updated_by: currentUser,
         updated_at: new Date().toISOString(),
       };
       await createAssetMutation.mutateAsync(asset);
@@ -133,7 +151,7 @@ export const Dashboard = () => {
         employee_id: employeeId,
         status: "Assigned",
         assigned_date: new Date().toISOString(),
-        updated_by: user?.name || "System",
+        updated_by: currentUser,
         updated_at: new Date().toISOString(),
       });
       toast.success("Asset assigned successfully");
@@ -150,7 +168,7 @@ export const Dashboard = () => {
         employee_id: null,
         status: "Available",
         assigned_date: null,
-        updated_by: user?.name || "System",
+        updated_by: currentUser,
         updated_at: new Date().toISOString(),
       });
       toast.success("Asset returned successfully");
@@ -169,7 +187,7 @@ export const Dashboard = () => {
         brand: updatedAsset.brand,
         configuration: updatedAsset.configuration,
         serial_number: updatedAsset.serialNumber,
-        updated_by: user?.name || "System",
+        updated_by: currentUser,
         updated_at: new Date().toISOString(),
       });
       toast.success("Asset updated successfully");
@@ -183,7 +201,7 @@ export const Dashboard = () => {
       await updateAssetMutation.mutateAsync({ 
         id: assetId, 
         status,
-        updated_by: user?.name || "System",
+        updated_by: currentUser,
         updated_at: new Date().toISOString(),
       });
       toast.success("Status updated successfully");
@@ -197,7 +215,7 @@ export const Dashboard = () => {
       await updateAssetMutation.mutateAsync({ 
         id: assetId, 
         location,
-        updated_by: user?.name || "System",
+        updated_by: currentUser,
         updated_at: new Date().toISOString(),
       });
       toast.success("Location updated successfully");
@@ -252,7 +270,6 @@ export const Dashboard = () => {
           asset.assigned_to || "",
           asset.status,
           asset.location,
-          asset.assigned_date || "",
           asset.created_by || "",
           asset.created_at || "",
           asset.updated_by || "",

@@ -42,15 +42,10 @@ export const useCreateAsset = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (asset: Omit<Asset, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'updated_by'>) => {
-      const newAsset = {
-        ...asset,
-        created_by: 'System',
-        updated_by: 'System',
-      };
+    mutationFn: async (asset: Omit<Asset, 'id'>) => {
       const { data, error } = await supabase
         .from('assets')
-        .insert([newAsset])
+        .insert([asset])
         .select()
         .single();
       
@@ -71,14 +66,9 @@ export const useUpdateAsset = () => {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Asset> & { id: string }) => {
-      const updatedAsset = {
-        ...updates,
-        updated_by: 'System',
-        updated_at: new Date().toISOString(),
-      };
       const { data, error } = await supabase
         .from('assets')
-        .update(updatedAsset)
+        .update(updates)
         .eq('id', id)
         .select()
         .single();
