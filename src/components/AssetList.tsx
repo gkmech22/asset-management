@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { UserPlus, UserMinus, Search, Calendar, MoreVertical } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { EditAssetDialog } from "./EditAssetDialog";
+import { AssetDetailsDialog } from "./AssetDetailsDialog";
 import { Asset } from "@/hooks/useAssets";
 import {
   DropdownMenu,
@@ -29,7 +30,7 @@ interface AssetListProps {
   typeFilter?: string;
   brandFilter?: string;
   configFilter?: string;
-  defaultRowsPerPage?: number; // Prop to set default batch size
+  defaultRowsPerPage?: number;
 }
 
 export const AssetList = ({
@@ -44,7 +45,7 @@ export const AssetList = ({
   typeFilter = "all",
   brandFilter = "all",
   configFilter = "all",
-  defaultRowsPerPage = 10, // Default to 10 to match the image
+  defaultRowsPerPage = 10,
 }: AssetListProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
@@ -54,6 +55,7 @@ export const AssetList = ({
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [showLocationDialog, setShowLocationDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [newStatus, setNewStatus] = useState("");
   const [newLocation, setNewLocation] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -172,7 +174,7 @@ export const AssetList = ({
   // Generate page numbers for display
   const getPageNumbers = () => {
     const pageNumbers = [];
-    const maxPagesToShow = 5; // Show 5 page numbers at a time
+    const maxPagesToShow = 5;
     let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
     let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
 
@@ -243,9 +245,15 @@ export const AssetList = ({
                     <tr key={asset.id} className="border-b hover:bg-muted/50">
                       <td className="p-2 text-xs">
                         <div className="text-left">
-                          <code className="bg-primary/10 text-primary px-1 py-0.5 rounded text-xs font-medium">
+                          <button
+                            onClick={() => {
+                              setSelectedAsset(asset);
+                              setShowDetailsDialog(true);
+                            }}
+                            className="bg-primary/10 text-primary px-1 py-0.5 rounded text-xs font-medium hover:bg-primary/20"
+                          >
                             {asset.asset_id}
-                          </code>
+                          </button>
                         </div>
                       </td>
                       <td className="p-2 text-xs">
@@ -387,7 +395,7 @@ export const AssetList = ({
                     value={rowsPerPage.toString()}
                     onValueChange={(value) => {
                       setRowsPerPage(Number(value));
-                      setCurrentPage(1); // Reset to first page when changing rows per page
+                      setCurrentPage(1);
                     }}
                   >
                     <SelectTrigger className="w-20">
@@ -615,6 +623,13 @@ export const AssetList = ({
         open={showEditDialog}
         onOpenChange={setShowEditDialog}
         onUpdate={onUpdateAsset}
+      />
+
+      {/* Asset Details Dialog */}
+      <AssetDetailsDialog
+        asset={selectedAsset}
+        open={showDetailsDialog}
+        onOpenChange={setShowDetailsDialog}
       />
     </Card>
   );

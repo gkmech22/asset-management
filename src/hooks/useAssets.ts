@@ -14,7 +14,9 @@ export interface Asset {
   status: string;
   location: string;
   assigned_date: string | null;
+  created_by: string;
   created_at: string;
+  updated_by: string;
   updated_at: string;
 }
 
@@ -27,7 +29,10 @@ export const useAssets = () => {
         .select('*')
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase fetch error:', error.message);
+        throw new Error(`Failed to fetch assets: ${error.message}`);
+      }
       return data as Asset[];
     },
   });
@@ -35,16 +40,24 @@ export const useAssets = () => {
 
 export const useCreateAsset = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: async (asset: Omit<Asset, 'id' | 'created_at' | 'updated_at'>) => {
+    mutationFn: async (asset: Omit<Asset, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'updated_by'>) => {
+      const newAsset = {
+        ...asset,
+        created_by: 'System',
+        updated_by: 'System',
+      };
       const { data, error } = await supabase
         .from('assets')
-        .insert([asset])
+        .insert([newAsset])
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase insert error:', error.message);
+        throw new Error(`Failed to create asset: ${error.message}`);
+      }
       return data;
     },
     onSuccess: () => {
@@ -55,17 +68,25 @@ export const useCreateAsset = () => {
 
 export const useUpdateAsset = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Asset> & { id: string }) => {
+      const updatedAsset = {
+        ...updates,
+        updated_by: 'System',
+        updated_at: new Date().toISOString(),
+      };
       const { data, error } = await supabase
         .from('assets')
-        .update(updates)
+        .update(updatedAsset)
         .eq('id', id)
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase update error:', error.message);
+        throw new Error(`Failed to update asset: ${error.message}`);
+      }
       return data;
     },
     onSuccess: () => {
@@ -84,7 +105,10 @@ export const useDeleteAsset = () => {
         .delete()
         .eq('id', id);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase delete error:', error.message);
+        throw new Error(`Failed to delete asset: ${error.message}`);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['assets'] });

@@ -15,12 +15,12 @@ interface AssetFormProps {
 
 export const AssetForm = ({ onSubmit, onCancel, asset, isEdit = false }: AssetFormProps) => {
   const [formData, setFormData] = useState({
-    assetId: asset?.assetId || "",
+    assetId: asset?.asset_id || "",
     name: asset?.name || "",
     type: asset?.type || "",
     brand: asset?.brand || "",
     configuration: asset?.configuration || "",
-    serialNumber: asset?.serialNumber || "",
+    serialNumber: asset?.serial_number || "",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -30,7 +30,7 @@ export const AssetForm = ({ onSubmit, onCancel, asset, isEdit = false }: AssetFo
 
   return (
     <Dialog open={true} onOpenChange={() => onCancel()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold bg-gradient-primary bg-clip-text text-transparent">
             {isEdit ? "Edit Asset" : "Add New Asset"}
@@ -88,7 +88,6 @@ export const AssetForm = ({ onSubmit, onCancel, asset, isEdit = false }: AssetFo
             />
           </div>
 
-
           <div className="space-y-2">
             <Label htmlFor="configuration">Configuration</Label>
             <Textarea
@@ -110,6 +109,47 @@ export const AssetForm = ({ onSubmit, onCancel, asset, isEdit = false }: AssetFo
               required
             />
           </div>
+
+          {isEdit && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="createdBy">Created By</Label>
+                <Input
+                  id="createdBy"
+                  value={asset.created_by || ""}
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="createdAt">Created At</Label>
+                <Input
+                  id="createdAt"
+                  value={asset.created_at ? new Date(asset.created_at).toLocaleString() : ""}
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="updatedBy">Last Updated By</Label>
+                <Input
+                  id="updatedBy"
+                  value={asset.updated_by || ""}
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="updatedAt">Last Updated At</Label>
+                <Input
+                  id="updatedAt"
+                  value={asset.updated_at ? new Date(asset.updated_at).toLocaleString() : ""}
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
+            </>
+          )}
 
           <div className="flex gap-2 pt-4">
             <Button 

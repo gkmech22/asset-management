@@ -48,7 +48,7 @@ export const EditAssetDialog = ({ asset, open, onOpenChange, onUpdate }: EditAss
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold bg-gradient-primary bg-clip-text text-transparent">
             Edit Asset
@@ -128,6 +128,43 @@ export const EditAssetDialog = ({ asset, open, onOpenChange, onUpdate }: EditAss
               onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })}
               placeholder="e.g., MBP16-2023-001"
               required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="createdBy">Created By</Label>
+            <Input
+              id="createdBy"
+              value={asset.created_by || ""}
+              disabled
+              className="bg-muted"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="createdAt">Created At</Label>
+            <Input
+              id="createdAt"
+              value={asset.created_at ? new Date(asset.created_at).toLocaleString() : ""}
+              disabled
+              className="bg-muted"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="updatedBy">Last Updated By</Label>
+            <Input
+              id="updatedBy"
+              value={asset.updated_by || ""}
+              disabled
+              className="bg-muted"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="updatedAt">Last Updated At</Label>
+            <Input
+              id="updatedAt"
+              value={asset.updated_at ? new Date(asset.updated_at).toLocaleString() : ""}
+              disabled
+              className="bg-muted"
             />
           </div>
 

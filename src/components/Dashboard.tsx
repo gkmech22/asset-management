@@ -12,6 +12,7 @@ import { BulkUpload } from "./BulkUpload";
 import { DateRange } from "react-day-picker";
 import { useAssets, useCreateAsset, useUpdateAsset, useDeleteAsset } from "@/hooks/useAssets";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 const locations = [
   "Mumbai Office",
@@ -42,15 +43,14 @@ export const Dashboard = () => {
   const [configFilter, setConfigFilter] = useState<string>("all");
   const [locationFilter, setLocationFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const { user } = useAuth();
 
-  // Get unique values for filters
   const assetTypes = [...new Set(assets.map((asset) => asset.type))];
   const assetBrands = [...new Set(assets.map((asset) => asset.brand))];
   const assetConfigurations = [...new Set(assets.map((asset) => asset.configuration).filter(Boolean))];
   const assetLocations = [...new Set(assets.map((asset) => asset.location))];
   const assetStatuses = [...new Set(assets.map((asset) => asset.status))];
 
-  // Check if any filter or search is active
   const isFilterOrSearchActive =
     searchQuery.trim() !== "" ||
     typeFilter !== "all" ||
@@ -60,7 +60,6 @@ export const Dashboard = () => {
     statusFilter !== "" ||
     dateRange !== undefined;
 
-  // Filter assets based on selected filters and search query
   const filteredAssets = assets.filter((asset) => {
     const typeMatch = typeFilter === "all" || asset.type === typeFilter;
     const brandMatch = brandFilter === "all" || asset.brand === brandFilter;
@@ -80,18 +79,18 @@ export const Dashboard = () => {
         asset.assigned_to || "",
         asset.status,
         asset.location,
+        asset.created_by || "",
+        asset.updated_by || "",
       ].some((field) => field.toLowerCase().includes(searchQuery.toLowerCase()));
 
     return typeMatch && brandMatch && configMatch && locationMatch && statusMatch && searchMatch;
   });
 
-  // Calculate inventory statistics using filtered data
   const totalInventory = filteredAssets.length;
   const allocatedAssets = filteredAssets.filter((asset) => asset.status === "Assigned").length;
   const currentStock = filteredAssets.filter((asset) => asset.status === "Available").length;
   const scrapDamageAssets = filteredAssets.filter((asset) => asset.status === "Scrap/Damage").length;
 
-  // Calculate asset type-wise counts for each status
   const getAssetTypeCounts = (status: string) => {
     return assetTypes.reduce((acc, type) => {
       acc[type] = filteredAssets.filter((asset) => asset.type === type && (status === "all" || asset.status === status)).length;
@@ -113,6 +112,10 @@ export const Dashboard = () => {
         assigned_to: null,
         employee_id: null,
         assigned_date: null,
+        created_by: user?.name || "System",
+        created_at: new Date().toISOString(),
+        updated_by: user?.name || "System",
+        updated_at: new Date().toISOString(),
       };
       await createAssetMutation.mutateAsync(asset);
       toast.success("Asset created successfully");
@@ -130,6 +133,8 @@ export const Dashboard = () => {
         employee_id: employeeId,
         status: "Assigned",
         assigned_date: new Date().toISOString(),
+        updated_by: user?.name || "System",
+        updated_at: new Date().toISOString(),
       });
       toast.success("Asset assigned successfully");
     } catch (error) {
@@ -145,6 +150,8 @@ export const Dashboard = () => {
         employee_id: null,
         status: "Available",
         assigned_date: null,
+        updated_by: user?.name || "System",
+        updated_at: new Date().toISOString(),
       });
       toast.success("Asset returned successfully");
     } catch (error) {
@@ -162,6 +169,8 @@ export const Dashboard = () => {
         brand: updatedAsset.brand,
         configuration: updatedAsset.configuration,
         serial_number: updatedAsset.serialNumber,
+        updated_by: user?.name || "System",
+        updated_at: new Date().toISOString(),
       });
       toast.success("Asset updated successfully");
     } catch (error) {
@@ -171,7 +180,12 @@ export const Dashboard = () => {
 
   const handleUpdateStatus = async (assetId: string, status: string) => {
     try {
-      await updateAssetMutation.mutateAsync({ id: assetId, status });
+      await updateAssetMutation.mutateAsync({ 
+        id: assetId, 
+        status,
+        updated_by: user?.name || "System",
+        updated_at: new Date().toISOString(),
+      });
       toast.success("Status updated successfully");
     } catch (error) {
       toast.error("Failed to update status");
@@ -180,7 +194,12 @@ export const Dashboard = () => {
 
   const handleUpdateLocation = async (assetId: string, location: string) => {
     try {
-      await updateAssetMutation.mutateAsync({ id: assetId, location });
+      await updateAssetMutation.mutateAsync({ 
+        id: assetId, 
+        location,
+        updated_by: user?.name || "System",
+        updated_at: new Date().toISOString(),
+      });
       toast.success("Location updated successfully");
     } catch (error) {
       toast.error("Failed to update location");
@@ -213,6 +232,10 @@ export const Dashboard = () => {
       "Status",
       "Asset Location",
       "Assigned Date",
+      "Created By",
+      "Created At",
+      "Updated By",
+      "Updated At",
     ];
 
     const csvContent = [
@@ -230,6 +253,10 @@ export const Dashboard = () => {
           asset.status,
           asset.location,
           asset.assigned_date || "",
+          asset.created_by || "",
+          asset.created_at || "",
+          asset.updated_by || "",
+          asset.updated_at || "",
         ].join(",")
       ),
     ].join("\n");
@@ -255,7 +282,6 @@ export const Dashboard = () => {
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Fixed Header */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-card border-b shadow-card">
         <div className="container mx-auto px-2 py-1">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -292,9 +318,7 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto pt-[60px] pb-[40px] container mx-auto px-4">
-        {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -402,7 +426,6 @@ export const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Filters Section */}
         <Card className="shadow-card mb-4">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
@@ -522,7 +545,6 @@ export const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Asset List - Only render if filters or search is active */}
         {isFilterOrSearchActive && (
           <AssetList
             assets={filteredAssets}
@@ -541,7 +563,6 @@ export const Dashboard = () => {
         )}
       </div>
 
-      {/* Fixed Footer */}
       <footer className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t shadow-card py-2">
         <div className="container mx-auto px-4">
           <p className="text-[14px] text-muted-foreground">
@@ -550,10 +571,7 @@ export const Dashboard = () => {
         </div>
       </footer>
 
-      {/* Add Asset Modal */}
       {showAddForm && <AssetForm onSubmit={handleAddAsset} onCancel={() => setShowAddForm(false)} />}
-
-      {/* Bulk Upload Modal */}
       <BulkUpload
         open={showBulkUpload}
         onOpenChange={setShowBulkUpload}

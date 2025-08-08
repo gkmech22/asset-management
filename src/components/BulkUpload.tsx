@@ -54,7 +54,6 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }: BulkUpl
   };
 
   const handleDownloadTemplate = () => {
-    // Create sample CSV template
     const headers = [
       "Asset Name", "Asset Type", "Brand", "Model", "Configuration", "Serial Number"
     ];
@@ -89,7 +88,6 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }: BulkUpl
         </DialogHeader>
         
         <div className="space-y-6">
-          {/* Download Template Section */}
           <Card className="shadow-card">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
@@ -121,7 +119,6 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }: BulkUpl
             </CardContent>
           </Card>
 
-          {/* Upload Section */}
           <Card className="shadow-card">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
@@ -137,7 +134,6 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }: BulkUpl
                 </AlertDescription>
               </Alert>
 
-              {/* Drag and Drop Area */}
               <div
                 className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
                   dragActive 
