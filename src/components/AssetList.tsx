@@ -1,4 +1,4 @@
-import { useState } from "react";
+import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,11 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { UserPlus, UserMinus, Search, Calendar, MoreVertical } from "lucide-react";
+import { UserPlus, UserMinus, Search, Calendar, MoreVertical, ChevronUp, ChevronDown } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { EditAssetDialog } from "./EditAssetDialog";
 import { AssetDetailsDialog } from "./AssetDetailsDialog";
 import { Asset } from "@/hooks/useAssets";
+import { useAssetHistory } from "@/hooks/useAssetHistory";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,19 +48,23 @@ export const AssetList = ({
   configFilter = "all",
   defaultRowsPerPage = 10,
 }: AssetListProps) => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
-  const [userName, setUserName] = useState("");
-  const [employeeId, setEmployeeId] = useState("");
-  const [showAssignDialog, setShowAssignDialog] = useState(false);
-  const [showStatusDialog, setShowStatusDialog] = useState(false);
-  const [showLocationDialog, setShowLocationDialog] = useState(false);
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
-  const [newStatus, setNewStatus] = useState("");
-  const [newLocation, setNewLocation] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(defaultRowsPerPage);
+  const [searchTerm, setSearchTerm] = React.useState("");
+  const [selectedAsset, setSelectedAsset] = React.useState<Asset | null>(null);
+  const [userName, setUserName] = React.useState("");
+  const [employeeId, setEmployeeId] = React.useState("");
+  const [showAssignDialog, setShowAssignDialog] = React.useState(false);
+  const [showStatusDialog, setShowStatusDialog] = React.useState(false);
+  const [showLocationDialog, setShowLocationDialog] = React.useState(false);
+  const [showEditDialog, setShowEditDialog] = React.useState(false);
+  const [showDetailsDialog, setShowDetailsDialog] = React.useState(false);
+  const [showHistoryDialog, setShowHistoryDialog] = React.useState(false);
+  const [newStatus, setNewStatus] = React.useState("");
+  const [newLocation, setNewLocation] = React.useState("");
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const [rowsPerPage, setRowsPerPage] = React.useState(defaultRowsPerPage);
+  const [scrollPosition, setScrollPosition] = React.useState(0);
+
+  const { data: history = [], isLoading: historyLoading } = useAssetHistory(selectedAsset?.id);
 
   const locations = [
     "Mumbai Office",
@@ -76,7 +81,6 @@ export const AssetList = ({
     "Jaipur WH",
   ];
 
-  // Filter and sort assets
   const filteredAssets = assets
     .filter((asset) => {
       const matchesSearch =
@@ -93,7 +97,8 @@ export const AssetList = ({
         !dateRange?.from ||
         !dateRange?.to ||
         !asset.assigned_date ||
-        (new Date(asset.assigned_date) >= dateRange.from && new Date(asset.assigned_date) <= dateRange.to);
+        (new Date(asset.assigned_date).setHours(0, 0, 0, 0) >= new Date(dateRange.from).setHours(0, 0, 0, 0) &&
+         new Date(asset.assigned_date).setHours(0, 0, 0, 0) <= new Date(dateRange.to).setHours(0, 0, 0, 0));
 
       const matchesType = typeFilter === "all" || asset.type === typeFilter;
       const matchesBrand = brandFilter === "all" || asset.brand === brandFilter;
@@ -102,7 +107,6 @@ export const AssetList = ({
       return matchesSearch && matchesDateRange && matchesType && matchesBrand && matchesConfig;
     })
     .sort((a, b) => {
-      // Sort by status (Available first) then by date (latest first)
       if (a.status === "Available" && b.status !== "Available") return -1;
       if (a.status !== "Available" && b.status === "Available") return 1;
       const dateA = a.assigned_date ? new Date(a.assigned_date).getTime() : 0;
@@ -110,7 +114,6 @@ export const AssetList = ({
       return dateB - dateA;
     });
 
-  // Pagination logic
   const totalPages = Math.ceil(filteredAssets.length / rowsPerPage);
   const paginatedAssets = filteredAssets.slice(
     (currentPage - 1) * rowsPerPage,
@@ -168,10 +171,11 @@ export const AssetList = ({
       year: "numeric",
       month: "short",
       day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
-  // Generate page numbers for display
   const getPageNumbers = () => {
     const pageNumbers = [];
     const maxPagesToShow = 5;
@@ -190,6 +194,23 @@ export const AssetList = ({
   };
 
   const { startPage, endPage, pageNumbers } = getPageNumbers();
+
+  const historyTableRef = React.useRef<HTMLDivElement>(null);
+
+  const handleScrollUp = () => {
+    if (historyTableRef.current) {
+      historyTableRef.current.scrollTop = Math.max(0, historyTableRef.current.scrollTop - 100);
+    }
+  };
+
+  const handleScrollDown = () => {
+    if (historyTableRef.current) {
+      historyTableRef.current.scrollTop = Math.min(
+        historyTableRef.current.scrollHeight,
+        historyTableRef.current.scrollTop + 100
+      );
+    }
+  };
 
   return (
     <Card className="shadow-card">
@@ -366,6 +387,14 @@ export const AssetList = ({
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => {
+                                setSelectedAsset(asset);
+                                setShowHistoryDialog(true);
+                              }}
+                            >
+                              History
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
                                 if (confirm("Are you sure you want to delete this asset?")) {
                                   onDelete(asset.id);
                                 }
@@ -382,7 +411,6 @@ export const AssetList = ({
                 </tbody>
               </table>
             </div>
-            {/* Pagination Controls */}
             <div className="flex justify-between items-center mt-4">
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <div>
@@ -463,7 +491,6 @@ export const AssetList = ({
         )}
       </CardContent>
 
-      {/* Assign Asset Dialog */}
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -517,7 +544,6 @@ export const AssetList = ({
         </DialogContent>
       </Dialog>
 
-      {/* Update Status Dialog */}
       <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -567,7 +593,6 @@ export const AssetList = ({
         </DialogContent>
       </Dialog>
 
-      {/* Update Location Dialog */}
       <Dialog open={showLocationDialog} onOpenChange={setShowLocationDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -617,7 +642,6 @@ export const AssetList = ({
         </DialogContent>
       </Dialog>
 
-      {/* Edit Asset Dialog */}
       <EditAssetDialog
         asset={selectedAsset}
         open={showEditDialog}
@@ -625,12 +649,94 @@ export const AssetList = ({
         onUpdate={onUpdateAsset}
       />
 
-      {/* Asset Details Dialog */}
       <AssetDetailsDialog
         asset={selectedAsset}
         open={showDetailsDialog}
         onOpenChange={setShowDetailsDialog}
       />
+
+      <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
+        <DialogContent className="max-w-2xl h-[80vh]">
+          <DialogHeader className="pb-0"> {/* Removed padding to reduce gap */}
+            <DialogTitle className="mt-0">Edit History for {selectedAsset?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1 pt-0"> {/* Removed top padding */}
+            <div>
+              <Label className="mt-0">Asset: {selectedAsset?.name}</Label>
+              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id}</p>
+            </div>
+            {historyLoading ? (
+              <div className="text-center py-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              </div>
+            ) : history.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No edit history available.</p>
+            ) : (
+              <div className="relative">
+                <div
+                  ref={historyTableRef}
+                  className="max-h-[65vh] overflow-y-auto"
+                  style={{ scrollBehavior: "smooth" }}
+                >
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="bg-muted text-xs text-muted-foreground">
+                        <th className="p-2 text-left">Field</th>
+                        <th className="p-2 text-left">Old Value</th>
+                        <th className="p-2 text-left">New Value</th>
+                        <th className="p-2 text-left">Changed By</th>
+                        <th className="p-2 text-left">Changed At</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {history.map((entry) => (
+                        <tr key={entry.id} className="border-b">
+                          <td className="p-2 text-xs">{entry.field_changed}</td>
+                          <td className="p-2 text-xs">{entry.old_value || "-"}</td>
+                          <td className="p-2 text-xs">{entry.new_value || "-"}</td>
+                          <td className="p-2 text-xs">{entry.changed_by}</td>
+                          <td className="p-2 text-xs">
+                            {formatDate(entry.changed_at)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex justify-between mt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleScrollUp}
+                    className="h-6 w-6 p-0"
+                  >
+                    <ChevronUp className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleScrollDown}
+                    className="h-6 w-6 p-0"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+            <div className="flex justify-end mt-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowHistoryDialog(false);
+                  setSelectedAsset(null);
+                }}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };

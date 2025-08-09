@@ -63,6 +63,21 @@ export const Dashboard = () => {
     fetchUser();
   }, []);
 
+  const logEditHistory = async (assetId: string, field: string, oldValue: string | null, newValue: string | null) => {
+    try {
+      await supabase.from("asset_edit_history").insert({
+        asset_id: assetId,
+        field_changed: field,
+        old_value: oldValue,
+        new_value: newValue,
+        changed_by: currentUser,
+        changed_at: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Failed to log edit history:", error);
+    }
+  };
+
   const assetTypes = [...new Set(assets.map((asset) => asset.type))];
   const assetBrands = [...new Set(assets.map((asset) => asset.brand))];
   const assetConfigurations = [...new Set(assets.map((asset) => asset.configuration).filter(Boolean))];
@@ -135,7 +150,8 @@ export const Dashboard = () => {
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
       };
-      await createAssetMutation.mutateAsync(asset);
+      const { data } = await createAssetMutation.mutateAsync(asset);
+      await logEditHistory(data.id, "created", null, "Asset Created");
       toast.success("Asset created successfully");
       setShowAddForm(false);
     } catch (error) {
@@ -145,6 +161,7 @@ export const Dashboard = () => {
 
   const handleAssignAsset = async (assetId: string, userName: string, employeeId: string) => {
     try {
+      const asset = assets.find((a) => a.id === assetId);
       await updateAssetMutation.mutateAsync({
         id: assetId,
         assigned_to: userName,
@@ -154,6 +171,9 @@ export const Dashboard = () => {
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
       });
+      await logEditHistory(assetId, "assigned_to", asset?.assigned_to || null, userName);
+      await logEditHistory(assetId, "employee_id", asset?.employee_id || null, employeeId);
+      await logEditHistory(assetId, "status", asset?.status || null, "Assigned");
       toast.success("Asset assigned successfully");
     } catch (error) {
       toast.error("Failed to assign asset");
@@ -162,6 +182,7 @@ export const Dashboard = () => {
 
   const handleUnassignAsset = async (assetId: string) => {
     try {
+      const asset = assets.find((a) => a.id === assetId);
       await updateAssetMutation.mutateAsync({
         id: assetId,
         assigned_to: null,
@@ -171,6 +192,9 @@ export const Dashboard = () => {
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
       });
+      await logEditHistory(assetId, "assigned_to", asset?.assigned_to || null, null);
+      await logEditHistory(assetId, "employee_id", asset?.employee_id || null, null);
+      await logEditHistory(assetId, "status", asset?.status || null, "Available");
       toast.success("Asset returned successfully");
     } catch (error) {
       toast.error("Failed to return asset");
@@ -179,6 +203,7 @@ export const Dashboard = () => {
 
   const handleUpdateAsset = async (assetId: string, updatedAsset: any) => {
     try {
+      const asset = assets.find((a) => a.id === assetId);
       await updateAssetMutation.mutateAsync({
         id: assetId,
         asset_id: updatedAsset.assetId,
@@ -190,6 +215,25 @@ export const Dashboard = () => {
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
       });
+      // Log changes for each field
+      if (asset?.asset_id !== updatedAsset.assetId) {
+        await logEditHistory(assetId, "asset_id", asset?.asset_id || null, updatedAsset.assetId);
+      }
+      if (asset?.name !== updatedAsset.name) {
+        await logEditHistory(assetId, "name", asset?.name || null, updatedAsset.name);
+      }
+      if (asset?.type !== updatedAsset.type) {
+        await logEditHistory(assetId, "type", asset?.type || null, updatedAsset.type);
+      }
+      if (asset?.brand !== updatedAsset.brand) {
+        await logEditHistory(assetId, "brand", asset?.brand || null, updatedAsset.brand);
+      }
+      if (asset?.configuration !== updatedAsset.configuration) {
+        await logEditHistory(assetId, "configuration", asset?.configuration || null, updatedAsset.configuration);
+      }
+      if (asset?.serial_number !== updatedAsset.serialNumber) {
+        await logEditHistory(assetId, "serial_number", asset?.serial_number || null, updatedAsset.serialNumber);
+      }
       toast.success("Asset updated successfully");
     } catch (error) {
       toast.error("Failed to update asset");
@@ -198,12 +242,14 @@ export const Dashboard = () => {
 
   const handleUpdateStatus = async (assetId: string, status: string) => {
     try {
+      const asset = assets.find((a) => a.id === assetId);
       await updateAssetMutation.mutateAsync({ 
         id: assetId, 
         status,
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
       });
+      await logEditHistory(assetId, "status", asset?.status || null, status);
       toast.success("Status updated successfully");
     } catch (error) {
       toast.error("Failed to update status");
@@ -212,12 +258,14 @@ export const Dashboard = () => {
 
   const handleUpdateLocation = async (assetId: string, location: string) => {
     try {
+      const asset = assets.find((a) => a.id === assetId);
       await updateAssetMutation.mutateAsync({ 
         id: assetId, 
         location,
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
       });
+      await logEditHistory(assetId, "location", asset?.location || null, location);
       toast.success("Location updated successfully");
     } catch (error) {
       toast.error("Failed to update location");
@@ -227,6 +275,7 @@ export const Dashboard = () => {
   const handleDeleteAsset = async (assetId: string) => {
     try {
       await deleteAssetMutation.mutateAsync(assetId);
+      await logEditHistory(assetId, "deleted", null, "Asset Deleted");
       toast.success("Asset deleted successfully");
     } catch (error) {
       toast.error("Failed to delete asset");
