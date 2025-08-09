@@ -10,6 +10,7 @@ interface AuthContextType {
   loading: boolean;
   signInWithGoogle: (tokens?: { accessToken: string; refreshToken: string; expiresIn: string }) => Promise<void>;
   signOut: () => Promise<void>;
+  updateUser: (attributes: any) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -87,8 +88,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const updateUser = async (attributes: any) => {
+    try {
+      const { data, error } = await supabase.auth.updateUser(attributes);
+      if (error) throw error;
+      setUser(data.user);
+    } catch (error) {
+      console.error('Update user error:', error);
+      throw error;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signOut, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
