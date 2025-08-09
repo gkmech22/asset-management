@@ -9,14 +9,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
-import { LogOut, User, Settings, Edit, Trash } from 'lucide-react';
+import { LogOut, User, Settings, Edit, Trash, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search } from 'lucide-react';
 
 export const UserProfile = () => {
   const { user, signOut, updateUser } = useAuth();
@@ -28,34 +27,38 @@ export const UserProfile = () => {
   const [fullName, setFullName] = useState(user?.user_metadata?.full_name || '');
   const [email, setEmail] = useState(user?.email || '');
   const [department, setDepartment] = useState(user?.user_metadata?.department || '');
-  const [role, setRole] = useState(user?.user_metadata?.role || '');
+  const [role, setRole] = useState('');
   const [accountType, setAccountType] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [users, setUsers] = useState<any[]>([]);
-  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [users, setUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [userRole, setUserRole] = useState(null);
 
   useEffect(() => {
     setFullName(user?.user_metadata?.full_name || '');
     setEmail(user?.email || '');
     setDepartment(user?.user_metadata?.department || '');
-    setRole(user?.user_metadata?.role || '');
-    setAccountType('');
     checkAuthorization();
     fetchUsers();
+    setUserRole(role);
   }, [user]);
 
   const checkAuthorization = async () => {
     if (user?.email) {
       const { data, error } = await supabase
         .from('users')
-        .select('email')
+        .select('email, role')
         .eq('email', user.email)
         .single();
       if (data && !error) {
         setIsAuthorized(true);
+        setUserRole(data.role);
+        setRole(data.role);
       } else {
         setIsAuthorized(false);
+        setUserRole(null);
+        setRole('');
       }
     }
   };
@@ -113,6 +116,7 @@ export const UserProfile = () => {
 
   const handleCreateUser = async (e) => {
     e.preventDefault();
+    if (userRole !== 'Super Admin' && userRole !== 'Admin') return;
     setIsLoading(true);
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -154,6 +158,7 @@ export const UserProfile = () => {
   };
 
   const handleEditUser = (user) => {
+    if (userRole !== 'Super Admin' && userRole !== 'Admin') return;
     setSelectedUser(user);
     setEmail(user.email);
     setDepartment(user.department || '');
@@ -164,7 +169,7 @@ export const UserProfile = () => {
 
   const handleSaveEdit = async (e) => {
     e.preventDefault();
-    if (!selectedUser) return;
+    if (!selectedUser || (userRole !== 'Super Admin' && userRole !== 'Admin')) return;
     setIsLoading(true);
     try {
       const { error } = await supabase
@@ -192,6 +197,7 @@ export const UserProfile = () => {
   };
 
   const handleDeleteUser = async (id) => {
+    if (userRole !== 'Super Admin' && userRole !== 'Admin') return;
     try {
       const { error } = await supabase.from('users').delete().eq('id', id);
       if (error) throw error;
@@ -266,7 +272,6 @@ export const UserProfile = () => {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Profile Edit Dialog */}
       <Dialog open={openProfile} onOpenChange={setOpenProfile}>
         <DialogContent className="max-w-[400px]">
           <DialogHeader>
@@ -294,7 +299,6 @@ export const UserProfile = () => {
         </DialogContent>
       </Dialog>
 
-      {/* User Management Dialog */}
       <Dialog open={openSettings} onOpenChange={setOpenSettings}>
         <DialogContent className="max-w-full w-auto overflow-y-auto">
           <DialogHeader className="flex justify-between items-center">
@@ -302,7 +306,14 @@ export const UserProfile = () => {
               <DialogTitle>User Management</DialogTitle>
               <DialogDescription>Manage user details.</DialogDescription>
             </div>
-            <Button onClick={() => setOpenCreateUser(true)} className="ml-auto">Add new users</Button>
+            {(userRole === 'Super Admin' || userRole === 'Admin') && (
+              <Button 
+                onClick={() => setOpenCreateUser(true)}
+                className="ml-auto"
+              >
+                Add new users
+              </Button>
+            )}
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="flex items-center gap-2">
@@ -323,6 +334,7 @@ export const UserProfile = () => {
                     <TableHead>Name</TableHead>
                     <TableHead>Department</TableHead>
                     <TableHead>Email</TableHead>
+                    <TableHead>Role</TableHead>
                     <TableHead>Account Type</TableHead>
                     <TableHead className="w-[100px]">Actions</TableHead>
                   </TableRow>
@@ -333,14 +345,21 @@ export const UserProfile = () => {
                       <TableCell>{user.email.split('@')[0]}</TableCell>
                       <TableCell>{user.department}</TableCell>
                       <TableCell>{user.email}</TableCell>
+                      <TableCell>{user.role}</TableCell>
                       <TableCell>{user.account_type}</TableCell>
                       <TableCell className="flex space-x-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleEditUser(user)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDeleteUser(user.id)}>
-                          <Trash className="h-4 w-4 text-red-500" />
-                        </Button>
+                        {(userRole === 'Super Admin' || userRole === 'Admin') ? (
+                          <>
+                            <Button variant="ghost" size="icon" onClick={() => handleEditUser(user)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleDeleteUser(user.id)}>
+                              <Trash className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">Read-only</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -351,7 +370,6 @@ export const UserProfile = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Create User Dialog */}
       <Dialog open={openCreateUser} onOpenChange={setOpenCreateUser}>
         <DialogContent className="max-w-full w-auto overflow-y-auto text-sm">
           <DialogHeader>
@@ -383,23 +401,21 @@ export const UserProfile = () => {
               <select id="department" className="w-full p-2 border rounded" value={department} onChange={(e) => setDepartment(e.target.value)}>
                 <option value="">Select Department</option>
                 <option value="Administrators">Administrators</option>
-                <option value="Consultant">Consultant</option>
-                <option value="Customer Support Team">Customer Support Team</option>
-                <option value="DevOps Team">DevOps Team</option>
-                <option value="DevOps-Production">DevOps-Production</option>
-                <option value="Dropped">Dropped</option>
-                <option value="FT QA Team">FT QA Team</option>
-                <option value="IT Team-East">IT Team-East</option>
+                <option value="Customer Support">Customer Support</option>
+                <option value="Technology Team">Technology Team</option>
+                <option value="Production Team">Production Team</option>
+                <option value="QA Team">QA Team</option>
+                <option value="DevOps">DevOps</option>
               </select>
             </div>
             <div>
               <Label htmlFor="role">Select role *</Label>
               <select id="role" className="w-full p-2 border rounded" value={role} onChange={(e) => setRole(e.target.value)}>
                 <option value="">Select Role</option>
-                <option value="Reporter">Reporter (Read)</option>
-                <option value="Operator">Operator (Read,Write)</option>
-                <option value="Admin">Admin (Read,Write,Execute)</option>
-                <option value="Super Admin">Super Admin (Full Access)</option>
+                <option value="Super Admin">Super Admin</option>
+                <option value="Admin">Admin</option>
+                <option value="Operator">Operator</option>
+                <option value="Reporter">Reporter</option>
               </select>
             </div>
             <DialogFooter>
@@ -412,7 +428,6 @@ export const UserProfile = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Edit User Dialog */}
       <Dialog open={openEditUser} onOpenChange={setOpenEditUser}>
         <DialogContent className="sm:max-w-[400px] max-h-[70vh] text-sm">
           <DialogHeader>
@@ -432,23 +447,21 @@ export const UserProfile = () => {
               <select id="editDepartment" className="w-full p-2 border rounded" value={department} onChange={(e) => setDepartment(e.target.value)}>
                 <option value="">Select Department</option>
                 <option value="Administrators">Administrators</option>
-                <option value="Consultant">Consultant</option>
-                <option value="Customer Support Team">Customer Support Team</option>
-                <option value="DevOps Team">DevOps Team</option>
-                <option value="DevOps-Production">DevOps-Production</option>
-                <option value="Dropped">Dropped</option>
-                <option value="FT QA Team">FT QA Team</option>
-                <option value="IT Team-East">IT Team-East</option>
+                <option value="Customer Support">Customer Support</option>
+                <option value="Technology Team">Technology Team</option>
+                <option value="Production Team">Production Team</option>
+                <option value="QA Team">QA Team</option>
+                <option value="DevOps">DevOps</option>
               </select>
             </div>
             <div>
               <Label htmlFor="editRole">Select role *</Label>
               <select id="editRole" className="w-full p-2 border rounded" value={role} onChange={(e) => setRole(e.target.value)}>
                 <option value="">Select Role</option>
-                <option value="Reporter">Reporter (Read)</option>
-                <option value="Operator">Operator (Read,Write)</option>
-                <option value="Admin">Admin (Read,Write,Execute)</option>
-                <option value="Super Admin">Super Admin (Full Access)</option>
+                <option value="Super Admin">Super Admin</option>
+                <option value="Admin">Admin</option>
+                <option value="Operator">Operator</option>
+                <option value="Reporter">Reporter</option>
               </select>
             </div>
             <div>

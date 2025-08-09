@@ -45,8 +45,8 @@ export const Dashboard = () => {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [currentUser, setCurrentUser] = useState<string>("unknown_user");
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
-  // Fetch current user from Supabase auth and check authorization
   useEffect(() => {
     const fetchUserAndAuthorize = async () => {
       try {
@@ -55,22 +55,26 @@ export const Dashboard = () => {
           setCurrentUser(user.email);
           const { data, error } = await supabase
             .from('users')
-            .select('email')
+            .select('email, role')
             .eq('email', user.email)
             .single();
           if (data && !error) {
             setIsAuthorized(true);
+            setUserRole(data.role);
           } else {
             setIsAuthorized(false);
+            setUserRole(null);
           }
         } else {
-          toast.error("Failed to fetch user data. Using fallback user ID.");
+          toast.error("Failed to fetch user data. Access denied.");
           setIsAuthorized(false);
+          setUserRole(null);
         }
       } catch (error) {
         toast.error("Error fetching user data. Access denied.");
         console.error("Supabase auth error:", error);
         setIsAuthorized(false);
+        setUserRole(null);
       }
     };
     fetchUserAndAuthorize();
@@ -145,6 +149,7 @@ export const Dashboard = () => {
   };
 
   const handleAddAsset = async (newAsset: any) => {
+    if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') return;
     try {
       const asset = {
         asset_id: newAsset.assetId,
@@ -173,6 +178,7 @@ export const Dashboard = () => {
   };
 
   const handleAssignAsset = async (assetId: string, userName: string, employeeId: string) => {
+    if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') return;
     try {
       const asset = assets.find((a) => a.id === assetId);
       await updateAssetMutation.mutateAsync({
@@ -194,6 +200,7 @@ export const Dashboard = () => {
   };
 
   const handleUnassignAsset = async (assetId: string) => {
+    if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') return;
     try {
       const asset = assets.find((a) => a.id === assetId);
       await updateAssetMutation.mutateAsync({
@@ -215,6 +222,7 @@ export const Dashboard = () => {
   };
 
   const handleUpdateAsset = async (assetId: string, updatedAsset: any) => {
+    if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') return;
     try {
       const asset = assets.find((a) => a.id === assetId);
       await updateAssetMutation.mutateAsync({
@@ -253,6 +261,7 @@ export const Dashboard = () => {
   };
 
   const handleUpdateStatus = async (assetId: string, status: string) => {
+    if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') return;
     try {
       const asset = assets.find((a) => a.id === assetId);
       await updateAssetMutation.mutateAsync({ 
@@ -269,6 +278,7 @@ export const Dashboard = () => {
   };
 
   const handleUpdateLocation = async (assetId: string, location: string) => {
+    if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') return;
     try {
       const asset = assets.find((a) => a.id === assetId);
       await updateAssetMutation.mutateAsync({ 
@@ -285,6 +295,7 @@ export const Dashboard = () => {
   };
 
   const handleDeleteAsset = async (assetId: string) => {
+    if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') return;
     try {
       await deleteAssetMutation.mutateAsync(assetId);
       await logEditHistory(assetId, "deleted", null, "Asset Deleted");
@@ -295,6 +306,7 @@ export const Dashboard = () => {
   };
 
   const handleBulkUpload = (file: File) => {
+    if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') return;
     console.log("Processing file:", file.name);
   };
 
@@ -377,21 +389,25 @@ export const Dashboard = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                onClick={() => setShowBulkUpload(true)}
-                variant="outline"
-                className="hover:bg-primary hover:text-primary-foreground transition-smooth text-sm h-8"
-              >
-                <Upload className="w-3 h-3 mr-1" />
-                Bulk Operations
-              </Button>
-              <Button
-                onClick={() => setShowAddForm(true)}
-                className="bg-gradient-primary hover:shadow-glow transition-smooth text-sm h-8"
-              >
-                <Plus className="w-3 h-3 mr-1" />
-                Add Asset
-              </Button>
+              {(userRole === 'Super Admin' || userRole === 'Admin' || userRole === 'Operator') && (
+                <>
+                  <Button
+                    onClick={() => setShowBulkUpload(true)}
+                    variant="outline"
+                    className="hover:bg-primary hover:text-primary-foreground transition-smooth text-sm h-8"
+                  >
+                    <Upload className="w-3 h-3 mr-1" />
+                    Bulk Operations
+                  </Button>
+                  <Button
+                    onClick={() => setShowAddForm(true)}
+                    className="bg-gradient-primary hover:shadow-glow transition-smooth text-sm h-8"
+                  >
+                    <Plus className="w-3 h-3 mr-1" />
+                    Add Asset
+                  </Button>
+                </>
+              )}
               <UserProfile />
             </div>
           </div>
@@ -651,7 +667,9 @@ export const Dashboard = () => {
         </div>
       </footer>
 
-      {showAddForm && <AssetForm onSubmit={handleAddAsset} onCancel={() => setShowAddForm(false)} />}
+      {showAddForm && (userRole === 'Super Admin' || userRole === 'Admin' || userRole === 'Operator') && (
+        <AssetForm onSubmit={handleAddAsset} onCancel={() => setShowAddForm(false)} />
+      )}
       <BulkUpload
         open={showBulkUpload}
         onOpenChange={setShowBulkUpload}
