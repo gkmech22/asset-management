@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { LogOut, User, Settings, Edit, Trash } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Search } from 'lucide-react';
 
@@ -33,6 +33,7 @@ export const UserProfile = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState<any[]>([]);
   const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [isAuthorized, setIsAuthorized] = useState(false);
 
   useEffect(() => {
     setFullName(user?.user_metadata?.full_name || '');
@@ -40,8 +41,24 @@ export const UserProfile = () => {
     setDepartment(user?.user_metadata?.department || '');
     setRole(user?.user_metadata?.role || '');
     setAccountType('');
+    checkAuthorization();
     fetchUsers();
   }, [user]);
+
+  const checkAuthorization = async () => {
+    if (user?.email) {
+      const { data, error } = await supabase
+        .from('users')
+        .select('email')
+        .eq('email', user.email)
+        .single();
+      if (data && !error) {
+        setIsAuthorized(true);
+      } else {
+        setIsAuthorized(false);
+      }
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -100,7 +117,7 @@ export const UserProfile = () => {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
-        password: 'defaultPassword123', // Replace with secure password or user input
+        password: 'defaultPassword123',
         options: {
           data: {
             department,
@@ -119,7 +136,7 @@ export const UserProfile = () => {
           account_type: accountType || 'Standard',
         });
         if (insertError) throw insertError;
-        await fetchUsers(); // Ensure data is refreshed
+        await fetchUsers();
         alert('User created successfully! Please ask the new user to check their email and log in.');
       }
     } catch (error) {
@@ -199,6 +216,7 @@ export const UserProfile = () => {
     : user.email?.[0]?.toUpperCase() || 'U';
 
   if (!user) return <div>Please log in to access this page.</div>;
+  if (!isAuthorized) return <div>Access denied. You are not an authorized user.</div>;
 
   return (
     <>

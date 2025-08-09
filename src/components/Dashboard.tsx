@@ -44,23 +44,36 @@ export const Dashboard = () => {
   const [locationFilter, setLocationFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [currentUser, setCurrentUser] = useState<string>("unknown_user");
+  const [isAuthorized, setIsAuthorized] = useState(false);
 
-  // Fetch current user from Supabase auth
+  // Fetch current user from Supabase auth and check authorization
   useEffect(() => {
-    const fetchUser = async () => {
+    const fetchUserAndAuthorize = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user?.email) {
           setCurrentUser(user.email);
+          const { data, error } = await supabase
+            .from('users')
+            .select('email')
+            .eq('email', user.email)
+            .single();
+          if (data && !error) {
+            setIsAuthorized(true);
+          } else {
+            setIsAuthorized(false);
+          }
         } else {
           toast.error("Failed to fetch user data. Using fallback user ID.");
+          setIsAuthorized(false);
         }
       } catch (error) {
-        toast.error("Error fetching user data. Using fallback user ID.");
+        toast.error("Error fetching user data. Access denied.");
         console.error("Supabase auth error:", error);
+        setIsAuthorized(false);
       }
     };
-    fetchUser();
+    fetchUserAndAuthorize();
   }, []);
 
   const logEditHistory = async (assetId: string, field: string, oldValue: string | null, newValue: string | null) => {
@@ -215,7 +228,6 @@ export const Dashboard = () => {
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
       });
-      // Log changes for each field
       if (asset?.asset_id !== updatedAsset.assetId) {
         await logEditHistory(assetId, "asset_id", asset?.asset_id || null, updatedAsset.assetId);
       }
@@ -345,6 +357,8 @@ export const Dashboard = () => {
     setDateRange(undefined);
     setSearchQuery("");
   };
+
+  if (!isAuthorized) return <div>Access denied. You are not an authorized user.</div>;
 
   return (
     <div className="flex flex-col min-h-screen">
