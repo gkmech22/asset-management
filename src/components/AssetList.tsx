@@ -6,12 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { UserPlus, UserMinus, Search, Calendar, MoreVertical, ChevronUp, ChevronDown } from "lucide-react";
-import { DateRange } from "react-day-picker";
+import { UserPlus, UserMinus, Search, Calendar, MoreVertical } from "lucide-react";
 import { EditAssetDialog } from "./EditAssetDialog";
 import { AssetDetailsDialog } from "./AssetDetailsDialog";
 import { Asset } from "@/hooks/useAssets";
 import { useAssetHistory } from "@/hooks/useAssetHistory";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,13 +21,13 @@ import {
 
 interface AssetListProps {
   assets: Asset[];
-  onAssign: (assetId: string, userName: string, employeeId: string) => void;
-  onUnassign: (assetId: string) => void;
-  onUpdateAsset: (assetId: string, updatedAsset: any) => void;
-  onUpdateStatus: (assetId: string, status: string) => void;
-  onUpdateLocation: (assetId: string, location: string) => void;
-  onDelete: (assetId: string) => void;
-  dateRange?: DateRange;
+  onAssign: (assetId: string, userName: string, employeeId: string) => Promise<void>;
+  onUnassign: (assetId: string, remarks?: string, receivedBy?: string) => Promise<void>;
+  onUpdateAsset: (assetId: string, updatedAsset: any) => Promise<void>;
+  onUpdateStatus: (assetId: string, status: string) => Promise<void>;
+  onUpdateLocation: (assetId: string, location: string) => Promise<void>;
+  onDelete: (assetId: string) => Promise<void>;
+  dateRange?: { from?: Date; to?: Date };
   typeFilter?: string;
   brandFilter?: string;
   configFilter?: string;
@@ -35,7 +35,7 @@ interface AssetListProps {
 }
 
 export const AssetList = ({
-  assets,
+  assets = [],
   onAssign,
   onUnassign,
   onUpdateAsset,
@@ -46,8 +46,9 @@ export const AssetList = ({
   typeFilter = "all",
   brandFilter = "all",
   configFilter = "all",
-  defaultRowsPerPage = 10,
+  defaultRowsPerPage = 100,
 }: AssetListProps) => {
+  const { user } = useAuth() || { user: null };
   const [searchTerm, setSearchTerm] = React.useState("");
   const [selectedAsset, setSelectedAsset] = React.useState<Asset | null>(null);
   const [userName, setUserName] = React.useState("");
@@ -58,11 +59,14 @@ export const AssetList = ({
   const [showEditDialog, setShowEditDialog] = React.useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = React.useState(false);
   const [showHistoryDialog, setShowHistoryDialog] = React.useState(false);
+  const [showReturnDialog, setShowReturnDialog] = React.useState(false);
+  const [returnRemarks, setReturnRemarks] = React.useState("");
   const [newStatus, setNewStatus] = React.useState("");
   const [newLocation, setNewLocation] = React.useState("");
   const [currentPage, setCurrentPage] = React.useState(1);
   const [rowsPerPage, setRowsPerPage] = React.useState(defaultRowsPerPage);
-  const [scrollPosition, setScrollPosition] = React.useState(0);
+  const [error, setError] = React.useState<string | null>(null);
+  const [showAssignedTo, setShowAssignedTo] = React.useState<string | null>(null);
 
   const { data: history = [], isLoading: historyLoading } = useAssetHistory(selectedAsset?.id);
 
@@ -81,17 +85,46 @@ export const AssetList = ({
     "Jaipur WH",
   ];
 
-  const filteredAssets = assets
-    .filter((asset) => {
+  const receivedBy = React.useMemo(() => {
+    try {
+      if (user?.displayName) return user.displayName;
+      if (user?.email) {
+        const prefix = user.email.split('@')[0];
+        const parts = prefix.split(/[_.\-]/).filter(Boolean);
+        return parts
+          .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+          .join(' ');
+      }
+      return "Unknown User";
+    } catch (err) {
+      console.error("Error parsing user data:", err);
+      return "Unknown User";
+    }
+  }, [user]);
+
+  React.useEffect(() => {
+    console.log("AssetList props:", { assets: assets.length, user, receivedBy });
+  }, [assets, user, receivedBy]);
+
+  React.useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
+  const filteredAssets = React.useMemo(() => {
+    const result = assets.filter((asset) => {
       const matchesSearch =
-        asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        asset.asset_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        asset.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        asset.serial_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        asset.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        asset.asset_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        asset.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        asset.serial_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (asset.assigned_to && asset.assigned_to.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (asset.employee_id && asset.employee_id.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        asset.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        asset.location.toLowerCase().includes(searchTerm.toLowerCase());
+        asset.status?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        asset.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (asset.received_by && asset.received_by.toLowerCase().includes(searchTerm.toLowerCase()));
 
       const matchesDateRange =
         !dateRange?.from ||
@@ -105,8 +138,7 @@ export const AssetList = ({
       const matchesConfig = configFilter === "all" || asset.configuration === configFilter;
 
       return matchesSearch && matchesDateRange && matchesType && matchesBrand && matchesConfig;
-    })
-    .sort((a, b) => {
+    }).sort((a, b) => {
       if (a.status === "Available" && b.status !== "Available") return -1;
       if (a.status !== "Available" && b.status === "Available") return 1;
       const dateA = a.assigned_date ? new Date(a.assigned_date).getTime() : 0;
@@ -114,37 +146,74 @@ export const AssetList = ({
       return dateB - dateA;
     });
 
+    console.log("Filtered assets:", result.length);
+    return result;
+  }, [assets, searchTerm, dateRange, typeFilter, brandFilter, configFilter]);
+
   const totalPages = Math.ceil(filteredAssets.length / rowsPerPage);
   const paginatedAssets = filteredAssets.slice(
     (currentPage - 1) * rowsPerPage,
     currentPage * rowsPerPage
   );
 
-  const handleAssignAsset = () => {
+  const handleAssignAsset = async () => {
     if (selectedAsset && userName.trim() && employeeId.trim()) {
-      onAssign(selectedAsset.id, userName.trim(), employeeId.trim());
-      setShowAssignDialog(false);
-      setUserName("");
-      setEmployeeId("");
-      setSelectedAsset(null);
+      try {
+        await onAssign(selectedAsset.id, userName.trim(), employeeId.trim());
+        setShowAssignDialog(false);
+        setUserName("");
+        setEmployeeId("");
+        setSelectedAsset(null);
+        setError(null);
+      } catch (error) {
+        console.error("Assign failed:", error);
+        setError("Failed to assign asset. Please try again.");
+      }
     }
   };
 
-  const handleUpdateStatus = () => {
+  const handleUpdateStatus = async () => {
     if (selectedAsset && newStatus) {
-      onUpdateStatus(selectedAsset.id, newStatus);
-      setShowStatusDialog(false);
-      setNewStatus("");
-      setSelectedAsset(null);
+      try {
+        await onUpdateStatus(selectedAsset.id, newStatus);
+        setShowStatusDialog(false);
+        setNewStatus("");
+        setSelectedAsset(null);
+        setError(null);
+      } catch (error) {
+        console.error("Update status failed:", error);
+        setError("Failed to update status. Please try again.");
+      }
     }
   };
 
-  const handleUpdateLocation = () => {
+  const handleUpdateLocation = async () => {
     if (selectedAsset && newLocation) {
-      onUpdateLocation(selectedAsset.id, newLocation);
-      setShowLocationDialog(false);
-      setNewLocation("");
-      setSelectedAsset(null);
+      try {
+        await onUpdateLocation(selectedAsset.id, newLocation);
+        setShowLocationDialog(false);
+        setNewLocation("");
+        setSelectedAsset(null);
+        setError(null);
+      } catch (error) {
+        console.error("Update location failed:", error);
+        setError("Failed to update location. Please try again.");
+      }
+    }
+  };
+
+  const handleReturnAsset = async () => {
+    if (selectedAsset) {
+      try {
+        await onUnassign(selectedAsset.id, returnRemarks, receivedBy);
+        setShowReturnDialog(false);
+        setReturnRemarks("");
+        setSelectedAsset(null);
+        setError(null);
+      } catch (error) {
+        console.error("Return failed:", error);
+        setError("Failed to return asset. Please try again.");
+      }
     }
   };
 
@@ -167,13 +236,14 @@ export const AssetList = ({
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "No date";
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
+    return new Date(dateString).toLocaleString("en-US", {
       month: "short",
       day: "numeric",
+      year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-    });
+      hour12: true,
+    }).replace(/(\d+)(st|nd|rd|th)/, "$1").replace(',', '');
   };
 
   const getPageNumbers = () => {
@@ -197,20 +267,30 @@ export const AssetList = ({
 
   const historyTableRef = React.useRef<HTMLDivElement>(null);
 
-  const handleScrollUp = () => {
-    if (historyTableRef.current) {
-      historyTableRef.current.scrollTop = Math.max(0, historyTableRef.current.scrollTop - 100);
-    }
-  };
-
-  const handleScrollDown = () => {
-    if (historyTableRef.current) {
-      historyTableRef.current.scrollTop = Math.min(
-        historyTableRef.current.scrollHeight,
-        historyTableRef.current.scrollTop + 100
-      );
-    }
-  };
+  if (!assets || assets.length === 0) {
+    console.log("No assets provided to AssetList");
+    return (
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle className="text-xl flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-primary" />
+            Asset Inventory (0 items)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-12">
+            <Calendar className="h-16 w-16 text-muted-foreground/50 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-muted-foreground mb-2">
+              No Assets Available
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              No assets are currently available in the system. Please add assets or check your filters.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="shadow-card">
@@ -234,7 +314,12 @@ export const AssetList = ({
         </div>
       </CardHeader>
       <CardContent>
-        {filteredAssets.length === 0 ? (
+        {error ? (
+          <div className="text-center py-12 text-destructive">
+            <h3 className="text-lg font-semibold mb-2">Error</h3>
+            <p className="text-sm">{error}</p>
+          </div>
+        ) : filteredAssets.length === 0 ? (
           <div className="text-center py-12">
             <Calendar className="h-16 w-16 text-muted-foreground/50 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-muted-foreground mb-2">
@@ -247,170 +332,195 @@ export const AssetList = ({
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full table-fixed border-collapse">
-                <thead>
-                  <tr className="bg-muted text-xs text-muted-foreground">
-                    <th className="p-2 w-1/12 text-left">Asset ID</th>
-                    <th className="p-2 w-2/12 text-left">Asset Details</th>
-                    <th className="p-2 w-2/12 text-left">Specifications</th>
-                    <th className="p-2 w-[12.5%] text-left">Serial Number</th>
-                    <th className="p-2 w-1/12 text-left">Employee ID</th>
-                    <th className="p-2 w-[12.5%] text-left">Assigned To</th>
-                    <th className="p-2 w-1/12 text-left">Status</th>
-                    <th className="p-2 w-1/12 text-left">Date</th>
-                    <th className="p-2 w-2/12 text-left">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedAssets.map((asset) => (
-                    <tr key={asset.id} className="border-b hover:bg-muted/50">
-                      <td className="p-2 text-xs">
-                        <div className="text-left">
-                          <button
-                            onClick={() => {
-                              setSelectedAsset(asset);
-                              setShowDetailsDialog(true);
-                            }}
-                            className="bg-primary/10 text-primary px-1 py-0.5 rounded text-xs font-medium hover:bg-primary/20"
-                          >
-                            {asset.asset_id}
-                          </button>
-                        </div>
-                      </td>
-                      <td className="p-2 text-xs">
-                        <div className="text-left">
-                          <div className="font-medium text-sm">{asset.name}</div>
-                          <div className="text-muted-foreground">{asset.type}</div>
-                        </div>
-                      </td>
-                      <td className="p-2 text-xs">
-                        <div className="text-left">
-                          <div className="font-medium">{asset.brand}</div>
-                          <div className="text-muted-foreground">{asset.configuration || "-"}</div>
-                        </div>
-                      </td>
-                      <td className="p-2 text-xs">
-                        <div className="text-left">
-                          <code className="bg-muted px-1 py-0.5 rounded text-xs">
-                            {asset.serial_number}
-                          </code>
-                        </div>
-                      </td>
-                      <td className="p-2 text-xs">
-                        <div className="text-left">
-                          {asset.employee_id ? (
-                            <code className="bg-blue-50 text-blue-700 px-1 py-0.5 rounded text-xs">
-                              {asset.employee_id}
-                            </code>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-2 text-xs">
-                        <div className="text-left">
-                          {asset.assigned_to ? (
-                            <div className="font-medium text-xs">{asset.assigned_to}</div>
-                          ) : (
-                            <span className="text-muted-foreground">Unassigned</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-2 text-xs">
-                        <div className="text-left">{getStatusBadge(asset.status)}</div>
-                      </td>
-                      <td className="p-2 text-xs">
-                        <div className="text-left">{formatDate(asset.assigned_date)}</div>
-                      </td>
-                      <td className="p-2 text-xs flex justify-between">
-                        <div className="flex gap-1">
-                          {asset.status === "Available" ? (
-                            <Button
-                              size="sm"
-                              onClick={() => {
-                                setSelectedAsset(asset);
-                                setShowAssignDialog(true);
-                              }}
-                              className="bg-gradient-primary hover:shadow-glow transition-smooth text-xs h-6"
-                            >
-                              <UserPlus className="h-2 w-2 mr-1" />
-                              Assign
-                            </Button>
-                          ) : asset.status === "Assigned" ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => onUnassign(asset.id)}
-                              className="hover:bg-warning hover:text-warning-foreground text-xs h-6"
-                            >
-                              <UserMinus className="h-2 w-2 mr-1" />
-                              Return
-                            </Button>
-                          ) : null}
-                        </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="hover:bg-primary hover:text-primary-foreground text-xs h-6"
-                            >
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setSelectedAsset(asset);
-                                setShowEditDialog(true);
-                              }}
-                            >
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setSelectedAsset(asset);
-                                setNewStatus(asset.status);
-                                setShowStatusDialog(true);
-                              }}
-                            >
-                              Status
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setSelectedAsset(asset);
-                                setNewLocation(asset.location);
-                                setShowLocationDialog(true);
-                              }}
-                            >
-                              Location
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setSelectedAsset(asset);
-                                setShowHistoryDialog(true);
-                              }}
-                            >
-                              History
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                if (confirm("Are you sure you want to delete this asset?")) {
-                                  onDelete(asset.id);
-                                }
-                              }}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+  <table className="w-full table-fixed border-collapse">
+    <thead>
+      <tr className="bg-muted text-xs text-muted-foreground">
+        <th className="p-2 w-[5%] text-left">S.No.</th>
+        <th className="p-2 w-[8%] text-left">Asset ID</th>
+        <th className="p-2 w-[12%] text-left">Asset Details</th>
+        <th className="p-2 w-[14%] text-left">Specifications</th>
+        <th className="p-2 w-[15%] text-left">Serial Number</th>
+        <th className="p-2 w-[8%] text-left">Employee ID</th>
+        <th className="p-2 w-[12%] text-left">Received By</th>
+        <th className="p-2 w-[8%] text-left">Date</th>
+        <th className="p-2 w-[8%] text-left">Status</th>
+        <th className="p-2 w-[10%] text-left">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {paginatedAssets.map((asset, index) => (
+        <tr key={asset.id} className="border-b hover:bg-muted/50">
+          <td className="p-2 text-xs">
+            <div className="text-left">{(currentPage - 1) * rowsPerPage + index + 1}</div>
+          </td>
+          <td className="p-2 text-xs">
+            <div className="text-left">
+              <button
+                onClick={() => {
+                  setSelectedAsset(asset);
+                  setShowDetailsDialog(true);
+                }}
+                className="bg-primary/10 text-primary px-1 py-0.5 rounded text-xs font-medium hover:bg-primary/20"
+              >
+                {asset.asset_id}
+              </button>
             </div>
+          </td>
+          <td className="p-2 text-xs">
+            <div className="text-left">
+              <div className="font-medium text-sm">{asset.name}</div>
+              <div className="text-muted-foreground">{asset.type}</div>
+            </div>
+          </td>
+          <td className="p-2 text-xs">
+            <div className="text-left">
+              <div className="font-medium">{asset.brand}</div>
+              <div className="text-muted-foreground">{asset.configuration || "-"}</div>
+            </div>
+          </td>
+          <td className="p-2 text-xs">
+            <div className="text-left">
+              <code className="bg-muted px-1 py-0.5 rounded text-xs">
+                {asset.serial_number}
+              </code>
+            </div>
+          </td>
+          <td className="p-2 text-xs">
+            <div className="text-left">
+              {asset.employee_id ? (
+                <button
+                  onClick={() => setShowAssignedTo(showAssignedTo === asset.id ? null : asset.id)}
+                  className="bg-blue-50 text-blue-700 px-1 py-0.5 rounded text-xs hover:bg-blue-100"
+                >
+                  {asset.employee_id}
+                </button>
+              ) : (
+                <span className="text-muted-foreground">-</span>
+              )}
+              {showAssignedTo === asset.id && asset.assigned_to && (
+                <div className="text-xs font-medium mt-1">{asset.assigned_to}</div>
+              )}
+            </div>
+          </td>
+          <td className="p-2 text-xs">
+            <div className="text-left">
+              {asset.received_by ? (
+                <div className="font-medium text-xs">{asset.received_by}</div>
+              ) : (
+                <span className="text-muted-foreground">-</span>
+              )}
+            </div>
+          </td>
+          <td className="p-2 text-xs">
+            <div className="text-left">
+              {asset.status === "Available" && asset.return_date
+                ? formatDate(asset.return_date)
+                : asset.assigned_date
+                ? formatDate(asset.assigned_date)
+                : "No date"}
+            </div>
+          </td>
+          <td className="p-2 text-xs">
+            <div className="text-left">{getStatusBadge(asset.status)}</div>
+          </td>
+          <td className="p-2 text-xs flex justify-between">
+            <div className="flex gap-1">
+              {asset.status === "Available" ? (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setSelectedAsset(asset);
+                    setShowAssignDialog(true);
+                  }}
+                  className="bg-gradient-primary hover:shadow-glow transition-smooth text-xs h-6"
+                >
+                  <UserPlus className="h-2 w-2 mr-1" />
+                  Assign
+                </Button>
+              ) : asset.status === "Assigned" ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setSelectedAsset(asset);
+                    setShowReturnDialog(true);
+                  }}
+                  className="hover:bg-warning hover:text-warning-foreground text-xs h-6"
+                >
+                  <UserMinus className="h-2 w-2 mr-1" />
+                  Return
+                </Button>
+              ) : null}
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="hover:bg-primary hover:text-primary-foreground text-xs h-6"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSelectedAsset(asset);
+                    setShowEditDialog(true);
+                  }}
+                >
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSelectedAsset(asset);
+                    setNewStatus(asset.status);
+                    setShowStatusDialog(true);
+                  }}
+                >
+                  Status
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSelectedAsset(asset);
+                    setNewLocation(asset.location);
+                    setShowLocationDialog(true);
+                  }}
+                >
+                  Location
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSelectedAsset(asset);
+                    setShowHistoryDialog(true);
+                  }}
+                >
+                  History
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={async () => {
+                    if (confirm("Are you sure you want to delete this asset?")) {
+                      try {
+                        await onDelete(asset.id);
+                        setError(null);
+                      } catch (error) {
+                        console.error("Delete failed:", error);
+                        setError("Failed to delete asset. Please try again.");
+                      }
+                    }
+                  }}
+                  className="text-destructive focus:text-destructive"
+                >
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
             <div className="flex justify-between items-center mt-4">
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <div>
@@ -642,6 +752,56 @@ export const AssetList = ({
         </DialogContent>
       </Dialog>
 
+      <Dialog open={showReturnDialog} onOpenChange={setShowReturnDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Return Asset</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Asset: {selectedAsset?.name}</Label>
+              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id}</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="returnRemarks">Remarks</Label>
+              <Input
+                id="returnRemarks"
+                value={returnRemarks}
+                onChange={(e) => setReturnRemarks(e.target.value)}
+                placeholder="Enter remarks (optional)"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Received By</Label>
+              <Input
+                value={receivedBy}
+                disabled
+                className="text-muted-foreground"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowReturnDialog(false);
+                  setReturnRemarks("");
+                  setSelectedAsset(null);
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleReturnAsset}
+                className="flex-1 bg-gradient-primary hover:shadow-glow transition-smooth"
+              >
+                Return
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <EditAssetDialog
         asset={selectedAsset}
         open={showEditDialog}
@@ -657,10 +817,10 @@ export const AssetList = ({
 
       <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
         <DialogContent className="max-w-2xl h-[80vh]">
-          <DialogHeader className="pb-0"> {/* Removed padding to reduce gap */}
+          <DialogHeader className="pb-0">
             <DialogTitle className="mt-0">Edit History for {selectedAsset?.name}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-1 pt-0"> {/* Removed top padding */}
+          <div className="space-y-1 pt-0">
             <div>
               <Label className="mt-0">Asset: {selectedAsset?.name}</Label>
               <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id}</p>
@@ -703,37 +863,8 @@ export const AssetList = ({
                     </tbody>
                   </table>
                 </div>
-                <div className="flex justify-between mt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleScrollUp}
-                    className="h-6 w-6 p-0"
-                  >
-                    <ChevronUp className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleScrollDown}
-                    className="h-6 w-6 p-0"
-                  >
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </div>
               </div>
             )}
-            <div className="flex justify-end mt-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowHistoryDialog(false);
-                  setSelectedAsset(null);
-                }}
-              >
-                Close
-              </Button>
-            </div>
           </div>
         </DialogContent>
       </Dialog>

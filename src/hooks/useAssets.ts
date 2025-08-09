@@ -18,6 +18,9 @@ export interface Asset {
   created_at: string;
   updated_by: string;
   updated_at: string;
+  received_by: string | null;
+  return_date: string | null;
+  remarks: string | null;
 }
 
 export const useAssets = () => {
@@ -76,6 +79,40 @@ export const useUpdateAsset = () => {
       if (error) {
         console.error('Supabase update error:', error.message);
         throw new Error(`Failed to update asset: ${error.message}`);
+      }
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
+    },
+  });
+};
+
+export const useUnassignAsset = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, remarks, receivedBy }: { id: string; remarks?: string; receivedBy?: string }) => {
+      const { data, error } = await supabase
+        .from('assets')
+        .update({
+          status: 'Available',
+          assigned_to: null,
+          employee_id: null,
+          assigned_date: null,
+          return_date: new Date().toISOString(),
+          received_by: receivedBy,
+          remarks: remarks || null,
+          updated_by: receivedBy || 'unknown_user',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Supabase unassign error:', error.message);
+        throw new Error(`Failed to unassign asset: ${error.message}`);
       }
       return data;
     },

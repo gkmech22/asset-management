@@ -10,7 +10,7 @@ import { AssetList } from "./AssetList";
 import { DatePickerWithRange } from "./DatePickerWithRange";
 import { BulkUpload } from "./BulkUpload";
 import { DateRange } from "react-day-picker";
-import { useAssets, useCreateAsset, useUpdateAsset, useDeleteAsset } from "@/hooks/useAssets";
+import { useAssets, useCreateAsset, useUpdateAsset, useUnassignAsset, useDeleteAsset } from "@/hooks/useAssets"; // Updated
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -36,6 +36,7 @@ export const Dashboard = () => {
   const { data: assets = [], isLoading, error } = useAssets();
   const createAssetMutation = useCreateAsset();
   const updateAssetMutation = useUpdateAsset();
+  const unassignAssetMutation = useUnassignAsset(); // Added
   const deleteAssetMutation = useDeleteAsset();
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -101,15 +102,6 @@ export const Dashboard = () => {
   const assetLocations = [...new Set(assets.map((asset) => asset.location))];
   const assetStatuses = [...new Set(assets.map((asset) => asset.status))];
 
-  const isFilterOrSearchActive =
-    searchQuery.trim() !== "" ||
-    typeFilter !== "all" ||
-    brandFilter !== "all" ||
-    configFilter !== "all" ||
-    locationFilter !== "all" ||
-    statusFilter !== "" ||
-    dateRange !== undefined;
-
   const filteredAssets = assets.filter((asset) => {
     const typeMatch = typeFilter === "all" || asset.type === typeFilter;
     const brandMatch = brandFilter === "all" || asset.brand === brandFilter;
@@ -131,6 +123,8 @@ export const Dashboard = () => {
         asset.location,
         asset.created_by || "",
         asset.updated_by || "",
+        asset.received_by || "", // Added
+        asset.remarks || "", // Added
       ].some((field) => field.toLowerCase().includes(searchQuery.toLowerCase()));
 
     return typeMatch && brandMatch && configMatch && locationMatch && statusMatch && searchMatch;
@@ -163,6 +157,9 @@ export const Dashboard = () => {
         assigned_to: null,
         employee_id: null,
         assigned_date: null,
+        received_by: null, // Added
+        return_date: null, // Added
+        remarks: null, // Added
         created_by: currentUser,
         created_at: new Date().toISOString(),
         updated_by: currentUser,
@@ -199,22 +196,23 @@ export const Dashboard = () => {
     }
   };
 
-  const handleUnassignAsset = async (assetId: string) => {
+  const handleUnassignAsset = async (assetId: string, remarks?: string, receivedBy?: string) => { // Updated
     if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') return;
     try {
       const asset = assets.find((a) => a.id === assetId);
-      await updateAssetMutation.mutateAsync({
+      await unassignAssetMutation.mutateAsync({
         id: assetId,
-        assigned_to: null,
-        employee_id: null,
-        status: "Available",
-        assigned_date: null,
-        updated_by: currentUser,
-        updated_at: new Date().toISOString(),
+        remarks,
+        receivedBy: receivedBy || currentUser,
       });
       await logEditHistory(assetId, "assigned_to", asset?.assigned_to || null, null);
       await logEditHistory(assetId, "employee_id", asset?.employee_id || null, null);
       await logEditHistory(assetId, "status", asset?.status || null, "Available");
+      await logEditHistory(assetId, "return_date", asset?.return_date || null, new Date().toISOString()); // Added
+      await logEditHistory(assetId, "received_by", asset?.received_by || null, receivedBy || currentUser); // Added
+      if (remarks) { // Added
+        await logEditHistory(assetId, "remarks", asset?.remarks || null, remarks);
+      }
       toast.success("Asset returned successfully");
     } catch (error) {
       toast.error("Failed to return asset");
@@ -323,6 +321,9 @@ export const Dashboard = () => {
       "Status",
       "Asset Location",
       "Assigned Date",
+      "Return Date", // Added
+      "Received By", // Added
+      "Remarks", // Added
       "Created By",
       "Created At",
       "Updated By",
@@ -343,6 +344,10 @@ export const Dashboard = () => {
           asset.assigned_to || "",
           asset.status,
           asset.location,
+          asset.assigned_date || "",
+          asset.return_date || "", // Added
+          asset.received_by || "", // Added
+          asset.remarks || "", // Added
           asset.created_by || "",
           asset.created_at || "",
           asset.updated_by || "",
@@ -371,6 +376,16 @@ export const Dashboard = () => {
   };
 
   if (!isAuthorized) return <div>Access denied. You are not an authorized user.</div>;
+
+  // Added
+  if (isLoading) {
+    return <div className="text-center py-12">Loading assets...</div>;
+  }
+
+  // Added
+  if (error) {
+    return <div className="text-center py-12 text-destructive">Error loading assets: {error.message}</div>;
+  }
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -641,22 +656,20 @@ export const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {isFilterOrSearchActive && (
-          <AssetList
-            assets={filteredAssets}
-            onAssign={handleAssignAsset}
-            onUnassign={handleUnassignAsset}
-            onUpdateAsset={handleUpdateAsset}
-            onUpdateStatus={handleUpdateStatus}
-            onUpdateLocation={handleUpdateLocation}
-            onDelete={handleDeleteAsset}
-            dateRange={dateRange}
-            typeFilter={typeFilter}
-            brandFilter={brandFilter}
-            configFilter={configFilter}
-            defaultRowsPerPage={100}
-          />
-        )}
+        <AssetList
+          assets={filteredAssets}
+          onAssign={handleAssignAsset}
+          onUnassign={handleUnassignAsset} // Updated
+          onUpdateAsset={handleUpdateAsset}
+          onUpdateStatus={handleUpdateStatus}
+          onUpdateLocation={handleUpdateLocation}
+          onDelete={handleDeleteAsset}
+          dateRange={dateRange}
+          typeFilter={typeFilter}
+          brandFilter={brandFilter}
+          configFilter={configFilter}
+          defaultRowsPerPage={100}
+        />
       </div>
 
       <footer className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t shadow-card py-2">
