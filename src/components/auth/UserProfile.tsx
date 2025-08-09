@@ -1,4 +1,3 @@
-// src/components/auth/UserProfile.tsx
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -280,9 +279,12 @@ export const UserProfile = () => {
       {/* User Management Dialog */}
       <Dialog open={openSettings} onOpenChange={setOpenSettings}>
         <DialogContent className="max-w-full w-auto overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>User Management</DialogTitle>
-            <DialogDescription>Manage user details.</DialogDescription>
+          <DialogHeader className="flex justify-between items-center">
+            <div>
+              <DialogTitle>User Management</DialogTitle>
+              <DialogDescription>Manage user details.</DialogDescription>
+            </div>
+            <Button onClick={() => setOpenCreateUser(true)} className="ml-auto">Add new users</Button>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="flex items-center gap-2">
@@ -327,14 +329,13 @@ export const UserProfile = () => {
                 </TableBody>
               </Table>
             </div>
-            <Button onClick={() => setOpenCreateUser(true)}>Add new users</Button>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Create User Dialog */}
       <Dialog open={openCreateUser} onOpenChange={setOpenCreateUser}>
-        <DialogContent className="max-w-full w-auto overflow-y-auto">
+        <DialogContent className="max-w-full w-auto overflow-y-auto text-sm">
           <DialogHeader>
             <DialogTitle>Create new users</DialogTitle>
           </DialogHeader>
@@ -395,7 +396,7 @@ export const UserProfile = () => {
 
       {/* Edit User Dialog */}
       <Dialog open={openEditUser} onOpenChange={setOpenEditUser}>
-        <DialogContent className="sm:max-w-[400px] max-h-[70vh]">
+        <DialogContent className="sm:max-w-[400px] max-h-[70vh] text-sm">
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
           </DialogHeader>
