@@ -399,7 +399,6 @@ export const Dashboard = () => {
                   Asset Management System
                 </h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Track and manage organization's assets efficiently
                 </p>
               </div>
             </div>
