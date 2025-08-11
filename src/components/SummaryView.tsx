@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Asset } from "@/hooks/useAssets";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 interface SummaryViewProps {
   assets: Asset[];
@@ -26,11 +27,13 @@ const SummaryView = ({
   onUpdateAssetCheck,
   onDelete,
   userRole,
-}: SummaryViewProps) => {
+}: SummaryViewProps99) => {
   const [typeFilter, setTypeFilter] = React.useState("all");
   const [brandFilter, setBrandFilter] = React.useState("all");
   const [statusFilter, setStatusFilter] = React.useState("all");
   const [locationFilter, setLocationFilter] = React.useState("all");
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const rowsPerPage = 15;
 
   // Define all possible statuses
   const statuses = ["Available", "Assigned", "Scrap/Damage", "Sold", "Others"];
@@ -95,11 +98,37 @@ const SummaryView = ({
   // Sort by assetType alphabetically
   const tableData = Object.values(summaryData).sort((a, b) => a.assetType.localeCompare(b.assetType));
 
+  // Pagination calculations
+  const totalPages = Math.ceil(tableData.length / rowsPerPage);
+  const paginatedData = tableData.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
+
+  const getPageNumbers = () => {
+    const pageNumbers = [];
+    const maxPagesToShow = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+    let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+
+    if (endPage - startPage + 1 < maxPagesToShow) {
+      startPage = Math.max(1, endPage - maxPagesToShow + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pageNumbers.push(i);
+    }
+
+    return { startPage, endPage, pageNumbers };
+  };
+
+  const { startPage, endPage, pageNumbers } = getPageNumbers();
+
   return (
     <Card className="shadow-card">
       <CardHeader>
         <CardTitle className="text-xl flex items-center gap-2">
-          Asset Summary
+          Asset Summary ({tableData.length} items)
         </CardTitle>
         <div className="flex flex-wrap gap-4 mt-4">
           <div className="flex items-center gap-2">
@@ -175,32 +204,97 @@ const SummaryView = ({
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto max-h-[60vh] overflow-y-auto" style={{ scrollBehavior: "smooth" }}>
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="text-xs text-white sticky top-0">
-                  <th className="p-2 text-left bg-blue-600">Asset Type</th>
-                  <th className="p-2 text-left bg-blue-600">Brand</th>
-                  <th className="p-2 text-left bg-green-600">Available</th>
-                  <th className="p-2 text-left bg-yellow-600">Assigned</th>
-                  <th className="p-2 text-left bg-red-600">Scrap/Damage</th>
-                  <th className="p-2 text-left bg-blue-800">Sold</th>
-                  <th className="p-2 text-left bg-gray-600">Others</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tableData.map((row, index) => (
-                  <tr key={`${row.assetType}-${row.brand}-${index}`} className="border-b hover:bg-muted/50">
-                    <td className="p-2 text-xs">{row.assetType}</td>
-                    <td className="p-2 text-xs">{row.brand}</td>
-                    {statuses.map(status => (
-                      <td key={status} className="p-2 text-xs">{row.counts[status]}</td>
-                    ))}
+          <>
+            <div className="overflow-x-auto max-h-[60vh] relative">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="text-xs text-white sticky top-0 z-10">
+                    <th className="p-2 text-left bg-blue-600">Asset Type</th>
+                    <th className="p-2 text-left bg-blue-600">Brand</th>
+                    <th className="p-2 text-left bg-green-600">Available</th>
+                    <th className="p-2 text-left bg-yellow-600">Assigned</th>
+                    <th className="p-2 text-left bg-red-600">Scrap/Damage</th>
+                    <th className="p-2 text-left bg-blue-800">Sold</th>
+                    <th className="p-2 text-left bg-gray-600">Others</th>
                   </tr>
+                </thead>
+                <tbody>
+                  {paginatedData.map((row, index) => (
+                    <tr key={`${row.assetType}-${row.brand}-${index}`} className="border-b hover:bg-muted/50">
+                      <td className="p-2 text-xs">{row.assetType}</td>
+                      <td className="p-2 text-xs">{row.brand}</td>
+                      {statuses.map(status => (
+                        <td key={status} className="p-2 text-xs">{row.counts[status]}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex flex-col sm:flex-row justify-between items-center mt-4 gap-4">
+              <div className="text-sm text-muted-foreground">
+                Showing {(currentPage - 1) * rowsPerPage + 1} to{" "}
+                {Math.min(currentPage * rowsPerPage, tableData.length)} of {tableData.length} rows
+              </div>
+              <div className="flex items-center gap-2 justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="h-8 w-8 p-0"
+                >
+                  &lt;
+                </Button>
+                {startPage > 1 && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(1)}
+                      className="h-8 w-8 p-0"
+                    >
+                      1
+                    </Button>
+                    {startPage > 2 && <span className="text-sm px-2">...</span>}
+                  </>
+                )}
+                {pageNumbers.map((page) => (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(page)}
+                    className={`h-8 w-8 p-0 ${currentPage === page ? "bg-primary text-primary-foreground" : ""}`}
+                  >
+                    {page}
+                  </Button>
                 ))}
-              </tbody>
-            </table>
-          </div>
+                {endPage < totalPages && (
+                  <>
+                    {endPage < totalPages - 1 && <span className="text-sm px-2">...</span>}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(totalPages)}
+                      className="h-8 w-8 p-0"
+                    >
+                      {totalPages}
+                    </Button>
+                  </>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="h-8 w-8 p-0"
+                >
+                  &gt;
+                </Button>
+              </div>
+            </div>
+          </>
         )}
       </CardContent>
     </Card>
