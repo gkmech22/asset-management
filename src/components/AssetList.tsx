@@ -23,7 +23,7 @@ import { EnhancedBarcodeScanner } from "./EnhancedBarcodeScanner";
 interface AssetListProps {
   assets: Asset[];
   onAssign: (assetId: string, userName: string, employeeId: string) => Promise<void>;
-  onUnassign: (assetId: string, remarks?: string, receivedBy?: string) => Promise<void>;
+  onUnassign: (assetId: string, remarks?: string, receivedBy?: string, location?: string) => Promise<void>;
   onUpdateAsset: (assetId: string, updatedAsset: any) => Promise<void>;
   onUpdateStatus: (assetId: string, status: string) => Promise<void>;
   onUpdateLocation: (assetId: string, location: string) => Promise<void>;
@@ -68,6 +68,7 @@ export const AssetList = ({
   const [showHistoryDialog, setShowHistoryDialog] = React.useState(false);
   const [showReturnDialog, setShowReturnDialog] = React.useState(false);
   const [returnRemarks, setReturnRemarks] = React.useState("");
+  const [returnLocation, setReturnLocation] = React.useState("");
   const [newStatus, setNewStatus] = React.useState("");
   const [newLocation, setNewLocation] = React.useState("");
   const [currentPage, setCurrentPage] = React.useState(1);
@@ -254,11 +255,12 @@ export const AssetList = ({
   };
 
   const handleReturnAsset = async () => {
-    if (selectedAsset) {
+    if (selectedAsset && returnLocation) {
       try {
-        await onUnassign(selectedAsset.id, returnRemarks, receivedBy);
+        await onUnassign(selectedAsset.id, returnRemarks, receivedBy, returnLocation);
         setShowReturnDialog(false);
         setReturnRemarks("");
+        setReturnLocation("");
         setSelectedAsset(null);
         setError(null);
       } catch (error) {
@@ -341,44 +343,40 @@ export const AssetList = ({
   const handleGenerateReport = () => {
     const headers = [
       "Asset ID",
-      "Asset Name",
       "Asset Type",
+      "Asset Name",
       "Brand",
       "Configuration",
       "Serial Number",
       "Status",
       "Asset Location",
-      "Remarks",
-      "Warranty Start",
-      "Warranty End",
       "Asset Check",
-      "Provider",
-      "Warranty Status",
     ];
+
+    // Helper function to escape CSV fields by wrapping in quotes if they contain commas
+    const escapeCsvField = (value: string | null | undefined): string => {
+      if (!value) return "";
+      return value.includes(",") ? `"${value.replace(/"/g, '""')}"` : value;
+    };
 
     const csvContent = [
       headers.join(","),
       ...filteredAssets.map((asset) =>
         [
-          asset.asset_id,
-          asset.name,
-          asset.type,
-          asset.brand,
-          asset.configuration || "",
-          asset.serial_number,
-          asset.status,
-          asset.location,
-          asset.remarks || "",
-          asset.warranty_start ? new Date(asset.warranty_start).toLocaleDateString("en-US") : "",
-          asset.warranty_end ? new Date(asset.warranty_end).toLocaleDateString("en-US") : "",
-          asset.asset_check || "",
-          asset.provider || "",
-          asset.warranty_status || "",
+          escapeCsvField(asset.asset_id),
+          escapeCsvField(asset.type),
+          escapeCsvField(asset.name),
+          escapeCsvField(asset.brand),
+          escapeCsvField(asset.configuration),
+          escapeCsvField(asset.serial_number),
+          escapeCsvField(asset.status),
+          escapeCsvField(asset.location),
+          escapeCsvField(asset.asset_check),
         ].join(",")
       ),
     ].join("\n");
 
-    const blob = new Blob([csvContent], { type: "text/csv" });
+    const blob = new Blob([csvContent], { type: "text/csv " });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -1183,13 +1181,19 @@ export const AssetList = ({
               <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id}</p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="returnRemarks">Remarks</Label>
-              <Input
-                id="returnRemarks"
-                value={returnRemarks}
-                onChange={(e) => setReturnRemarks(e.target.value)}
-                placeholder="Enter remarks (optional)"
-              />
+              <Label>Location *</Label>
+              <Select value={returnLocation} onValueChange={setReturnLocation}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select location" />
+                </SelectTrigger>
+                <SelectContent>
+                  {locations.map((location) => (
+                    <SelectItem key={location} value={location}>
+                      {location}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Received By</Label>
@@ -1199,12 +1203,22 @@ export const AssetList = ({
                 className="text-muted-foreground"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="returnRemarks">Remarks</Label>
+              <Input
+                id="returnRemarks"
+                value={returnRemarks}
+                onChange={(e) => setReturnRemarks(e.target.value)}
+                placeholder="Enter remarks (optional)"
+              />
+            </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 onClick={() => {
                   setShowReturnDialog(false);
                   setReturnRemarks("");
+                  setReturnLocation("");
                   setSelectedAsset(null);
                 }}
                 className="flex-1"
@@ -1213,6 +1227,7 @@ export const AssetList = ({
               </Button>
               <Button
                 onClick={handleReturnAsset}
+                disabled={!returnLocation}
                 className="flex-1 bg-gradient-primary hover:shadow-glow transition-smooth"
               >
                 Return
