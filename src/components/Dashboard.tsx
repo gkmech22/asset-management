@@ -14,7 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import DashboardView from "./DashboardView";
 import AuditView from "./AuditView";
 import AmcsView from "./AmcsView";
-import SitesView from "./SitesView";
+import SummaryView from "./SummaryView";
 
 const locations = [
   "Mumbai Office",
@@ -42,7 +42,7 @@ export const Dashboard = () => {
   const [currentUser, setCurrentUser] = useState<string>("unknown_user");
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState<'dashboard' | 'audit' | 'amcs' | 'sites'>('dashboard');
+  const [currentPage, setCurrentPage] = useState<'dashboard' | 'audit' | 'amcs' | 'summary'>('dashboard');
 
   useEffect(() => {
     const fetchUserAndAuthorize = async () => {
@@ -118,7 +118,7 @@ export const Dashboard = () => {
         warranty_end: null,
         amc_start: null,
         amc_end: null,
-        asset_check: "", // Initialize asset_check
+        asset_check: "",
       };
       const { data } = await createAssetMutation.mutateAsync(asset);
       await logEditHistory(data.id, "created", null, "Asset Created");
@@ -401,7 +401,7 @@ export const Dashboard = () => {
                   <DropdownMenuItem onSelect={() => setCurrentPage('dashboard')}>Dashboard</DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => setCurrentPage('audit')}>Audit</DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => setCurrentPage('amcs')}>AMCs</DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => setCurrentPage('sites')}>Sites</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setCurrentPage('summary')}>Summary</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
               <div className="flex items-center gap-4">
@@ -445,7 +445,7 @@ export const Dashboard = () => {
         {currentPage === 'dashboard' && <DashboardView {...commonProps} />}
         {currentPage === 'audit' && <AuditView {...commonProps} />}
         {currentPage === 'amcs' && <AmcsView {...commonProps} />}
-        {currentPage === 'sites' && <SitesView {...commonProps} />}
+        {currentPage === 'summary' && <SummaryView {...commonProps} />}
       </div>
 
       <footer className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t shadow-card py-2">

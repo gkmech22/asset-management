@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { UserPlus, UserMinus, Search, Calendar, MoreVertical } from "lucide-react";
+import { UserPlus, UserMinus, Search, Calendar, MoreVertical, ScanBarcode } from "lucide-react";
 import { EditAssetDialog } from "./EditAssetDialog";
 import { AssetDetailsDialog } from "./AssetDetailsDialog";
 import { Asset } from "@/hooks/useAssets";
@@ -18,6 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { EnhancedBarcodeScanner } from "./EnhancedBarcodeScanner";
 
 interface AssetListProps {
   assets: Asset[];
@@ -33,7 +34,7 @@ interface AssetListProps {
   brandFilter?: string;
   configFilter?: string;
   defaultRowsPerPage?: number;
-  viewType?: 'dashboard' | 'audit' | 'amcs' | 'sites';
+  viewType?: 'dashboard' | 'audit' | 'amcs' | 'summary';
 }
 
 export const AssetList = ({
@@ -74,7 +75,10 @@ export const AssetList = ({
   const [assetCheckId, setAssetCheckId] = React.useState("");
   const [checkedAssets, setCheckedAssets] = React.useState<Set<string>>(new Set());
   const [showConfirmDialog, setShowConfirmDialog] = React.useState(false);
+  const [showStatusCheckDialog, setShowStatusCheckDialog] = React.useState(false);
   const [filterCheckStatus, setFilterCheckStatus] = React.useState<string | null>(null);
+  const [showScanner, setShowScanner] = React.useState(false);
+  const [showAssetCheckScanner, setShowAssetCheckScanner] = React.useState(false);
 
   const { data: history = [], isLoading: historyLoading } = useAssetHistory(selectedAsset?.id);
 
@@ -324,9 +328,61 @@ export const AssetList = ({
   };
 
   const handleFilterCheckStatus = (status: string) => {
-    // Toggle filter: if clicking the same status, clear the filter
     setFilterCheckStatus(prev => prev === status ? null : status);
-    setCurrentPage(1); // Reset to first page when filtering
+    setCurrentPage(1);
+  };
+
+  const handleShowStatusCheck = () => {
+    setShowStatusCheckDialog(true);
+  };
+
+  const handleGenerateReport = () => {
+    const headers = [
+      "Asset ID",
+      "Asset Name",
+      "Asset Type",
+      "Brand",
+      "Configuration",
+      "Serial Number",
+      "Status",
+      "Asset Location",
+      "Remarks",
+      "Warranty Start",
+      "Warranty End",
+      "AMC Start",
+      "AMC End",
+      "Asset Check",
+    ];
+
+    const csvContent = [
+      headers.join(","),
+      ...filteredAssets.map((asset) =>
+        [
+          asset.asset_id,
+          asset.name,
+          asset.type,
+          asset.brand,
+          asset.configuration || "",
+          asset.serial_number,
+          asset.status,
+          asset.location,
+          asset.remarks || "",
+          asset.warranty_start || "",
+          asset.warranty_end || "",
+          asset.amc_start || "",
+          asset.amc_end || "",
+          asset.asset_check || "",
+        ].join(",")
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `audit_report_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
 
   const getStatusBadge = (status: string) => {
@@ -404,7 +460,7 @@ export const AssetList = ({
     );
   }
 
-  const isWarrantyView = viewType === 'amcs' || viewType === 'sites';
+  const isWarrantyView = viewType === 'amcs' || viewType === 'summary';
   const isAuditView = viewType === 'audit';
 
   return (
@@ -415,6 +471,23 @@ export const AssetList = ({
             <Calendar className="h-5 w-5 text-primary" />
             Asset Inventory ({filteredAssets.length} items)
           </CardTitle>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search assets..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 w-64 h-9 text-sm"
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              className="absolute right-1 top-1 h-8 w-8 p-0"
+              onClick={() => setShowScanner(true)}
+            >
+              <ScanBarcode className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         {isAuditView && (
           <div className="flex items-center justify-between mt-2">
@@ -447,6 +520,14 @@ export const AssetList = ({
                   }}
                   className="pl-10 w-64 h-9 text-sm"
                 />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="absolute right-1 top-1 h-8 w-8 p-0"
+                  onClick={() => setShowAssetCheckScanner(true)}
+                >
+                  <ScanBarcode className="h-4 w-4" />
+                </Button>
               </div>
               <Button
                 onClick={handleAssetCheck}
@@ -454,6 +535,14 @@ export const AssetList = ({
                 className="h-9 text-sm"
               >
                 Check
+              </Button>
+              <Button
+                onClick={handleShowStatusCheck}
+                size="sm"
+                variant="outline"
+                className="h-9 text-sm"
+              >
+                Status
               </Button>
               <Button
                 onClick={confirmClear}
@@ -490,17 +579,17 @@ export const AssetList = ({
                 <thead>
                   <tr className="bg-muted text-xs text-muted-foreground">
                     <th className="p-2 w-[5%] text-left">S.No.</th>
-                    <th className="p-2 w-[8%] text-left">Asset ID</th>
-                    <th className="p-2 w-[12%] text-left">Asset Details</th>
-                    <th className="p-2 w-[14%] text-left">Specifications</th>
-                    {isWarrantyView && <th className="p-2 w-[12%] text-left">Warranty</th>}
-                    {isWarrantyView && <th className="p-2 w-[12%] text-left">AMC</th>}
-                    <th className="p-2 w-[15%] text-left">Serial Number</th>
-                    <th className="p-2 w-[8%] text-left">Employee ID</th>
-                    <th className="p-2 w-[12%] text-left">Received By</th>
-                    <th className="p-2 w-[8%] text-left">Date</th>
-                    <th className="p-2 w-[8%] text-left">Status</th>
-                    {isAuditView && <th className="p-2 w-[10%] text-left">Asset Check</th>}
+                    <th className="p-2 w-[10%] text-left">Asset ID</th>
+                    <th className="p-2 w-[15%] text-left">Asset Details</th>
+                    <th className="p-2 w-[20%] text-left">Specifications</th>
+                    {isWarrantyView && <th className="p-2 w-[15%] text-left">Warranty</th>}
+                    {isWarrantyView && <th className="p-2 w-[15%] text-left">AMC</th>}
+                    <th className="p-2 w-[20%] text-left">Serial Number</th>
+                    {!isAuditView && <th className="p-2 w-[10%] text-left">Employee ID</th>}
+                    {!isAuditView && <th className="p-2 w-[15%] text-left">Received By</th>}
+                    {!isAuditView && <th className="p-2 w-[10%] text-left">Date</th>}
+                    <th className="p-2 w-[10%] text-left">Status</th>
+                    {isAuditView && <th className="p-2 w-[15%] text-left">Asset Check</th>}
                     {!isAuditView && <th className="p-2 w-[10%] text-left">Actions</th>}
                   </tr>
                 </thead>
@@ -558,41 +647,47 @@ export const AssetList = ({
                           </code>
                         </div>
                       </td>
-                      <td className="p-2 text-xs">
-                        <div className="text-left">
-                          {asset.employee_id ? (
-                            <button
-                              onClick={() => setShowAssignedTo(showAssignedTo === asset.id ? null : asset.id)}
-                              className="bg-blue-50 text-blue-700 px-1 py-0.5 rounded text-xs hover:bg-blue-100"
-                            >
-                              {asset.employee_id}
-                            </button>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                          {showAssignedTo === asset.id && asset.assigned_to && (
-                            <div className="text-xs font-medium mt-1">{asset.assigned_to}</div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-2 text-xs">
-                        <div className="text-left">
-                          {asset.received_by ? (
-                            <div className="font-medium text-xs">{asset.received_by}</div>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-2 text-xs">
-                        <div className="text-left">
-                          {asset.status === "Available" && asset.return_date
-                            ? formatDate(asset.return_date)
-                            : asset.assigned_date
-                            ? formatDate(asset.assigned_date)
-                            : "No date"}
-                        </div>
-                      </td>
+                      {!isAuditView && (
+                        <td className="p-2 text-xs">
+                          <div className="text-left">
+                            {asset.employee_id ? (
+                              <button
+                                onClick={() => setShowAssignedTo(showAssignedTo === asset.id ? null : asset.id)}
+                                className="bg-blue-50 text-blue-700 px-1 py-0.5 rounded text-xs hover:bg-blue-100"
+                              >
+                                {asset.employee_id}
+                              </button>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                            {showAssignedTo === asset.id && asset.assigned_to && (
+                              <div className="text-xs font-medium mt-1">{asset.assigned_to}</div>
+                            )}
+                          </div>
+                        </td>
+                      )}
+                      {!isAuditView && (
+                        <td className="p-2 text-xs">
+                          <div className="text-left">
+                            {asset.received_by ? (
+                              <div className="font-medium text-xs">{asset.received_by}</div>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </div>
+                        </td>
+                      )}
+                      {!isAuditView && (
+                        <td className="p-2 text-xs">
+                          <div className="text-left">
+                            {asset.status === "Available" && asset.return_date
+                              ? formatDate(asset.return_date)
+                              : asset.assigned_date
+                              ? formatDate(asset.assigned_date)
+                              : "No date"}
+                          </div>
+                        </td>
+                      )}
                       <td className="p-2 text-xs">
                         <div className="text-left">{getStatusBadge(asset.status)}</div>
                       </td>
@@ -1009,6 +1104,81 @@ export const AssetList = ({
         </DialogContent>
       </Dialog>
 
+      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Clear All</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p>Are you sure you want to clear all asset check details?</p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={cancelClear}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleAssetCheckClear}
+                className="flex-1 bg-destructive hover:shadow-glow transition-smooth"
+              >
+                Confirm
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showStatusCheckDialog} onOpenChange={setShowStatusCheckDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Asset Check Status</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p>
+              {unmatchedCount === 0 ? (
+                <span style={{ color: 'green' }}>All assets are matched.</span>
+              ) : (
+                <span style={{ color: 'red' }}>{unmatchedCount} Asset{unmatchedCount === 1 ? '' : 's'} not matched.</span>
+              )}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleGenerateReport}
+                variant="outline"
+                className="flex-1"
+              >
+                Generate Report
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowStatusCheckDialog(false)}
+                className="flex-1"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <EnhancedBarcodeScanner
+        isOpen={showScanner}
+        onClose={() => setShowScanner(false)}
+        onScan={(result) => setSearchTerm(result)}
+        totalIFPQty="0"
+        existingSerials={[]}
+      />
+
+      <EnhancedBarcodeScanner
+        isOpen={showAssetCheckScanner}
+        onClose={() => setShowAssetCheckScanner(false)}
+        onScan={(result) => setAssetCheckId(result)}
+        totalIFPQty="0"
+        existingSerials={[]}
+      />
+
       <EditAssetDialog
         asset={selectedAsset}
         open={showEditDialog}
@@ -1072,32 +1242,6 @@ export const AssetList = ({
                 </div>
               </div>
             )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Confirm Clear All</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p>Are you sure you want to clear all asset check details?</p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={cancelClear}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleAssetCheckClear}
-                className="flex-1 bg-destructive hover:shadow-glow transition-smooth"
-              >
-                Confirm
-              </Button>
-            </div>
           </div>
         </DialogContent>
       </Dialog>
