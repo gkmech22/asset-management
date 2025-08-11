@@ -33,6 +33,7 @@ interface AssetListProps {
   typeFilter?: string;
   brandFilter?: string;
   configFilter?: string;
+  statusFilter?: string;
   defaultRowsPerPage?: number;
   viewType?: 'dashboard' | 'audit' | 'amcs' | 'summary';
 }
@@ -50,6 +51,7 @@ export const AssetList = ({
   typeFilter = "all",
   brandFilter = "all",
   configFilter = "all",
+  statusFilter = "all",
   defaultRowsPerPage = 100,
   viewType = 'dashboard',
 }: AssetListProps) => {
@@ -125,7 +127,6 @@ export const AssetList = ({
     }
   }, [error]);
 
-  // Initialize checkedAssets from asset_check column
   React.useEffect(() => {
     const initialChecked = new Set<string>();
     assets.forEach((asset) => {
@@ -139,12 +140,10 @@ export const AssetList = ({
 
   const filteredAssets = React.useMemo(() => {
     return assets.filter((asset) => {
-      // In audit view, only show non-assigned assets
       if (viewType === 'audit' && asset.status === 'Assigned') {
         return false;
       }
 
-      // Filter by Matched/Unmatched status
       if (filterCheckStatus) {
         if (filterCheckStatus === "Matched" && asset.asset_check !== "Matched") {
           return false;
@@ -167,8 +166,8 @@ export const AssetList = ({
         (asset.received_by && asset.received_by.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (asset.warranty_start && asset.warranty_start.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (asset.warranty_end && asset.warranty_end.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (asset.amc_start && asset.amc_start.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (asset.amc_end && asset.amc_end.toLowerCase().includes(searchTerm.toLowerCase()));
+        (asset.provider && asset.provider.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (asset.warranty_status && asset.warranty_status.toLowerCase().includes(searchTerm.toLowerCase()));
 
       const matchesDateRange =
         !dateRange?.from ||
@@ -180,8 +179,9 @@ export const AssetList = ({
       const matchesType = typeFilter === "all" || asset.type === typeFilter;
       const matchesBrand = brandFilter === "all" || asset.brand === brandFilter;
       const matchesConfig = configFilter === "all" || asset.configuration === configFilter;
+      const matchesStatus = statusFilter === "all" || asset.status === statusFilter;
 
-      return matchesSearch && matchesDateRange && matchesType && matchesBrand && matchesConfig;
+      return matchesSearch && matchesDateRange && matchesType && matchesBrand && matchesConfig && matchesStatus;
     }).sort((a, b) => {
       if (a.status === "Available" && b.status !== "Available") return -1;
       if (a.status !== "Available" && b.status === "Available") return 1;
@@ -189,7 +189,7 @@ export const AssetList = ({
       const dateB = b.assigned_date ? new Date(b.assigned_date).getTime() : 0;
       return dateB - dateA;
     });
-  }, [assets, searchTerm, dateRange, typeFilter, brandFilter, configFilter, filterCheckStatus]);
+  }, [assets, searchTerm, dateRange, typeFilter, brandFilter, configFilter, statusFilter, filterCheckStatus]);
 
   const matchedCount = React.useMemo(() => {
     return filteredAssets.filter(asset => asset.asset_check === "Matched").length;
@@ -349,9 +349,9 @@ export const AssetList = ({
       "Remarks",
       "Warranty Start",
       "Warranty End",
-      "AMC Start",
-      "AMC End",
       "Asset Check",
+      "Provider",
+      "Warranty Status",
     ];
 
     const csvContent = [
@@ -367,11 +367,11 @@ export const AssetList = ({
           asset.status,
           asset.location,
           asset.remarks || "",
-          asset.warranty_start || "",
-          asset.warranty_end || "",
-          asset.amc_start || "",
-          asset.amc_end || "",
+          asset.warranty_start ? new Date(asset.warranty_start).toLocaleDateString("en-US") : "",
+          asset.warranty_end ? new Date(asset.warranty_end).toLocaleDateString("en-US") : "",
           asset.asset_check || "",
+          asset.provider || "",
+          asset.warranty_status || "",
         ].join(",")
       ),
     ].join("\n");
@@ -402,16 +402,24 @@ export const AssetList = ({
     }
   };
 
+  const getWarrantyStatusBadge = (warrantyStatus: string) => {
+    switch (warrantyStatus) {
+      case "In Warranty":
+        return <Badge className="bg-green-500 text-white">In Warranty</Badge>;
+      case "Out of Warranty":
+        return <Badge className="bg-red-500 text-white">Out of Warranty</Badge>;
+      default:
+        return <Badge variant="secondary">{warrantyStatus}</Badge>;
+    }
+  };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "No date";
-    return new Date(dateString).toLocaleString("en-US", {
+    return new Date(dateString).toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    }).replace(/(\d+)(st|nd|rd|th)/, "$1").replace(',', '');
+    }).replace(/(\d+)(st|nd|rd|th)/, "$1");
   };
 
   const getPageNumbers = () => {
@@ -582,15 +590,15 @@ export const AssetList = ({
                     <th className="p-2 w-[10%] text-left">Asset ID</th>
                     <th className="p-2 w-[15%] text-left">Asset Details</th>
                     <th className="p-2 w-[20%] text-left">Specifications</th>
-                    {isWarrantyView && <th className="p-2 w-[15%] text-left">Warranty</th>}
-                    {isWarrantyView && <th className="p-2 w-[15%] text-left">AMC</th>}
                     <th className="p-2 w-[20%] text-left">Serial Number</th>
-                    {!isAuditView && <th className="p-2 w-[10%] text-left">Employee ID</th>}
-                    {!isAuditView && <th className="p-2 w-[15%] text-left">Received By</th>}
-                    {!isAuditView && <th className="p-2 w-[10%] text-left">Date</th>}
-                    <th className="p-2 w-[10%] text-left">Status</th>
+                    {isWarrantyView && <th className="p-2 w-[15%] text-left">Provider</th>}
+                    {isWarrantyView && <th className="p-2 w-[15%] text-left">Warranty Start</th>}
+                    {isWarrantyView && <th className="p-2 w-[15%] text-left">Warranty End</th>}
+                    {isWarrantyView && <th className="p-2 w-[15%] text-left">Warranty Status</th>}
                     {isAuditView && <th className="p-2 w-[15%] text-left">Asset Check</th>}
-                    {!isAuditView && <th className="p-2 w-[10%] text-left">Actions</th>}
+                    {!isAuditView && !isWarrantyView && (
+                      <th className="p-2 w-[10%] text-left">Actions</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -624,22 +632,6 @@ export const AssetList = ({
                           <div className="text-muted-foreground">{asset.configuration || "-"}</div>
                         </div>
                       </td>
-                      {isWarrantyView && (
-                        <td className="p-2 text-xs">
-                          <div className="text-left">
-                            Start: {formatDate(asset.warranty_start)} <br />
-                            End: {formatDate(asset.warranty_end)}
-                          </div>
-                        </td>
-                      )}
-                      {isWarrantyView && (
-                        <td className="p-2 text-xs">
-                          <div className="text-left">
-                            Start: {formatDate(asset.amc_start)} <br />
-                            End: {formatDate(asset.amc_end)}
-                          </div>
-                        </td>
-                      )}
                       <td className="p-2 text-xs">
                         <div className="text-left">
                           <code className="bg-muted px-1 py-0.5 rounded text-xs">
@@ -647,50 +639,34 @@ export const AssetList = ({
                           </code>
                         </div>
                       </td>
-                      {!isAuditView && (
+                      {isWarrantyView && (
                         <td className="p-2 text-xs">
                           <div className="text-left">
-                            {asset.employee_id ? (
-                              <button
-                                onClick={() => setShowAssignedTo(showAssignedTo === asset.id ? null : asset.id)}
-                                className="bg-blue-50 text-blue-700 px-1 py-0.5 rounded text-xs hover:bg-blue-100"
-                              >
-                                {asset.employee_id}
-                              </button>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
-                            {showAssignedTo === asset.id && asset.assigned_to && (
-                              <div className="text-xs font-medium mt-1">{asset.assigned_to}</div>
-                            )}
+                            {asset.provider || "-"}
                           </div>
                         </td>
                       )}
-                      {!isAuditView && (
+                      {isWarrantyView && (
                         <td className="p-2 text-xs">
                           <div className="text-left">
-                            {asset.received_by ? (
-                              <div className="font-medium text-xs">{asset.received_by}</div>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
+                            {formatDate(asset.warranty_start)}
                           </div>
                         </td>
                       )}
-                      {!isAuditView && (
+                      {isWarrantyView && (
                         <td className="p-2 text-xs">
                           <div className="text-left">
-                            {asset.status === "Available" && asset.return_date
-                              ? formatDate(asset.return_date)
-                              : asset.assigned_date
-                              ? formatDate(asset.assigned_date)
-                              : "No date"}
+                            {formatDate(asset.warranty_end)}
                           </div>
                         </td>
                       )}
-                      <td className="p-2 text-xs">
-                        <div className="text-left">{getStatusBadge(asset.status)}</div>
-                      </td>
+                      {isWarrantyView && (
+                        <td className="p-2 text-xs">
+                          <div className="text-left">
+                            {getWarrantyStatusBadge(asset.warranty_status || "-")}
+                          </div>
+                        </td>
+                      )}
                       {isAuditView && (
                         <td className="p-2 text-xs">
                           <div className="text-left">
@@ -712,7 +688,7 @@ export const AssetList = ({
                           </div>
                         </td>
                       )}
-                      {!isAuditView && (
+                      {!isAuditView && !isWarrantyView && (
                         <td className="p-2 text-xs flex justify-between">
                           <div className="flex gap-1">
                             {asset.status === "Available" ? (
@@ -812,7 +788,7 @@ export const AssetList = ({
                 </tbody>
               </table>
             </div>
-            <div className="flex justify-between items-center mt-4">
+            <div className="flex flex-col sm:flex-row justify-between items-center mt-4 gap-4">
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <div>
                   Showing {(currentPage - 1) * rowsPerPage + 1} to{" "}
@@ -838,51 +814,59 @@ export const AssetList = ({
                   </Select>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 justify-center">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
+                  className="h-8 w-8 p-0"
                 >
                   &lt;
                 </Button>
                 {startPage > 1 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(1)}
-                  >
-                    1
-                  </Button>
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(1)}
+                      className="h-8 w-8 p-0"
+                    >
+                      1
+                    </Button>
+                    {startPage > 2 && <span className="text-sm px-2">...</span>}
+                  </>
                 )}
-                {startPage > 2 && <span className="text-sm">...</span>}
                 {pageNumbers.map((page) => (
                   <Button
                     key={page}
                     variant={currentPage === page ? "default" : "outline"}
                     size="sm"
                     onClick={() => setCurrentPage(page)}
-                    className={currentPage === page ? "bg-primary text-primary-foreground" : ""}
+                    className={`h-8 w-8 p-0 ${currentPage === page ? "bg-primary text-primary-foreground" : ""}`}
                   >
                     {page}
                   </Button>
                 ))}
-                {endPage < totalPages - 1 && <span className="text-sm">...</span>}
                 {endPage < totalPages && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(totalPages)}
-                  >
-                    {totalPages}
-                  </Button>
+                  <>
+                    {endPage < totalPages - 1 && <span className="text-sm px-2">...</span>}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(totalPages)}
+                      className="h-8 w-8 p-0"
+                    >
+                      {totalPages}
+                    </Button>
+                  </>
                 )}
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
+                  className="h-8 w-8 p-0"
                 >
                   &gt;
                 </Button>

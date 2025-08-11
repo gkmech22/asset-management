@@ -1,39 +1,47 @@
-import { useState } from "react";
+// AssetForm.tsx
+import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 
 interface AssetFormProps {
   onSubmit: (asset: any) => void;
   onCancel: () => void;
-  asset?: any;
-  isEdit?: boolean;
+  initialData?: any;
 }
 
-export const AssetForm = ({ onSubmit, onCancel, asset, isEdit = false }: AssetFormProps) => {
-  const [formData, setFormData] = useState({
-    assetId: asset?.asset_id || "",
-    name: asset?.name || "",
-    type: asset?.type || "",
-    brand: asset?.brand || "",
-    configuration: asset?.configuration || "",
-    serialNumber: asset?.serial_number || "",
+export const AssetForm = ({ onSubmit, onCancel, initialData }: AssetFormProps) => {
+  const [formData, setFormData] = React.useState({
+    assetId: initialData?.assetId || "",
+    name: initialData?.name || "",
+    type: initialData?.type || "",
+    brand: initialData?.brand || "",
+    configuration: initialData?.configuration || "",
+    serialNumber: initialData?.serialNumber || "",
+    provider: initialData?.provider || "",
+    warrantyStart: initialData?.warrantyStart || "",
+    warrantyEnd: initialData?.warrantyEnd || "",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.assetId || !formData.name || !formData.type || !formData.brand || !formData.serialNumber) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
     onSubmit(formData);
   };
 
   return (
-    <Dialog open={true} onOpenChange={() => onCancel()}>
+    <Dialog open={true} onOpenChange={onCancel}>
       <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold bg-gradient-primary bg-clip-text text-transparent">
-            {isEdit ? "Edit Asset" : "Add New Asset"}
+            {initialData ? "Edit Asset" : "Add New Asset"}
           </DialogTitle>
         </DialogHeader>
         
@@ -62,7 +70,10 @@ export const AssetForm = ({ onSubmit, onCancel, asset, isEdit = false }: AssetFo
 
           <div className="space-y-2">
             <Label htmlFor="type">Asset Type *</Label>
-            <Select onValueChange={(value) => setFormData({ ...formData, type: value })}>
+            <Select 
+              value={formData.type} 
+              onValueChange={(value) => setFormData({ ...formData, type: value })}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select asset type" />
               </SelectTrigger>
@@ -110,13 +121,45 @@ export const AssetForm = ({ onSubmit, onCancel, asset, isEdit = false }: AssetFo
             />
           </div>
 
-          {isEdit && (
+          <div className="space-y-2">
+            <Label htmlFor="provider">Provider</Label>
+            <Input
+              id="provider"
+              value={formData.provider}
+              onChange={(e) => setFormData({ ...formData, provider: e.target.value })}
+              placeholder="e.g., Amazon, Dell Direct"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="warrantyStart">Warranty Start Date</Label>
+            <Input
+              id="warrantyStart"
+              type="date"
+              value={formData.warrantyStart}
+              onChange={(e) => setFormData({ ...formData, warrantyStart: e.target.value })}
+              placeholder="Select warranty start date"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="warrantyEnd">Warranty End Date</Label>
+            <Input
+              id="warrantyEnd"
+              type="date"
+              value={formData.warrantyEnd}
+              onChange={(e) => setFormData({ ...formData, warrantyEnd: e.target.value })}
+              placeholder="Select warranty end date"
+            />
+          </div>
+
+          {initialData && (
             <>
               <div className="space-y-2">
                 <Label htmlFor="createdBy">Created By</Label>
                 <Input
                   id="createdBy"
-                  value={asset.created_by || ""}
+                  value={initialData.created_by || ""}
                   disabled
                   className="bg-muted"
                 />
@@ -125,7 +168,7 @@ export const AssetForm = ({ onSubmit, onCancel, asset, isEdit = false }: AssetFo
                 <Label htmlFor="createdAt">Created At</Label>
                 <Input
                   id="createdAt"
-                  value={asset.created_at ? new Date(asset.created_at).toLocaleString() : ""}
+                  value={initialData.created_at ? new Date(initialData.created_at).toLocaleString() : ""}
                   disabled
                   className="bg-muted"
                 />
@@ -134,7 +177,7 @@ export const AssetForm = ({ onSubmit, onCancel, asset, isEdit = false }: AssetFo
                 <Label htmlFor="updatedBy">Last Updated By</Label>
                 <Input
                   id="updatedBy"
-                  value={asset.updated_by || ""}
+                  value={initialData.updated_by || ""}
                   disabled
                   className="bg-muted"
                 />
@@ -143,7 +186,7 @@ export const AssetForm = ({ onSubmit, onCancel, asset, isEdit = false }: AssetFo
                 <Label htmlFor="updatedAt">Last Updated At</Label>
                 <Input
                   id="updatedAt"
-                  value={asset.updated_at ? new Date(asset.updated_at).toLocaleString() : ""}
+                  value={initialData.updated_at ? new Date(initialData.updated_at).toLocaleString() : ""}
                   disabled
                   className="bg-muted"
                 />
@@ -165,7 +208,7 @@ export const AssetForm = ({ onSubmit, onCancel, asset, isEdit = false }: AssetFo
               className="flex-1 bg-gradient-primary hover:shadow-glow transition-smooth"
               disabled={!formData.assetId || !formData.name || !formData.type || !formData.brand || !formData.serialNumber}
             >
-              {isEdit ? "Update Asset" : "Add Asset"}
+              {initialData ? "Update Asset" : "Add Asset"}
             </Button>
           </div>
         </form>

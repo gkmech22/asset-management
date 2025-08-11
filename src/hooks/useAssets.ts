@@ -22,6 +22,10 @@ export interface Asset {
   return_date: string | null;
   remarks: string | null;
   asset_check: string;
+  warranty_start: string | null;
+  warranty_end: string | null;
+  warranty_status: string | null;
+  provider: string | null;
 }
 
 export const useAssets = () => {

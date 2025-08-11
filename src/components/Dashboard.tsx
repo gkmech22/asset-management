@@ -1,3 +1,4 @@
+// Dashboard.tsx
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -95,6 +96,11 @@ export const Dashboard = () => {
   const handleAddAsset = async (newAsset: any) => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') return;
     try {
+      const warrantyStatus = newAsset.warrantyEnd
+        ? new Date(newAsset.warrantyEnd) >= new Date()
+          ? "In Warranty"
+          : "Out of Warranty"
+        : "Out of Warranty";
       const asset = {
         asset_id: newAsset.assetId,
         name: newAsset.name,
@@ -114,11 +120,11 @@ export const Dashboard = () => {
         created_at: new Date().toISOString(),
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
-        warranty_start: null,
-        warranty_end: null,
-        amc_start: null,
-        amc_end: null,
+        warranty_start: newAsset.warrantyStart,
+        warranty_end: newAsset.warrantyEnd,
         asset_check: "",
+        provider: newAsset.provider,
+        warranty_status: warrantyStatus,
       };
       const { data } = await createAssetMutation.mutateAsync(asset);
       await logEditHistory(data.id, "created", null, "Asset Created");
@@ -178,6 +184,11 @@ export const Dashboard = () => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') return;
     try {
       const asset = assets.find((a) => a.id === assetId);
+      const warrantyStatus = updatedAsset.warrantyEnd
+        ? new Date(updatedAsset.warrantyEnd) >= new Date()
+          ? "In Warranty"
+          : "Out of Warranty"
+        : "Out of Warranty";
       await updateAssetMutation.mutateAsync({
         id: assetId,
         asset_id: updatedAsset.assetId,
@@ -188,8 +199,8 @@ export const Dashboard = () => {
         serial_number: updatedAsset.serialNumber,
         warranty_start: updatedAsset.warrantyStart,
         warranty_end: updatedAsset.warrantyEnd,
-        amc_start: updatedAsset.amcStart,
-        amc_end: updatedAsset.amcEnd,
+        provider: updatedAsset.provider,
+        warranty_status: warrantyStatus,
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
       });
@@ -217,11 +228,11 @@ export const Dashboard = () => {
       if (asset?.warranty_end !== updatedAsset.warrantyEnd) {
         await logEditHistory(assetId, "warranty_end", asset?.warranty_end || null, updatedAsset.warrantyEnd);
       }
-      if (asset?.amc_start !== updatedAsset.amcStart) {
-        await logEditHistory(assetId, "amc_start", asset?.amc_start || null, updatedAsset.amcStart);
+      if (asset?.provider !== updatedAsset.provider) {
+        await logEditHistory(assetId, "provider", asset?.provider || null, updatedAsset.provider);
       }
-      if (asset?.amc_end !== updatedAsset.amcEnd) {
-        await logEditHistory(assetId, "amc_end", asset?.amc_end || null, updatedAsset.amcEnd);
+      if (asset?.warranty_status !== warrantyStatus) {
+        await logEditHistory(assetId, "warranty_status", asset?.warranty_status || null, warrantyStatus);
       }
       toast.success("Asset updated successfully");
     } catch (error) {
@@ -314,13 +325,13 @@ export const Dashboard = () => {
       "Remarks",
       "Warranty Start",
       "Warranty End",
-      "AMC Start",
-      "AMC End",
       "Created By",
       "Created At",
       "Updated By",
       "Updated At",
       "Asset Check",
+      "Provider",
+      "Warranty Status",
     ];
 
     const csvContent = [
@@ -343,13 +354,13 @@ export const Dashboard = () => {
           asset.remarks || "",
           asset.warranty_start || "",
           asset.warranty_end || "",
-          asset.amc_start || "",
-          asset.amc_end || "",
           asset.created_by || "",
           asset.created_at || "",
           asset.updated_by || "",
           asset.updated_at || "",
           asset.asset_check || "",
+          asset.provider || "",
+          asset.warranty_status || "",
         ].join(",")
       ),
     ].join("\n");

@@ -1,3 +1,4 @@
+// BulkUpload.tsx
 import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -55,18 +56,56 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }: BulkUpl
 
   const handleDownloadTemplate = () => {
     const headers = [
-      "Asset Name", "Asset Type", "Brand", "Model", "Configuration", "Serial Number"
+      "Asset ID",
+      "Asset Name",
+      "Asset Type",
+      "Brand",
+      "Configuration",
+      "Serial Number",
+      "Provider",
+      "Warranty Start",
+      "Warranty End",
     ];
     
     const sampleRows = [
-      ["MacBook Pro 16\"", "Laptop", "Apple", "MacBook Pro M2", "16GB RAM, 512GB SSD", "MBP16-2023-001"],
-      ["ThinkPad X1", "Laptop", "Lenovo", "ThinkPad X1 Carbon", "16GB RAM, 1TB SSD", "TPX1-2023-002"],
-      ["iPad Pro", "Tablet", "Apple", "iPad Pro 12.9", "256GB, Wi-Fi + Cellular", "IPD-2023-003"]
+      [
+        "AST-001",
+        "MacBook Pro 16\"",
+        "Laptop",
+        "Apple",
+        "16GB RAM, 512GB SSD",
+        "MBP16-2023-001",
+        "Amazon",
+        "2023-01-01",
+        "2025-01-01",
+      ],
+      [
+        "AST-002",
+        "ThinkPad X1",
+        "Laptop",
+        "Lenovo",
+        "16GB RAM, 1TB SSD",
+        "TPX1-2023-002",
+        "Dell Direct",
+        "2023-02-01",
+        "2025-02-01",
+      ],
+      [
+        "AST-003",
+        "iPad Pro",
+        "Tablet",
+        "Apple",
+        "256GB, Wi-Fi + Cellular",
+        "IPD-2023-003",
+        "Best Buy",
+        "2023-03-01",
+        "2024-03-01",
+      ],
     ];
     
     const csvContent = [
       headers.join(","),
-      ...sampleRows.map(row => row.join(","))
+      ...sampleRows.map(row => row.join(",")),
     ].join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv" });
@@ -130,7 +169,7 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }: BulkUpl
               <Alert className="mb-4">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  Upload a CSV file with columns: Asset Name, Asset Type, Brand, Model, Configuration, Serial Number
+                  Upload a CSV file with columns: Asset ID, Asset Name, Asset Type, Brand, Configuration, Serial Number, Provider, Warranty Start, Warranty End
                 </AlertDescription>
               </Alert>
 

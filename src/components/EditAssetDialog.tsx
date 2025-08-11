@@ -1,3 +1,4 @@
+// EditAssetDialog.tsx
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,9 @@ export const EditAssetDialog = ({ asset, open, onOpenChange, onUpdate }: EditAss
     brand: "",
     configuration: "",
     serialNumber: "",
+    provider: "",
+    warrantyStart: "",
+    warrantyEnd: "",
   });
 
   useEffect(() => {
@@ -32,6 +36,9 @@ export const EditAssetDialog = ({ asset, open, onOpenChange, onUpdate }: EditAss
         brand: asset.brand || "",
         configuration: asset.configuration || "",
         serialNumber: asset.serial_number || "",
+        provider: asset.provider || "",
+        warrantyStart: asset.warranty_start || "",
+        warrantyEnd: asset.warranty_end || "",
       });
     }
   }, [asset]);
@@ -128,6 +135,38 @@ export const EditAssetDialog = ({ asset, open, onOpenChange, onUpdate }: EditAss
               onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })}
               placeholder="e.g., MBP16-2023-001"
               required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="provider">Provider</Label>
+            <Input
+              id="provider"
+              value={formData.provider}
+              onChange={(e) => setFormData({ ...formData, provider: e.target.value })}
+              placeholder="e.g., Amazon, Dell Direct"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="warrantyStart">Warranty Start Date</Label>
+            <Input
+              id="warrantyStart"
+              type="date"
+              value={formData.warrantyStart}
+              onChange={(e) => setFormData({ ...formData, warrantyStart: e.target.value })}
+              placeholder="Select warranty start date"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="warrantyEnd">Warranty End Date</Label>
+            <Input
+              id="warrantyEnd"
+              type="date"
+              value={formData.warrantyEnd}
+              onChange={(e) => setFormData({ ...formData, warrantyEnd: e.target.value })}
+              placeholder="Select warranty end date"
             />
           </div>
 
