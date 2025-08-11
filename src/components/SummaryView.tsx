@@ -27,16 +27,13 @@ const SummaryView = ({
   onUpdateAssetCheck,
   onDelete,
   userRole,
-}: SummaryViewProps99) => {
+}: SummaryViewProps) => {
   const [typeFilter, setTypeFilter] = React.useState("all");
   const [brandFilter, setBrandFilter] = React.useState("all");
   const [statusFilter, setStatusFilter] = React.useState("all");
   const [locationFilter, setLocationFilter] = React.useState("all");
   const [currentPage, setCurrentPage] = React.useState(1);
   const rowsPerPage = 15;
-
-  // Define all possible statuses
-  const statuses = ["Available", "Assigned", "Scrap/Damage", "Sold", "Others"];
 
   // Define possible locations
   const locations = [
@@ -55,7 +52,7 @@ const SummaryView = ({
     "Jaipur WH",
   ];
 
-  // Get unique asset types and brands
+  // Get unique asset types, brands, and statuses
   const assetTypes = React.useMemo(() => {
     const types = new Set(assets.map(asset => asset.type));
     return ["all", ...Array.from(types).sort()];
@@ -64,6 +61,11 @@ const SummaryView = ({
   const brands = React.useMemo(() => {
     const brandSet = new Set(assets.map(asset => asset.brand));
     return ["all", ...Array.from(brandSet).sort()];
+  }, [assets]);
+
+  const statuses = React.useMemo(() => {
+    const statusSet = new Set(assets.map(asset => asset.status));
+    return [...Array.from(statusSet).sort(), "Others"];
   }, [assets]);
 
   // Filter assets based on selected filters
@@ -95,6 +97,17 @@ const SummaryView = ({
     return acc;
   }, {} as Record<string, { assetType: string; brand: string; counts: Record<string, number> }>);
 
+  // Calculate grand totals for each status
+  const grandTotals = React.useMemo(() => {
+    const totals = Object.fromEntries(statuses.map(status => [status, 0]));
+    Object.values(summaryData).forEach(row => {
+      statuses.forEach(status => {
+        totals[status] += row.counts[status];
+      });
+    });
+    return totals;
+  }, [summaryData, statuses]);
+
   // Sort by assetType alphabetically
   const tableData = Object.values(summaryData).sort((a, b) => a.assetType.localeCompare(b.assetType));
 
@@ -123,6 +136,20 @@ const SummaryView = ({
   };
 
   const { startPage, endPage, pageNumbers } = getPageNumbers();
+
+  // Define dynamic colors for status columns
+  const statusColors: Record<string, string> = {
+    Available: "bg-green-600",
+    Assigned: "bg-yellow-600",
+    "Scrap/Damage": "bg-red-600",
+    Sold: "bg-blue-800",
+    Others: "bg-gray-600",
+    // Add fallback for new statuses
+  };
+
+  const getStatusColor = (status: string) => {
+    return statusColors[status] || `bg-gray-${Math.floor(Math.random() * 4 + 5)}00`; // Random gray shade for new statuses
+  };
 
   return (
     <Card className="shadow-card">
@@ -211,11 +238,11 @@ const SummaryView = ({
                   <tr className="text-xs text-white sticky top-0 z-10">
                     <th className="p-2 text-left bg-blue-600">Asset Type</th>
                     <th className="p-2 text-left bg-blue-600">Brand</th>
-                    <th className="p-2 text-left bg-green-600">Available</th>
-                    <th className="p-2 text-left bg-yellow-600">Assigned</th>
-                    <th className="p-2 text-left bg-red-600">Scrap/Damage</th>
-                    <th className="p-2 text-left bg-blue-800">Sold</th>
-                    <th className="p-2 text-left bg-gray-600">Others</th>
+                    {statuses.map((status) => (
+                      <th key={status} className={`p-2 text-left ${getStatusColor(status)}`}>
+                        {status}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -223,12 +250,21 @@ const SummaryView = ({
                     <tr key={`${row.assetType}-${row.brand}-${index}`} className="border-b hover:bg-muted/50">
                       <td className="p-2 text-xs">{row.assetType}</td>
                       <td className="p-2 text-xs">{row.brand}</td>
-                      {statuses.map(status => (
+                      {statuses.map((status) => (
                         <td key={status} className="p-2 text-xs">{row.counts[status]}</td>
                       ))}
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  <tr className="border-t font-semibold bg-gray-100">
+                    <td className="p-2 text-xs">Grand Total</td>
+                    <td className="p-2 text-xs"></td>
+                    {statuses.map((status) => (
+                      <td key={status} className="p-2 text-xs">{grandTotals[status]}</td>
+                    ))}
+                  </tr>
+                </tfoot>
               </table>
             </div>
             <div className="flex flex-col sm:flex-row justify-between items-center mt-4 gap-4">
