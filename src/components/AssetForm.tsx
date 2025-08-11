@@ -1,4 +1,3 @@
-// AssetForm.tsx
 import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -12,9 +11,10 @@ interface AssetFormProps {
   onSubmit: (asset: any) => void;
   onCancel: () => void;
   initialData?: any;
+  assets?: any[]; // Added for uniqueness validation
 }
 
-export const AssetForm = ({ onSubmit, onCancel, initialData }: AssetFormProps) => {
+export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: AssetFormProps) => {
   const [formData, setFormData] = React.useState({
     assetId: initialData?.assetId || "",
     name: initialData?.name || "",
@@ -26,25 +26,69 @@ export const AssetForm = ({ onSubmit, onCancel, initialData }: AssetFormProps) =
     warrantyStart: initialData?.warrantyStart || "",
     warrantyEnd: initialData?.warrantyEnd || "",
   });
+  const [error, setError] = React.useState<string | null>(null);
+
+  const validateUniqueness = () => {
+    const existingAssetWithId = assets.find(
+      (a) => a.asset_id === formData.assetId && (!initialData || a.id !== initialData.id)
+    );
+    const existingAssetWithSerial = assets.find(
+      (a) => a.serial_number === formData.serialNumber && (!initialData || a.id !== initialData.id)
+    );
+    const assetWithDifferentSerial = assets.find(
+      (a) => a.asset_id === formData.assetId && a.serial_number !== formData.serialNumber && (!initialData || a.id !== initialData.id)
+    );
+    const assetWithDifferentId = assets.find(
+      (a) => a.serial_number === formData.serialNumber && a.asset_id !== formData.assetId && (!initialData || a.id !== initialData.id)
+    );
+
+    if (existingAssetWithId) {
+      return `Asset ID ${formData.assetId} is already in use.`;
+    }
+    if (existingAssetWithSerial) {
+      return `Serial Number ${formData.serialNumber} is already in use.`;
+    }
+    if (assetWithDifferentSerial) {
+      return `Asset ID ${formData.assetId} is associated with a different Serial Number (${assetWithDifferentSerial.serial_number}).`;
+    }
+    if (assetWithDifferentId) {
+      return `Serial Number ${formData.serialNumber} is associated with a different Asset ID (${assetWithDifferentId.asset_id}).`;
+    }
+    return null;
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.assetId || !formData.name || !formData.type || !formData.brand || !formData.serialNumber) {
-      toast.error("Please fill in all required fields");
+      setError("Please fill in all required fields.");
+      toast.error("Please fill in all required fields.");
       return;
     }
+
+    const validationError = validateUniqueness();
+    if (validationError) {
+      setError(validationError);
+      toast.error(validationError);
+      return;
+    }
+
     onSubmit(formData);
+    setError(null);
   };
 
   return (
-    <Dialog open={true} onOpenChange={onCancel}>
+    <Dialog open={true} onOpenChange={() => { onCancel(); setError(null); }}>
       <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold bg-gradient-primary bg-clip-text text-transparent">
             {initialData ? "Edit Asset" : "Add New Asset"}
           </DialogTitle>
         </DialogHeader>
-        
+        {error && (
+          <div className="text-destructive text-sm mb-4">
+            <p>{error}</p>
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="assetId">Asset ID *</Label>
@@ -198,7 +242,7 @@ export const AssetForm = ({ onSubmit, onCancel, initialData }: AssetFormProps) =
             <Button 
               type="button" 
               variant="outline" 
-              onClick={onCancel}
+              onClick={() => { onCancel(); setError(null); }}
               className="flex-1"
             >
               Cancel

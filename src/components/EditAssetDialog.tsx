@@ -1,4 +1,3 @@
-// EditAssetDialog.tsx
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -9,12 +8,13 @@ import { Textarea } from "@/components/ui/textarea";
 
 interface EditAssetDialogProps {
   asset: any;
+  assets: any[]; // Added to validate uniqueness
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdate: (assetId: string, updatedAsset: any) => void;
 }
 
-export const EditAssetDialog = ({ asset, open, onOpenChange, onUpdate }: EditAssetDialogProps) => {
+export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }: EditAssetDialogProps) => {
   const [formData, setFormData] = useState({
     assetId: "",
     name: "",
@@ -26,6 +26,7 @@ export const EditAssetDialog = ({ asset, open, onOpenChange, onUpdate }: EditAss
     warrantyStart: "",
     warrantyEnd: "",
   });
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (asset) {
@@ -40,14 +41,47 @@ export const EditAssetDialog = ({ asset, open, onOpenChange, onUpdate }: EditAss
         warrantyStart: asset.warranty_start || "",
         warrantyEnd: asset.warranty_end || "",
       });
+      setError(null); // Reset error when asset changes
     }
   }, [asset]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (asset) {
+      // Validate Asset ID and Serial Number uniqueness
+      const existingAssetWithId = assets.find(
+        (a) => a.asset_id === formData.assetId && a.id !== asset.id
+      );
+      const existingAssetWithSerial = assets.find(
+        (a) => a.serial_number === formData.serialNumber && a.id !== asset.id
+      );
+      const assetWithDifferentSerial = assets.find(
+        (a) => a.asset_id === formData.assetId && a.serial_number !== formData.serialNumber && a.id !== asset.id
+      );
+      const assetWithDifferentId = assets.find(
+        (a) => a.serial_number === formData.serialNumber && a.asset_id !== formData.assetId && a.id !== asset.id
+      );
+
+      if (existingAssetWithId) {
+        setError(`Asset ID ${formData.assetId} is already in use by another asset.`);
+        return;
+      }
+      if (existingAssetWithSerial) {
+        setError(`Serial Number ${formData.serialNumber} is already in use by another asset.`);
+        return;
+      }
+      if (assetWithDifferentSerial) {
+        setError(`Asset ID ${formData.assetId} is associated with a different Serial Number (${assetWithDifferentSerial.serial_number}).`);
+        return;
+      }
+      if (assetWithDifferentId) {
+        setError(`Serial Number ${formData.serialNumber} is associated with a different Asset ID (${assetWithDifferentId.asset_id}).`);
+        return;
+      }
+
       onUpdate(asset.id, formData);
       onOpenChange(false);
+      setError(null);
     }
   };
 
@@ -61,7 +95,11 @@ export const EditAssetDialog = ({ asset, open, onOpenChange, onUpdate }: EditAss
             Edit Asset
           </DialogTitle>
         </DialogHeader>
-        
+        {error && (
+          <div className="text-destructive text-sm mb-4">
+            <p>{error}</p>
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="assetId">Asset ID *</Label>
@@ -211,7 +249,10 @@ export const EditAssetDialog = ({ asset, open, onOpenChange, onUpdate }: EditAss
             <Button 
               type="button" 
               variant="outline" 
-              onClick={() => onOpenChange(false)}
+              onClick={() => {
+                onOpenChange(false);
+                setError(null);
+              }}
               className="flex-1"
             >
               Cancel

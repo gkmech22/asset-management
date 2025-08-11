@@ -211,6 +211,24 @@ export const AssetList = ({
   const handleAssignAsset = async () => {
     if (selectedAsset && userName.trim() && employeeId.trim()) {
       try {
+        // Validate Asset ID and Serial Number uniqueness
+        const existingAssetWithEmployeeId = assets.find(
+          (asset) => asset.employee_id === employeeId && asset.id !== selectedAsset.id
+        );
+        const selectedAssetSerial = assets.find((asset) => asset.id === selectedAsset.id)?.serial_number;
+        const existingAssetWithSerial = assets.find(
+          (asset) => asset.serial_number === selectedAssetSerial && asset.employee_id !== employeeId && asset.id !== selectedAsset.id
+        );
+
+        if (existingAssetWithEmployeeId) {
+          setError(`Employee ID ${employeeId} is already assigned to another asset (Serial: ${existingAssetWithEmployeeId.serial_number}).`);
+          return;
+        }
+        if (existingAssetWithSerial) {
+          setError(`Serial Number ${selectedAssetSerial} is already associated with another Employee ID (${existingAssetWithSerial.employee_id}).`);
+          return;
+        }
+
         await onAssign(selectedAsset.id, userName.trim(), employeeId.trim());
         setShowAssignDialog(false);
         setUserName("");
@@ -353,7 +371,6 @@ export const AssetList = ({
       "Asset Check",
     ];
 
-    // Helper function to escape CSV fields by wrapping in quotes if they contain commas
     const escapeCsvField = (value: string | null | undefined): string => {
       if (!value) return "";
       return value.includes(",") ? `"${value.replace(/"/g, '""')}"` : value;
@@ -376,7 +393,7 @@ export const AssetList = ({
       ),
     ].join("\n");
 
-    const blob = new Blob([csvContent], { type: "text/csv " });
+    const blob = new Blob([csvContent], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -1314,6 +1331,7 @@ export const AssetList = ({
 
       <EditAssetDialog
         asset={selectedAsset}
+        assets={assets} // Pass assets for validation
         open={showEditDialog}
         onOpenChange={setShowEditDialog}
         onUpdate={onUpdateAsset}

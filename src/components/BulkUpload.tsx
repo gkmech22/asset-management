@@ -1,4 +1,3 @@
-// BulkUpload.tsx
 import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -16,6 +15,7 @@ interface BulkUploadProps {
 export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }: BulkUploadProps) => {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDrag = (e: React.DragEvent) => {
@@ -36,6 +36,7 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }: BulkUpl
     const files = e.dataTransfer.files;
     if (files && files[0]) {
       setSelectedFile(files[0]);
+      setError(null);
     }
   };
 
@@ -43,6 +44,7 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }: BulkUpl
     const files = e.target.files;
     if (files && files[0]) {
       setSelectedFile(files[0]);
+      setError(null);
     }
   };
 
@@ -50,7 +52,9 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }: BulkUpl
     if (selectedFile) {
       onUpload(selectedFile);
       setSelectedFile(null);
-      onOpenChange(false);
+      setError(null);
+    } else {
+      setError("No file selected.");
     }
   };
 
@@ -118,7 +122,7 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }: BulkUpl
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(isOpen) => { onOpenChange(isOpen); setError(null); setSelectedFile(null); }}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold bg-gradient-primary bg-clip-text text-transparent">
@@ -126,6 +130,13 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }: BulkUpl
           </DialogTitle>
         </DialogHeader>
         
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
         <div className="space-y-6">
           <Card className="shadow-card">
             <CardHeader>
@@ -218,7 +229,7 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }: BulkUpl
               <div className="flex gap-2 mt-4">
                 <Button 
                   variant="outline" 
-                  onClick={() => onOpenChange(false)}
+                  onClick={() => { onOpenChange(false); setError(null); setSelectedFile(null); }}
                   className="flex-1"
                 >
                   Cancel
