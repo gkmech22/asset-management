@@ -73,7 +73,6 @@ export const AssetList = ({
   const [currentPage, setCurrentPage] = React.useState(1);
   const [rowsPerPage, setRowsPerPage] = React.useState(defaultRowsPerPage);
   const [error, setError] = React.useState<string | null>(null);
-  const [showAssignedTo, setShowAssignedTo] = React.useState<string | null>(null);
   const [assetCheckId, setAssetCheckId] = React.useState("");
   const [checkedAssets, setCheckedAssets] = React.useState<Set<string>>(new Set());
   const [showConfirmDialog, setShowConfirmDialog] = React.useState(false);
@@ -81,6 +80,7 @@ export const AssetList = ({
   const [filterCheckStatus, setFilterCheckStatus] = React.useState<string | null>(null);
   const [showScanner, setShowScanner] = React.useState(false);
   const [showAssetCheckScanner, setShowAssetCheckScanner] = React.useState(false);
+  const [showAssignedToOnly, setShowAssignedToOnly] = React.useState(false);
 
   const { data: history = [], isLoading: historyLoading } = useAssetHistory(selectedAsset?.id);
 
@@ -161,6 +161,8 @@ export const AssetList = ({
         asset.serial_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (asset.assigned_to && asset.assigned_to.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (asset.employee_id && asset.employee_id.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (asset.received_by && asset.received_by.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (asset.assigned_date && asset.assigned_date.toLowerCase().includes(searchTerm.toLowerCase())) ||
         asset.status?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         asset.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (asset.received_by && asset.received_by.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -415,11 +417,21 @@ export const AssetList = ({
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "No date";
-    return new Date(dateString).toLocaleDateString("en-US", {
+    if (viewType === 'amcs' || viewType === 'summary') {
+      return new Date(dateString).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }).replace(/(\d+)(st|nd|rd|th)/, "$1");
+    }
+    return new Date(dateString).toLocaleString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
-    }).replace(/(\d+)(st|nd|rd|th)/, "$1");
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    }).replace(/(\d+)(st|nd|rd|th)/, "$1").replace(',', '');
   };
 
   const getPageNumbers = () => {
@@ -582,206 +594,328 @@ export const AssetList = ({
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="w-full table-fixed border-collapse">
+            <div className="overflow-x-auto max-h-[60vh] relative">
+              <table className="w-full border-collapse">
                 <thead>
-                  <tr className="bg-muted text-xs text-muted-foreground">
-                    <th className="p-2 w-[5%] text-left">S.No.</th>
-                    <th className="p-2 w-[10%] text-left">Asset ID</th>
-                    <th className="p-2 w-[15%] text-left">Asset Details</th>
-                    <th className="p-2 w-[20%] text-left">Specifications</th>
-                    <th className="p-2 w-[20%] text-left">Serial Number</th>
-                    {isWarrantyView && <th className="p-2 w-[15%] text-left">Provider</th>}
-                    {isWarrantyView && <th className="p-2 w-[15%] text-left">Warranty Start</th>}
-                    {isWarrantyView && <th className="p-2 w-[15%] text-left">Warranty End</th>}
-                    {isWarrantyView && <th className="p-2 w-[15%] text-left">Warranty Status</th>}
-                    {isAuditView && <th className="p-2 w-[15%] text-left">Asset Check</th>}
-                    {!isAuditView && !isWarrantyView && (
-                      <th className="p-2 w-[10%] text-left">Actions</th>
+                  <tr className="bg-muted text-xs text-muted-foreground sticky top-0 z-10">
+                    {viewType === 'dashboard' && (
+                      <>
+                        <th className="p-2 w-[5%] text-left">S.No.</th>
+                        <th className="p-2 w-[10%] text-left">Asset ID</th>
+                        <th className="p-2 w-[15%] text-left">Asset Details</th>
+                        <th className="p-2 w-[20%] text-left">Specifications</th>
+                        <th className="p-2 w-[10%] text-left">Serial Number</th>
+                        <th className="p-2 w-[10%] text-left">Employee ID</th>
+                        <th className="p-2 w-[10%] text-left">Received By</th>
+                        <th className="p-2 w-[10%] text-left">Date</th>
+                        <th className="p-2 w-[10%] text-left">Status</th>
+                        <th className="p-2 w-[10%] text-left">Actions</th>
+                      </>
+                    )}
+                    {viewType === 'audit' && (
+                      <>
+                        <th className="p-2 w-[5%] text-left">S.No.</th>
+                        <th className="p-2 w-[10%] text-left">Asset ID</th>
+                        <th className="p-2 w-[15%] text-left">Asset Details</th>
+                        <th className="p-2 w-[20%] text-left">Specifications</th>
+                        <th className="p-2 w-[10%] text-left">Serial Number</th>
+                        <th className="p-2 w-[15%] text-left">Asset Check</th>
+                      </>
+                    )}
+                    {isWarrantyView && (
+                      <>
+                        <th className="p-2 w-[5%] text-left">S.No.</th>
+                        <th className="p-2 w-[10%] text-left">Asset ID</th>
+                        <th className="p-2 w-[15%] text-left">Asset Details</th>
+                        <th className="p-2 w-[15%] text-left">Specifications</th>
+                        <th className="p-2 w-[10%] text-left">Serial Number</th>
+                        <th className="p-2 w-[10%] text-left">Provider</th>
+                        <th className="p-2 w-[12%] text-left">Warranty Start</th>
+                        <th className="p-2 w-[12%] text-left">Warranty End</th>
+                        <th className="p-2 w-[11%] text-left">Warranty Status</th>
+                      </>
                     )}
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedAssets.map((asset, index) => (
                     <tr key={asset.id} className="border-b hover:bg-muted/50">
-                      <td className="p-2 text-xs">
-                        <div className="text-left">{(currentPage - 1) * rowsPerPage + index + 1}</div>
-                      </td>
-                      <td className="p-2 text-xs">
-                        <div className="text-left">
-                          <button
-                            onClick={() => {
-                              setSelectedAsset(asset);
-                              setShowDetailsDialog(true);
-                            }}
-                            className="bg-primary/10 text-primary px-1 py-0.5 rounded text-xs font-medium hover:bg-primary/20"
-                          >
-                            {asset.asset_id}
-                          </button>
-                        </div>
-                      </td>
-                      <td className="p-2 text-xs">
-                        <div className="text-left">
-                          <div className="font-medium text-sm">{asset.name}</div>
-                          <div className="text-muted-foreground">{asset.type}</div>
-                        </div>
-                      </td>
-                      <td className="p-2 text-xs">
-                        <div className="text-left">
-                          <div className="font-medium">{asset.brand}</div>
-                          <div className="text-muted-foreground">{asset.configuration || "-"}</div>
-                        </div>
-                      </td>
-                      <td className="p-2 text-xs">
-                        <div className="text-left">
-                          <code className="bg-muted px-1 py-0.5 rounded text-xs">
-                            {asset.serial_number}
-                          </code>
-                        </div>
-                      </td>
-                      {isWarrantyView && (
-                        <td className="p-2 text-xs">
-                          <div className="text-left">
-                            {asset.provider || "-"}
-                          </div>
-                        </td>
-                      )}
-                      {isWarrantyView && (
-                        <td className="p-2 text-xs">
-                          <div className="text-left">
-                            {formatDate(asset.warranty_start)}
-                          </div>
-                        </td>
-                      )}
-                      {isWarrantyView && (
-                        <td className="p-2 text-xs">
-                          <div className="text-left">
-                            {formatDate(asset.warranty_end)}
-                          </div>
-                        </td>
-                      )}
-                      {isWarrantyView && (
-                        <td className="p-2 text-xs">
-                          <div className="text-left">
-                            {getWarrantyStatusBadge(asset.warranty_status || "-")}
-                          </div>
-                        </td>
-                      )}
-                      {isAuditView && (
-                        <td className="p-2 text-xs">
-                          <div className="text-left">
-                            {asset.asset_check === "Matched" ? (
-                              <div className="flex items-center gap-2">
-                                <span className="text-green-500">Matched</span>
+                      {viewType === 'dashboard' && (
+                        <>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">{(currentPage - 1) * rowsPerPage + index + 1}</div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">
+                              <button
+                                onClick={() => {
+                                  setSelectedAsset(asset);
+                                  setShowAssignedToOnly(false);
+                                  setShowDetailsDialog(true);
+                                }}
+                                className="bg-primary/10 text-primary px-1 py-0.5 rounded text-xs font-medium hover:bg-primary/20"
+                              >
+                                {asset.asset_id}
+                              </button>
+                            </div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">
+                              <div className="font-medium text-sm">{asset.name}</div>
+                              <div className="text-muted-foreground">{asset.type}</div>
+                            </div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">
+                              <div className="font-medium">{asset.brand}</div>
+                              <div className="text-muted-foreground">{asset.configuration || "-"}</div>
+                            </div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">
+                              <code className="bg-muted px-1 py-0.5 rounded text-xs">
+                                {asset.serial_number}
+                              </code>
+                            </div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">
+                              <button
+                                onClick={() => {
+                                  setSelectedAsset(asset);
+                                  setShowAssignedToOnly(true);
+                                  setShowDetailsDialog(true);
+                                }}
+                                className="text-primary hover:underline"
+                              >
+                                {asset.employee_id || "-"}
+                              </button>
+                            </div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">{asset.received_by || "-"}</div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">
+                              {formatDate(asset.assigned_date)}
+                            </div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">{getStatusBadge(asset.status)}</div>
+                          </td>
+                          <td className="p-2 text-xs flex justify-between">
+                            <div className="flex gap-1">
+                              {asset.status === "Available" ? (
                                 <Button
-                                  variant="outline"
                                   size="sm"
-                                  onClick={() => handleAssetUncheck(asset.id, asset.asset_id)}
-                                  className="h-6 text-xs"
+                                  onClick={() => {
+                                    setSelectedAsset(asset);
+                                    setShowAssignDialog(true);
+                                  }}
+                                  className="bg-gradient-primary hover:shadow-glow transition-smooth text-xs h-6"
                                 >
-                                  Uncheck
+                                  <UserPlus className="h-2 w-2 mr-1" />
+                                  Assign
                                 </Button>
-                              </div>
-                            ) : (
-                              <span className="text-red-500">Unmatched</span>
-                            )}
-                          </div>
-                        </td>
-                      )}
-                      {!isAuditView && !isWarrantyView && (
-                        <td className="p-2 text-xs flex justify-between">
-                          <div className="flex gap-1">
-                            {asset.status === "Available" ? (
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedAsset(asset);
-                                  setShowAssignDialog(true);
-                                }}
-                                className="bg-gradient-primary hover:shadow-glow transition-smooth text-xs h-6"
-                              >
-                                <UserPlus className="h-2 w-2 mr-1" />
-                                Assign
-                              </Button>
-                            ) : asset.status === "Assigned" ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedAsset(asset);
-                                  setShowReturnDialog(true);
-                                }}
-                                className="hover:bg-warning hover:text-warning-foreground text-xs h-6"
-                              >
-                                <UserMinus className="h-2 w-2 mr-1" />
-                                Return
-                              </Button>
-                            ) : null}
-                          </div>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="hover:bg-primary hover:text-primary-foreground text-xs h-6"
-                              >
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setSelectedAsset(asset);
-                                  setShowEditDialog(true);
-                                }}
-                              >
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setSelectedAsset(asset);
-                                  setNewStatus(asset.status);
-                                  setShowStatusDialog(true);
-                                }}
-                              >
-                                Status
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setSelectedAsset(asset);
-                                  setNewLocation(asset.location);
-                                  setShowLocationDialog(true);
-                                }}
-                              >
-                                Location
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setSelectedAsset(asset);
-                                  setShowHistoryDialog(true);
-                                }}
-                              >
-                                History
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={async () => {
-                                  if (confirm("Are you sure you want to delete this asset?")) {
-                                    try {
-                                      await onDelete(asset.id);
-                                      setError(null);
-                                    } catch (error) {
-                                      console.error("Delete failed:", error);
-                                      setError("Failed to delete asset. Please try again.");
+                              ) : asset.status === "Assigned" ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedAsset(asset);
+                                    setShowReturnDialog(true);
+                                  }}
+                                  className="hover:bg-warning hover:text-warning-foreground text-xs h-6"
+                                >
+                                  <UserMinus className="h-2 w-2 mr-1" />
+                                  Return
+                                </Button>
+                              ) : null}
+                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="hover:bg-primary hover:text-primary-foreground text-xs h-6"
+                                >
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setSelectedAsset(asset);
+                                    setShowEditDialog(true);
+                                  }}
+                                >
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setSelectedAsset(asset);
+                                    setNewStatus(asset.status);
+                                    setShowStatusDialog(true);
+                                  }}
+                                >
+                                  Status
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setSelectedAsset(asset);
+                                    setNewLocation(asset.location);
+                                    setShowLocationDialog(true);
+                                  }}
+                                >
+                                  Location
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setSelectedAsset(asset);
+                                    setShowHistoryDialog(true);
+                                  }}
+                                >
+                                  History
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={async () => {
+                                    if (confirm("Are you sure you want to delete this asset?")) {
+                                      try {
+                                        await onDelete(asset.id);
+                                        setError(null);
+                                      } catch (error) {
+                                        console.error("Delete failed:", error);
+                                        setError("Failed to delete asset. Please try again.");
+                                      }
                                     }
-                                  }
+                                  }}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </td>
+                        </>
+                      )}
+                      {viewType === 'audit' && (
+                        <>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">{(currentPage - 1) * rowsPerPage + index + 1}</div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">
+                              <button
+                                onClick={() => {
+                                  setSelectedAsset(asset);
+                                  setShowAssignedToOnly(false);
+                                  setShowDetailsDialog(true);
                                 }}
-                                className="text-destructive focus:text-destructive"
+                                className="bg-primary/10 text-primary px-1 py-0.5 rounded text-xs font-medium hover:bg-primary/20"
                               >
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
+                                {asset.asset_id}
+                              </button>
+                            </div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">
+                              <div className="font-medium text-sm">{asset.name}</div>
+                              <div className="text-muted-foreground">{asset.type}</div>
+                            </div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">
+                              <div className="font-medium">{asset.brand}</div>
+                              <div className="text-muted-foreground">{asset.configuration || "-"}</div>
+                            </div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">
+                              <code className="bg-muted px-1 py-0.5 rounded text-xs">
+                                {asset.serial_number}
+                              </code>
+                            </div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">
+                              {asset.asset_check === "Matched" ? (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-green-500">Matched</span>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleAssetUncheck(asset.id, asset.asset_id)}
+                                    className="h-6 text-xs"
+                                  >
+                                    Uncheck
+                                  </Button>
+                                </div>
+                              ) : (
+                                <span className="text-red-500">Unmatched</span>
+                              )}
+                            </div>
+                          </td>
+                        </>
+                      )}
+                      {isWarrantyView && (
+                        <>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">{(currentPage - 1) * rowsPerPage + index + 1}</div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">
+                              <button
+                                onClick={() => {
+                                  setSelectedAsset(asset);
+                                  setShowAssignedToOnly(false);
+                                  setShowDetailsDialog(true);
+                                }}
+                                className="bg-primary/10 text-primary px-1 py-0.5 rounded text-xs font-medium hover:bg-primary/20"
+                              >
+                                {asset.asset_id}
+                              </button>
+                            </div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">
+                              <div className="font-medium text-sm">{asset.name}</div>
+                              <div className="text-muted-foreground">{asset.type}</div>
+                            </div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">
+                              <div className="font-medium">{asset.brand}</div>
+                              <div className="text-muted-foreground">{asset.configuration || "-"}</div>
+                            </div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">
+                              <code className="bg-muted px-1 py-0.5 rounded text-xs">
+                                {asset.serial_number}
+                              </code>
+                            </div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">
+                              {asset.provider || "-"}
+                            </div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">
+                              {formatDate(asset.warranty_start)}
+                            </div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">
+                              {formatDate(asset.warranty_end)}
+                            </div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">
+                              {getWarrantyStatusBadge(asset.warranty_status || "-")}
+                            </div>
+                          </td>
+                        </>
                       )}
                     </tr>
                   ))}
@@ -1173,7 +1307,14 @@ export const AssetList = ({
       <AssetDetailsDialog
         asset={selectedAsset}
         open={showDetailsDialog}
-        onOpenChange={setShowDetailsDialog}
+        onOpenChange={(open) => {
+          setShowDetailsDialog(open);
+          if (!open) {
+            setSelectedAsset(null);
+            setShowAssignedToOnly(false);
+          }
+        }}
+        showAssignedToOnly={showAssignedToOnly}
       />
 
       <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
