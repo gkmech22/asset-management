@@ -21,6 +21,7 @@ export interface Asset {
   received_by: string | null;
   return_date: string | null;
   remarks: string | null;
+  asset_check: string;
 }
 
 export const useAssets = () => {

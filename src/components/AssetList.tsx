@@ -26,12 +26,14 @@ interface AssetListProps {
   onUpdateAsset: (assetId: string, updatedAsset: any) => Promise<void>;
   onUpdateStatus: (assetId: string, status: string) => Promise<void>;
   onUpdateLocation: (assetId: string, location: string) => Promise<void>;
+  onUpdateAssetCheck: (assetId: string, assetCheck: string) => Promise<void>;
   onDelete: (assetId: string) => Promise<void>;
   dateRange?: { from?: Date; to?: Date };
   typeFilter?: string;
   brandFilter?: string;
   configFilter?: string;
   defaultRowsPerPage?: number;
+  viewType?: 'dashboard' | 'audit' | 'amcs' | 'sites';
 }
 
 export const AssetList = ({
@@ -41,12 +43,14 @@ export const AssetList = ({
   onUpdateAsset,
   onUpdateStatus,
   onUpdateLocation,
+  onUpdateAssetCheck,
   onDelete,
   dateRange,
   typeFilter = "all",
   brandFilter = "all",
   configFilter = "all",
   defaultRowsPerPage = 100,
+  viewType = 'dashboard',
 }: AssetListProps) => {
   const { user } = useAuth() || { user: null };
   const [searchTerm, setSearchTerm] = React.useState("");
@@ -67,6 +71,10 @@ export const AssetList = ({
   const [rowsPerPage, setRowsPerPage] = React.useState(defaultRowsPerPage);
   const [error, setError] = React.useState<string | null>(null);
   const [showAssignedTo, setShowAssignedTo] = React.useState<string | null>(null);
+  const [assetCheckId, setAssetCheckId] = React.useState("");
+  const [checkedAssets, setCheckedAssets] = React.useState<Set<string>>(new Set());
+  const [showConfirmDialog, setShowConfirmDialog] = React.useState(false);
+  const [filterCheckStatus, setFilterCheckStatus] = React.useState<string | null>(null);
 
   const { data: history = [], isLoading: historyLoading } = useAssetHistory(selectedAsset?.id);
 
@@ -113,9 +121,37 @@ export const AssetList = ({
     }
   }, [error]);
 
+  // Initialize checkedAssets from asset_check column
+  React.useEffect(() => {
+    const initialChecked = new Set<string>();
+    assets.forEach((asset) => {
+      if (asset.asset_check === "Matched") {
+        initialChecked.add(asset.asset_id);
+        initialChecked.add(asset.serial_number);
+      }
+    });
+    setCheckedAssets(initialChecked);
+  }, [assets]);
+
   const filteredAssets = React.useMemo(() => {
-    const result = assets.filter((asset) => {
+    return assets.filter((asset) => {
+      // In audit view, only show non-assigned assets
+      if (viewType === 'audit' && asset.status === 'Assigned') {
+        return false;
+      }
+
+      // Filter by Matched/Unmatched status
+      if (filterCheckStatus) {
+        if (filterCheckStatus === "Matched" && asset.asset_check !== "Matched") {
+          return false;
+        }
+        if (filterCheckStatus === "Unmatched" && asset.asset_check === "Matched") {
+          return false;
+        }
+      }
+
       const matchesSearch =
+        !searchTerm ||
         asset.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         asset.asset_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         asset.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -124,14 +160,18 @@ export const AssetList = ({
         (asset.employee_id && asset.employee_id.toLowerCase().includes(searchTerm.toLowerCase())) ||
         asset.status?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         asset.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (asset.received_by && asset.received_by.toLowerCase().includes(searchTerm.toLowerCase()));
+        (asset.received_by && asset.received_by.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (asset.warranty_start && asset.warranty_start.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (asset.warranty_end && asset.warranty_end.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (asset.amc_start && asset.amc_start.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (asset.amc_end && asset.amc_end.toLowerCase().includes(searchTerm.toLowerCase()));
 
       const matchesDateRange =
         !dateRange?.from ||
         !dateRange?.to ||
         !asset.assigned_date ||
-        (new Date(asset.assigned_date).setHours(0, 0, 0, 0) >= new Date(dateRange.from).setHours(0, 0, 0, 0) &&
-         new Date(asset.assigned_date).setHours(0, 0, 0, 0) <= new Date(dateRange.to).setHours(0, 0, 0, 0));
+        (new Date(asset.assigned_date) >= new Date(dateRange.from) &&
+         new Date(asset.assigned_date) <= new Date(dateRange.to));
 
       const matchesType = typeFilter === "all" || asset.type === typeFilter;
       const matchesBrand = brandFilter === "all" || asset.brand === brandFilter;
@@ -145,10 +185,15 @@ export const AssetList = ({
       const dateB = b.assigned_date ? new Date(b.assigned_date).getTime() : 0;
       return dateB - dateA;
     });
+  }, [assets, searchTerm, dateRange, typeFilter, brandFilter, configFilter, filterCheckStatus]);
 
-    console.log("Filtered assets:", result.length);
-    return result;
-  }, [assets, searchTerm, dateRange, typeFilter, brandFilter, configFilter]);
+  const matchedCount = React.useMemo(() => {
+    return filteredAssets.filter(asset => asset.asset_check === "Matched").length;
+  }, [filteredAssets]);
+
+  const unmatchedCount = React.useMemo(() => {
+    return filteredAssets.length - matchedCount;
+  }, [filteredAssets, matchedCount]);
 
   const totalPages = Math.ceil(filteredAssets.length / rowsPerPage);
   const paginatedAssets = filteredAssets.slice(
@@ -215,6 +260,73 @@ export const AssetList = ({
         setError("Failed to return asset. Please try again.");
       }
     }
+  };
+
+  const handleAssetCheck = async () => {
+    if (assetCheckId) {
+      const asset = assets.find(
+        (a) => a.asset_id === assetCheckId || a.serial_number === assetCheckId
+      );
+      if (asset) {
+        try {
+          await onUpdateAssetCheck(asset.id, "Matched");
+          setCheckedAssets(prev => new Set(prev).add(assetCheckId));
+          setAssetCheckId("");
+          setError(null);
+        } catch (error) {
+          console.error("Asset check update failed:", error);
+          setError("Failed to update asset check status. Please try again.");
+        }
+      } else {
+        setError("Asset ID or Serial Number not found.");
+      }
+    }
+  };
+
+  const handleAssetUncheck = async (assetId: string, assetCheckId: string) => {
+    try {
+      await onUpdateAssetCheck(assetId, "");
+      setCheckedAssets(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(assetCheckId);
+        return newSet;
+      });
+      setError(null);
+    } catch (error) {
+      console.error("Asset uncheck failed:", error);
+      setError("Failed to uncheck asset. Please try again.");
+    }
+  };
+
+  const handleAssetCheckClear = async () => {
+    try {
+      for (const asset of assets) {
+        if (asset.asset_check === "Matched") {
+          await onUpdateAssetCheck(asset.id, "");
+        }
+      }
+      setCheckedAssets(new Set());
+      setAssetCheckId("");
+      setShowConfirmDialog(false);
+      setError(null);
+    } catch (error) {
+      console.error("Clear asset checks failed:", error);
+      setError("Failed to clear asset checks. Please try again.");
+    }
+  };
+
+  const confirmClear = () => {
+    setShowConfirmDialog(true);
+  };
+
+  const cancelClear = () => {
+    setShowConfirmDialog(false);
+  };
+
+  const handleFilterCheckStatus = (status: string) => {
+    // Toggle filter: if clicking the same status, clear the filter
+    setFilterCheckStatus(prev => prev === status ? null : status);
+    setCurrentPage(1); // Reset to first page when filtering
   };
 
   const getStatusBadge = (status: string) => {
@@ -292,6 +404,9 @@ export const AssetList = ({
     );
   }
 
+  const isWarrantyView = viewType === 'amcs' || viewType === 'sites';
+  const isAuditView = viewType === 'audit';
+
   return (
     <Card className="shadow-card">
       <CardHeader>
@@ -300,18 +415,57 @@ export const AssetList = ({
             <Calendar className="h-5 w-5 text-primary" />
             Asset Inventory ({filteredAssets.length} items)
           </CardTitle>
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search assets..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-64"
-              />
+        </div>
+        {isAuditView && (
+          <div className="flex items-center justify-between mt-2">
+            <div className="text-sm font-medium">Filters</div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
+                <span
+                  className="text-sm text-green-500 cursor-pointer hover:underline"
+                  onClick={() => handleFilterCheckStatus("Matched")}
+                >
+                  Matched: {matchedCount}
+                </span>
+                <span
+                  className="text-sm text-red-500 cursor-pointer hover:underline"
+                  onClick={() => handleFilterCheckStatus("Unmatched")}
+                >
+                  Unmatched: {unmatchedCount}
+                </span>
+              </div>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Asset Check"
+                  value={assetCheckId}
+                  onChange={(e) => setAssetCheckId(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleAssetCheck();
+                    }
+                  }}
+                  className="pl-10 w-64 h-9 text-sm"
+                />
+              </div>
+              <Button
+                onClick={handleAssetCheck}
+                size="sm"
+                className="h-9 text-sm"
+              >
+                Check
+              </Button>
+              <Button
+                onClick={confirmClear}
+                variant="outline"
+                size="sm"
+                className="h-9 text-sm"
+              >
+                Clear All
+              </Button>
             </div>
           </div>
-        </div>
+        )}
       </CardHeader>
       <CardContent>
         {error ? (
@@ -332,195 +486,237 @@ export const AssetList = ({
         ) : (
           <>
             <div className="overflow-x-auto">
-  <table className="w-full table-fixed border-collapse">
-    <thead>
-      <tr className="bg-muted text-xs text-muted-foreground">
-        <th className="p-2 w-[5%] text-left">S.No.</th>
-        <th className="p-2 w-[8%] text-left">Asset ID</th>
-        <th className="p-2 w-[12%] text-left">Asset Details</th>
-        <th className="p-2 w-[14%] text-left">Specifications</th>
-        <th className="p-2 w-[15%] text-left">Serial Number</th>
-        <th className="p-2 w-[8%] text-left">Employee ID</th>
-        <th className="p-2 w-[12%] text-left">Received By</th>
-        <th className="p-2 w-[8%] text-left">Date</th>
-        <th className="p-2 w-[8%] text-left">Status</th>
-        <th className="p-2 w-[10%] text-left">Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {paginatedAssets.map((asset, index) => (
-        <tr key={asset.id} className="border-b hover:bg-muted/50">
-          <td className="p-2 text-xs">
-            <div className="text-left">{(currentPage - 1) * rowsPerPage + index + 1}</div>
-          </td>
-          <td className="p-2 text-xs">
-            <div className="text-left">
-              <button
-                onClick={() => {
-                  setSelectedAsset(asset);
-                  setShowDetailsDialog(true);
-                }}
-                className="bg-primary/10 text-primary px-1 py-0.5 rounded text-xs font-medium hover:bg-primary/20"
-              >
-                {asset.asset_id}
-              </button>
+              <table className="w-full table-fixed border-collapse">
+                <thead>
+                  <tr className="bg-muted text-xs text-muted-foreground">
+                    <th className="p-2 w-[5%] text-left">S.No.</th>
+                    <th className="p-2 w-[8%] text-left">Asset ID</th>
+                    <th className="p-2 w-[12%] text-left">Asset Details</th>
+                    <th className="p-2 w-[14%] text-left">Specifications</th>
+                    {isWarrantyView && <th className="p-2 w-[12%] text-left">Warranty</th>}
+                    {isWarrantyView && <th className="p-2 w-[12%] text-left">AMC</th>}
+                    <th className="p-2 w-[15%] text-left">Serial Number</th>
+                    <th className="p-2 w-[8%] text-left">Employee ID</th>
+                    <th className="p-2 w-[12%] text-left">Received By</th>
+                    <th className="p-2 w-[8%] text-left">Date</th>
+                    <th className="p-2 w-[8%] text-left">Status</th>
+                    {isAuditView && <th className="p-2 w-[10%] text-left">Asset Check</th>}
+                    {!isAuditView && <th className="p-2 w-[10%] text-left">Actions</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedAssets.map((asset, index) => (
+                    <tr key={asset.id} className="border-b hover:bg-muted/50">
+                      <td className="p-2 text-xs">
+                        <div className="text-left">{(currentPage - 1) * rowsPerPage + index + 1}</div>
+                      </td>
+                      <td className="p-2 text-xs">
+                        <div className="text-left">
+                          <button
+                            onClick={() => {
+                              setSelectedAsset(asset);
+                              setShowDetailsDialog(true);
+                            }}
+                            className="bg-primary/10 text-primary px-1 py-0.5 rounded text-xs font-medium hover:bg-primary/20"
+                          >
+                            {asset.asset_id}
+                          </button>
+                        </div>
+                      </td>
+                      <td className="p-2 text-xs">
+                        <div className="text-left">
+                          <div className="font-medium text-sm">{asset.name}</div>
+                          <div className="text-muted-foreground">{asset.type}</div>
+                        </div>
+                      </td>
+                      <td className="p-2 text-xs">
+                        <div className="text-left">
+                          <div className="font-medium">{asset.brand}</div>
+                          <div className="text-muted-foreground">{asset.configuration || "-"}</div>
+                        </div>
+                      </td>
+                      {isWarrantyView && (
+                        <td className="p-2 text-xs">
+                          <div className="text-left">
+                            Start: {formatDate(asset.warranty_start)} <br />
+                            End: {formatDate(asset.warranty_end)}
+                          </div>
+                        </td>
+                      )}
+                      {isWarrantyView && (
+                        <td className="p-2 text-xs">
+                          <div className="text-left">
+                            Start: {formatDate(asset.amc_start)} <br />
+                            End: {formatDate(asset.amc_end)}
+                          </div>
+                        </td>
+                      )}
+                      <td className="p-2 text-xs">
+                        <div className="text-left">
+                          <code className="bg-muted px-1 py-0.5 rounded text-xs">
+                            {asset.serial_number}
+                          </code>
+                        </div>
+                      </td>
+                      <td className="p-2 text-xs">
+                        <div className="text-left">
+                          {asset.employee_id ? (
+                            <button
+                              onClick={() => setShowAssignedTo(showAssignedTo === asset.id ? null : asset.id)}
+                              className="bg-blue-50 text-blue-700 px-1 py-0.5 rounded text-xs hover:bg-blue-100"
+                            >
+                              {asset.employee_id}
+                            </button>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                          {showAssignedTo === asset.id && asset.assigned_to && (
+                            <div className="text-xs font-medium mt-1">{asset.assigned_to}</div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-2 text-xs">
+                        <div className="text-left">
+                          {asset.received_by ? (
+                            <div className="font-medium text-xs">{asset.received_by}</div>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-2 text-xs">
+                        <div className="text-left">
+                          {asset.status === "Available" && asset.return_date
+                            ? formatDate(asset.return_date)
+                            : asset.assigned_date
+                            ? formatDate(asset.assigned_date)
+                            : "No date"}
+                        </div>
+                      </td>
+                      <td className="p-2 text-xs">
+                        <div className="text-left">{getStatusBadge(asset.status)}</div>
+                      </td>
+                      {isAuditView && (
+                        <td className="p-2 text-xs">
+                          <div className="text-left">
+                            {asset.asset_check === "Matched" ? (
+                              <div className="flex items-center gap-2">
+                                <span className="text-green-500">Matched</span>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleAssetUncheck(asset.id, asset.asset_id)}
+                                  className="h-6 text-xs"
+                                >
+                                  Uncheck
+                                </Button>
+                              </div>
+                            ) : (
+                              <span className="text-red-500">Unmatched</span>
+                            )}
+                          </div>
+                        </td>
+                      )}
+                      {!isAuditView && (
+                        <td className="p-2 text-xs flex justify-between">
+                          <div className="flex gap-1">
+                            {asset.status === "Available" ? (
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedAsset(asset);
+                                  setShowAssignDialog(true);
+                                }}
+                                className="bg-gradient-primary hover:shadow-glow transition-smooth text-xs h-6"
+                              >
+                                <UserPlus className="h-2 w-2 mr-1" />
+                                Assign
+                              </Button>
+                            ) : asset.status === "Assigned" ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedAsset(asset);
+                                  setShowReturnDialog(true);
+                                }}
+                                className="hover:bg-warning hover:text-warning-foreground text-xs h-6"
+                              >
+                                <UserMinus className="h-2 w-2 mr-1" />
+                                Return
+                              </Button>
+                            ) : null}
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="hover:bg-primary hover:text-primary-foreground text-xs h-6"
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSelectedAsset(asset);
+                                  setShowEditDialog(true);
+                                }}
+                              >
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSelectedAsset(asset);
+                                  setNewStatus(asset.status);
+                                  setShowStatusDialog(true);
+                                }}
+                              >
+                                Status
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSelectedAsset(asset);
+                                  setNewLocation(asset.location);
+                                  setShowLocationDialog(true);
+                                }}
+                              >
+                                Location
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSelectedAsset(asset);
+                                  setShowHistoryDialog(true);
+                                }}
+                              >
+                                History
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={async () => {
+                                  if (confirm("Are you sure you want to delete this asset?")) {
+                                    try {
+                                      await onDelete(asset.id);
+                                      setError(null);
+                                    } catch (error) {
+                                      console.error("Delete failed:", error);
+                                      setError("Failed to delete asset. Please try again.");
+                                    }
+                                  }
+                                }}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </td>
-          <td className="p-2 text-xs">
-            <div className="text-left">
-              <div className="font-medium text-sm">{asset.name}</div>
-              <div className="text-muted-foreground">{asset.type}</div>
-            </div>
-          </td>
-          <td className="p-2 text-xs">
-            <div className="text-left">
-              <div className="font-medium">{asset.brand}</div>
-              <div className="text-muted-foreground">{asset.configuration || "-"}</div>
-            </div>
-          </td>
-          <td className="p-2 text-xs">
-            <div className="text-left">
-              <code className="bg-muted px-1 py-0.5 rounded text-xs">
-                {asset.serial_number}
-              </code>
-            </div>
-          </td>
-          <td className="p-2 text-xs">
-            <div className="text-left">
-              {asset.employee_id ? (
-                <button
-                  onClick={() => setShowAssignedTo(showAssignedTo === asset.id ? null : asset.id)}
-                  className="bg-blue-50 text-blue-700 px-1 py-0.5 rounded text-xs hover:bg-blue-100"
-                >
-                  {asset.employee_id}
-                </button>
-              ) : (
-                <span className="text-muted-foreground">-</span>
-              )}
-              {showAssignedTo === asset.id && asset.assigned_to && (
-                <div className="text-xs font-medium mt-1">{asset.assigned_to}</div>
-              )}
-            </div>
-          </td>
-          <td className="p-2 text-xs">
-            <div className="text-left">
-              {asset.received_by ? (
-                <div className="font-medium text-xs">{asset.received_by}</div>
-              ) : (
-                <span className="text-muted-foreground">-</span>
-              )}
-            </div>
-          </td>
-          <td className="p-2 text-xs">
-            <div className="text-left">
-              {asset.status === "Available" && asset.return_date
-                ? formatDate(asset.return_date)
-                : asset.assigned_date
-                ? formatDate(asset.assigned_date)
-                : "No date"}
-            </div>
-          </td>
-          <td className="p-2 text-xs">
-            <div className="text-left">{getStatusBadge(asset.status)}</div>
-          </td>
-          <td className="p-2 text-xs flex justify-between">
-            <div className="flex gap-1">
-              {asset.status === "Available" ? (
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    setSelectedAsset(asset);
-                    setShowAssignDialog(true);
-                  }}
-                  className="bg-gradient-primary hover:shadow-glow transition-smooth text-xs h-6"
-                >
-                  <UserPlus className="h-2 w-2 mr-1" />
-                  Assign
-                </Button>
-              ) : asset.status === "Assigned" ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setSelectedAsset(asset);
-                    setShowReturnDialog(true);
-                  }}
-                  className="hover:bg-warning hover:text-warning-foreground text-xs h-6"
-                >
-                  <UserMinus className="h-2 w-2 mr-1" />
-                  Return
-                </Button>
-              ) : null}
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="hover:bg-primary hover:text-primary-foreground text-xs h-6"
-                >
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setSelectedAsset(asset);
-                    setShowEditDialog(true);
-                  }}
-                >
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setSelectedAsset(asset);
-                    setNewStatus(asset.status);
-                    setShowStatusDialog(true);
-                  }}
-                >
-                  Status
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setSelectedAsset(asset);
-                    setNewLocation(asset.location);
-                    setShowLocationDialog(true);
-                  }}
-                >
-                  Location
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setSelectedAsset(asset);
-                    setShowHistoryDialog(true);
-                  }}
-                >
-                  History
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={async () => {
-                    if (confirm("Are you sure you want to delete this asset?")) {
-                      try {
-                        await onDelete(asset.id);
-                        setError(null);
-                      } catch (error) {
-                        console.error("Delete failed:", error);
-                        setError("Failed to delete asset. Please try again.");
-                      }
-                    }
-                  }}
-                  className="text-destructive focus:text-destructive"
-                >
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
-</div>
             <div className="flex justify-between items-center mt-4">
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <div>
@@ -671,11 +867,22 @@ export const AssetList = ({
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Available">Available</SelectItem>
-                  <SelectItem value="Assigned">Assigned</SelectItem>
-                  <SelectItem value="Scrap/Damage">Scrap/Damage</SelectItem>
-                  <SelectItem value="Sold">Sold</SelectItem>
-                  <SelectItem value="Others">Others</SelectItem>
+                  {isAuditView ? (
+                    <>
+                      <SelectItem value="Available">Available</SelectItem>
+                      <SelectItem value="Scrap/Damage">Scrap/Damage</SelectItem>
+                      <SelectItem value="Sold">Sold</SelectItem>
+                      <SelectItem value="Others">Others</SelectItem>
+                    </>
+                  ) : (
+                    <>
+                      <SelectItem value="Available">Available</SelectItem>
+                      <SelectItem value="Assigned">Assigned</SelectItem>
+                      <SelectItem value="Scrap/Damage">Scrap/Damage</SelectItem>
+                      <SelectItem value="Sold">Sold</SelectItem>
+                      <SelectItem value="Others">Others</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -865,6 +1072,32 @@ export const AssetList = ({
                 </div>
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Clear All</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p>Are you sure you want to clear all asset check details?</p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={cancelClear}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleAssetCheckClear}
+                className="flex-1 bg-destructive hover:shadow-glow transition-smooth"
+              >
+                Confirm
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
