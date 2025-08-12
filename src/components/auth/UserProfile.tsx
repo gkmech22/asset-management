@@ -34,6 +34,8 @@ export const UserProfile = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [userRole, setUserRole] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isFormSubmitted, setIsFormSubmitted] = useState(false);
 
   useEffect(() => {
     setFullName(user?.user_metadata?.full_name || '');
@@ -119,6 +121,10 @@ export const UserProfile = () => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin') return;
     setIsLoading(true);
     try {
+      if (userRole === 'Admin' && (role === 'Super Admin' || role === 'Admin')) {
+        setErrorMessage('Admins can only create users with Operator or Reporter roles.');
+        return;
+      }
       const { data, error } = await supabase.auth.signUp({
         email,
         password: 'defaultPassword123',
@@ -145,6 +151,7 @@ export const UserProfile = () => {
       }
     } catch (error) {
       console.error('Error creating user:', error);
+      setErrorMessage('Failed to create user. Please try again.');
     } finally {
       setIsLoading(false);
       if (!isLoading) {
@@ -159,32 +166,62 @@ export const UserProfile = () => {
 
   const handleEditUser = (user) => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin') return;
+    if (userRole === 'Admin' && (user.role === 'Super Admin' || user.role === 'Admin')) {
+      setErrorMessage('Admins cannot edit Super Admin or Admin users.');
+      return;
+    }
     setSelectedUser(user);
     setEmail(user.email);
     setDepartment(user.department || '');
     setRole(user.role || '');
     setAccountType(user.account_type || '');
     setOpenEditUser(true);
+    setIsFormSubmitted(false);
   };
 
   const handleSaveEdit = async (e) => {
     e.preventDefault();
     if (!selectedUser || (userRole !== 'Super Admin' && userRole !== 'Admin')) return;
+
+    // Prevent Admins from editing Super Admin or Admin users
+    if (userRole === 'Admin' && (selectedUser.role === 'Super Admin' || selectedUser.role === 'Admin')) {
+      setErrorMessage('Admins cannot edit Super Admin or Admin users.');
+      return;
+    }
+
+    // Prevent Admins from changing any user's role to Super Admin or Admin
+    if (userRole === 'Admin' && (role === 'Super Admin' || role === 'Admin')) {
+      setErrorMessage('Admins can only assign Operator or Reporter roles.');
+      return;
+    }
+
+    // Prevent Admins from changing their own role
+    if (userRole === 'Admin' && selectedUser.id === user.id && role !== selectedUser.role) {
+      setErrorMessage('Admins cannot change their own role.');
+      return;
+    }
+
     setIsLoading(true);
+    setErrorMessage('');
+    setIsFormSubmitted(true);
     try {
       const { error } = await supabase
         .from('users')
         .update({
           email,
           department,
-          role,
+          role: userRole === 'Admin' ? (selectedUser.id === user.id ? selectedUser.role : role) : role,
           account_type: accountType,
         })
         .eq('id', selectedUser.id);
       if (error) throw error;
       await fetchUsers();
+      if (isFormSubmitted) {
+        alert('User updated successfully!');
+      }
     } catch (error) {
       console.error('Error updating user:', error);
+      setErrorMessage('Failed to update user. Please try again.');
     } finally {
       setIsLoading(false);
       setOpenEditUser(false);
@@ -193,17 +230,43 @@ export const UserProfile = () => {
       setDepartment('');
       setRole('');
       setAccountType('');
+      setIsFormSubmitted(false);
     }
+  };
+
+  const handleCancelEdit = () => {
+    setOpenEditUser(false);
+    setSelectedUser(null);
+    setEmail('');
+    setDepartment('');
+    setRole('');
+    setAccountType('');
+    setErrorMessage('');
+    setIsFormSubmitted(false);
   };
 
   const handleDeleteUser = async (id) => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin') return;
     try {
+      const { data: targetUser, error: fetchError } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', id)
+        .single();
+      if (fetchError) throw fetchError;
+
+      if (userRole === 'Admin' && targetUser.role === 'Super Admin') {
+        setErrorMessage('Admins cannot delete Super Admin users.');
+        return;
+      }
+
       const { error } = await supabase.from('users').delete().eq('id', id);
       if (error) throw error;
       setUsers(users.filter(user => user.id !== id));
+      alert('User deleted successfully!');
     } catch (error) {
       console.error('Error deleting user:', error);
+      setErrorMessage('Failed to delete user. Please try again.');
     }
   };
 
@@ -327,6 +390,9 @@ export const UserProfile = () => {
                 <Search className="h-4 w-4" />
               </Button>
             </div>
+            {errorMessage && (
+              <div className="text-red-500 text-sm mb-4">{errorMessage}</div>
+            )}
             <div className="overflow-y-auto">
               <Table>
                 <TableHeader className="sticky top-0 bg-gray-100">
@@ -348,9 +414,14 @@ export const UserProfile = () => {
                       <TableCell>{user.role}</TableCell>
                       <TableCell>{user.account_type}</TableCell>
                       <TableCell className="flex space-x-2">
-                        {(userRole === 'Super Admin' || userRole === 'Admin') ? (
+                        {(userRole === 'Super Admin' || (userRole === 'Admin' && user.role !== 'Super Admin' && user.role !== 'Admin')) ? (
                           <>
-                            <Button variant="ghost" size="icon" onClick={() => handleEditUser(user)}>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => handleEditUser(user)}
+                              disabled={userRole === 'Admin' && (user.role === 'Super Admin' || user.role === 'Admin')}
+                            >
                               <Edit className="h-4 w-4" />
                             </Button>
                             <Button variant="ghost" size="icon" onClick={() => handleDeleteUser(user.id)}>
@@ -375,6 +446,9 @@ export const UserProfile = () => {
           <DialogHeader>
             <DialogTitle>Create new users</DialogTitle>
           </DialogHeader>
+          {errorMessage && (
+            <div className="text-red-500 text-sm mb-4">{errorMessage}</div>
+          )}
           <form onSubmit={handleCreateUser} className="space-y-4 py-4 overflow-y-auto">
             <div>
               <Label htmlFor="accountType">Account Type *</Label>
@@ -412,8 +486,12 @@ export const UserProfile = () => {
               <Label htmlFor="role">Select role *</Label>
               <select id="role" className="w-full p-2 border rounded" value={role} onChange={(e) => setRole(e.target.value)}>
                 <option value="">Select Role</option>
-                <option value="Super Admin">Super Admin</option>
-                <option value="Admin">Admin</option>
+                {userRole === 'Super Admin' && (
+                  <>
+                    <option value="Super Admin">Super Admin</option>
+                    <option value="Admin">Admin</option>
+                  </>
+                )}
                 <option value="Operator">Operator</option>
                 <option value="Reporter">Reporter</option>
               </select>
@@ -428,11 +506,19 @@ export const UserProfile = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={openEditUser} onOpenChange={setOpenEditUser}>
+      <Dialog open={openEditUser} onOpenChange={(open) => {
+        if (!open) {
+          handleCancelEdit();
+        }
+        setOpenEditUser(open);
+      }}>
         <DialogContent className="sm:max-w-[400px] max-h-[70vh] text-sm">
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
           </DialogHeader>
+          {errorMessage && (
+            <div className="text-red-500 text-sm mb-4">{errorMessage}</div>
+          )}
           <form onSubmit={handleSaveEdit} className="space-y-4 py-4 overflow-y-auto max-h-[50vh]">
             <div>
               <Label htmlFor="editEmail">Email *</Label>
@@ -456,10 +542,14 @@ export const UserProfile = () => {
             </div>
             <div>
               <Label htmlFor="editRole">Select role *</Label>
-              <select id="editRole" className="w-full p-2 border rounded" value={role} onChange={(e) => setRole(e.target.value)}>
+              <select id="editRole" className="w-full p-2 border rounded" value={role} onChange={(e) => setRole(e.target.value)} disabled={userRole === 'Admin' && selectedUser?.id === user.id}>
                 <option value="">Select Role</option>
-                <option value="Super Admin">Super Admin</option>
-                <option value="Admin">Admin</option>
+                {userRole === 'Super Admin' && (
+                  <>
+                    <option value="Super Admin">Super Admin</option>
+                    <option value="Admin">Admin</option>
+                  </>
+                )}
                 <option value="Operator">Operator</option>
                 <option value="Reporter">Reporter</option>
               </select>
@@ -477,7 +567,7 @@ export const UserProfile = () => {
               </select>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setOpenEditUser(false)}>Cancel</Button>
+              <Button variant="outline" onClick={handleCancelEdit}>Cancel</Button>
               <Button type="submit" disabled={isLoading}>
                 {isLoading ? 'Saving...' : 'Save'}
               </Button>
