@@ -99,7 +99,7 @@ export const AssetSticker: React.FC<AssetStickerProps> = ({ asset }) => {
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillStyle = "black";
-      ctx.fillText("Asset Management", centerX, currentY);
+      ctx.fillText("Asset Management System", centerX, currentY);
       currentY += titleFontSize + spacing;
 
       // Generate and draw barcode
@@ -124,13 +124,13 @@ export const AssetSticker: React.FC<AssetStickerProps> = ({ asset }) => {
       }
 
       // Serial Number text
-      ctx.font = `${serialFontSize}px Arial`;
+      ctx.font = `bold ${serialFontSize}px Arial`;
       ctx.fillText(asset.serial_number || "N/A", centerX, currentY);
       currentY += serialFontSize + spacing;
 
       // Asset ID text
       ctx.font = `bold ${assetIdFontSize}px Arial`;
-      ctx.fillText(`ID: ${asset.asset_id || "N/A"}`, centerX, currentY);
+      ctx.fillText(`${asset.asset_id || "N/A"}`, centerX, currentY);
     };
 
     loadJsBarcode();
