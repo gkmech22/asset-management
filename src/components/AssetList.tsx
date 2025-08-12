@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { UserPlus, UserMinus, Search, Calendar, MoreVertical, ScanBarcode } from "lucide-react";
+import { UserPlus, UserMinus, Search, Calendar, MoreVertical, ScanBarcode, Tag } from "lucide-react";
 import { EditAssetDialog } from "./EditAssetDialog";
 import { AssetDetailsDialog } from "./AssetDetailsDialog";
+import { AssetSticker } from "./AssetSticker";
 import { Asset } from "@/hooks/useAssets";
 import { useAssetHistory } from "@/hooks/useAssetHistory";
 import { useAuth } from "@/contexts/AuthContext";
@@ -67,6 +68,7 @@ export const AssetList = ({
   const [showDetailsDialog, setShowDetailsDialog] = React.useState(false);
   const [showHistoryDialog, setShowHistoryDialog] = React.useState(false);
   const [showReturnDialog, setShowReturnDialog] = React.useState(false);
+  const [showStickerDialog, setShowStickerDialog] = React.useState(false);
   const [returnRemarks, setReturnRemarks] = React.useState("");
   const [returnLocation, setReturnLocation] = React.useState("");
   const [newStatus, setNewStatus] = React.useState("");
@@ -84,6 +86,8 @@ export const AssetList = ({
   const [showAssignedToOnly, setShowAssignedToOnly] = React.useState(false);
 
   const { data: history = [], isLoading: historyLoading } = useAssetHistory(selectedAsset?.id);
+
+  console.log("AssetList: Rendering with assets:", assets);
 
   const locations = [
     "Mumbai Office",
@@ -112,13 +116,13 @@ export const AssetList = ({
       }
       return "Unknown User";
     } catch (err) {
-      console.error("Error parsing user data:", err);
+      console.error("AssetList: Error parsing user data:", err);
       return "Unknown User";
     }
   }, [user]);
 
   React.useEffect(() => {
-    console.log("AssetList props:", { assets: assets.length, user, receivedBy });
+    console.log("AssetList: Props updated:", { assets: assets.length, user, receivedBy });
   }, [assets, user, receivedBy]);
 
   React.useEffect(() => {
@@ -141,6 +145,7 @@ export const AssetList = ({
 
   const filteredAssets = React.useMemo(() => {
     return assets.filter((asset) => {
+      if (!asset) return false; // Guard against null/undefined assets
       if (viewType === 'audit' && asset.status === 'Assigned') {
         return false;
       }
@@ -211,7 +216,6 @@ export const AssetList = ({
   const handleAssignAsset = async () => {
     if (selectedAsset && userName.trim() && employeeId.trim()) {
       try {
-        // Validate Asset ID and Serial Number uniqueness
         const existingAssetWithEmployeeId = assets.find(
           (asset) => asset.employee_id === employeeId && asset.id !== selectedAsset.id
         );
@@ -236,7 +240,7 @@ export const AssetList = ({
         setSelectedAsset(null);
         setError(null);
       } catch (error) {
-        console.error("Assign failed:", error);
+        console.error("AssetList: Assign failed:", error);
         setError("Failed to assign asset. Please try again.");
       }
     }
@@ -251,7 +255,7 @@ export const AssetList = ({
         setSelectedAsset(null);
         setError(null);
       } catch (error) {
-        console.error("Update status failed:", error);
+        console.error("AssetList: Update status failed:", error);
         setError("Failed to update status. Please try again.");
       }
     }
@@ -266,7 +270,7 @@ export const AssetList = ({
         setSelectedAsset(null);
         setError(null);
       } catch (error) {
-        console.error("Update location failed:", error);
+        console.error("AssetList: Update location failed:", error);
         setError("Failed to update location. Please try again.");
       }
     }
@@ -282,7 +286,7 @@ export const AssetList = ({
         setSelectedAsset(null);
         setError(null);
       } catch (error) {
-        console.error("Return failed:", error);
+        console.error("AssetList: Return failed:", error);
         setError("Failed to return asset. Please try again.");
       }
     }
@@ -300,7 +304,7 @@ export const AssetList = ({
           setAssetCheckId("");
           setError(null);
         } catch (error) {
-          console.error("Asset check update failed:", error);
+          console.error("AssetList: Asset check update failed:", error);
           setError("Failed to update asset check status. Please try again.");
         }
       } else {
@@ -319,7 +323,7 @@ export const AssetList = ({
       });
       setError(null);
     } catch (error) {
-      console.error("Asset uncheck failed:", error);
+      console.error("AssetList: Asset uncheck failed:", error);
       setError("Failed to uncheck asset. Please try again.");
     }
   };
@@ -336,7 +340,7 @@ export const AssetList = ({
       setShowConfirmDialog(false);
       setError(null);
     } catch (error) {
-      console.error("Clear asset checks failed:", error);
+      console.error("AssetList: Clear asset checks failed:", error);
       setError("Failed to clear asset checks. Please try again.");
     }
   };
@@ -415,7 +419,7 @@ export const AssetList = ({
       case "Others":
         return <Badge variant="secondary">Others</Badge>;
       default:
-        return <Badge variant="secondary">{status}</Badge>;
+        return <Badge variant="secondary">{status || "Unknown"}</Badge>;
     }
   };
 
@@ -426,7 +430,7 @@ export const AssetList = ({
       case "Out of Warranty":
         return <Badge className="bg-red-500 text-white">Out of Warranty</Badge>;
       default:
-        return <Badge variant="secondary">{warrantyStatus}</Badge>;
+        return <Badge variant="secondary">{warrantyStatus || "-"}</Badge>;
     }
   };
 
@@ -470,8 +474,39 @@ export const AssetList = ({
 
   const historyTableRef = React.useRef<HTMLDivElement>(null);
 
-  if (!assets || assets.length === 0) {
-    console.log("No assets provided to AssetList");
+  const handleOpenStickerDialog = (asset: Asset) => {
+    if (!asset || !asset.asset_id || !asset.serial_number) {
+      console.error("AssetList: Cannot open sticker dialog, invalid asset:", asset);
+      setError("Invalid asset selected for sticker generation.");
+      return;
+    }
+    console.log("AssetList: Opening sticker dialog with asset:", asset);
+    setSelectedAsset(asset);
+    setShowStickerDialog(true);
+  };
+
+  if (!Array.isArray(assets)) {
+    console.error("AssetList: Invalid assets prop, expected array:", assets);
+    return (
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle className="text-xl flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-primary" />
+            Asset Inventory (0 items)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-12 text-destructive">
+            <h3 className="text-lg font-semibold mb-2">Error</h3>
+            <p className="text-sm">Invalid assets data provided. Please check the data source.</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (assets.length === 0) {
+    console.log("AssetList: No assets provided");
     return (
       <Card className="shadow-card">
         <CardHeader>
@@ -664,6 +699,7 @@ export const AssetList = ({
                             <div className="text-left">
                               <button
                                 onClick={() => {
+                                  console.log("AssetList: Opening details dialog for asset:", asset);
                                   setSelectedAsset(asset);
                                   setShowAssignedToOnly(false);
                                   setShowDetailsDialog(true);
@@ -697,6 +733,7 @@ export const AssetList = ({
                             <div className="text-left">
                               <button
                                 onClick={() => {
+                                  console.log("AssetList: Opening assigned-to details for asset:", asset);
                                   setSelectedAsset(asset);
                                   setShowAssignedToOnly(true);
                                   setShowDetailsDialog(true);
@@ -718,12 +755,13 @@ export const AssetList = ({
                           <td className="p-2 text-xs">
                             <div className="text-left">{getStatusBadge(asset.status)}</div>
                           </td>
-                          <td className="p-2 text-xs flex justify-between">
-                            <div className="flex gap-1">
+                          <td className="p-2 text-xs flex justify-end gap-2">
+                            <div className="flex gap-1 items-center">
                               {asset.status === "Available" ? (
                                 <Button
                                   size="sm"
                                   onClick={() => {
+                                    console.log("AssetList: Opening assign dialog for asset:", asset);
                                     setSelectedAsset(asset);
                                     setShowAssignDialog(true);
                                   }}
@@ -737,6 +775,7 @@ export const AssetList = ({
                                   size="sm"
                                   variant="outline"
                                   onClick={() => {
+                                    console.log("AssetList: Opening return dialog for asset:", asset);
                                     setSelectedAsset(asset);
                                     setShowReturnDialog(true);
                                   }}
@@ -746,70 +785,82 @@ export const AssetList = ({
                                   Return
                                 </Button>
                               ) : null}
-                            </div>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="hover:bg-primary hover:text-primary-foreground text-xs h-6"
-                                >
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent>
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setSelectedAsset(asset);
-                                    setShowEditDialog(true);
-                                  }}
-                                >
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setSelectedAsset(asset);
-                                    setNewStatus(asset.status);
-                                    setShowStatusDialog(true);
-                                  }}
-                                >
-                                  Status
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setSelectedAsset(asset);
-                                    setNewLocation(asset.location);
-                                    setShowLocationDialog(true);
-                                  }}
-                                >
-                                  Location
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setSelectedAsset(asset);
-                                    setShowHistoryDialog(true);
-                                  }}
-                                >
-                                  History
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={async () => {
-                                    if (confirm("Are you sure you want to delete this asset?")) {
-                                      try {
-                                        await onDelete(asset.id);
-                                        setError(null);
-                                      } catch (error) {
-                                        console.error("Delete failed:", error);
-                                        setError("Failed to delete asset. Please try again.");
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleOpenStickerDialog(asset)}
+                                className="hover:bg-primary hover:text-primary-foreground text-xs h-6 w-6 p-0"
+                              >
+                                <Tag className="h-4 w-4" />
+                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="hover:bg-primary hover:text-primary-foreground text-xs h-6 w-6 p-0"
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      console.log("AssetList: Opening edit dialog for asset:", asset);
+                                      setSelectedAsset(asset);
+                                      setShowEditDialog(true);
+                                    }}
+                                  >
+                                    Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      console.log("AssetList: Opening status dialog for asset:", asset);
+                                      setSelectedAsset(asset);
+                                      setNewStatus(asset.status);
+                                      setShowStatusDialog(true);
+                                    }}
+                                  >
+                                    Status
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      console.log("AssetList: Opening location dialog for asset:", asset);
+                                      setSelectedAsset(asset);
+                                      setNewLocation(asset.location);
+                                      setShowLocationDialog(true);
+                                    }}
+                                  >
+                                    Location
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      console.log("AssetList: Opening history dialog for asset:", asset);
+                                      setSelectedAsset(asset);
+                                      setShowHistoryDialog(true);
+                                    }}
+                                  >
+                                    History
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={async () => {
+                                      if (confirm("Are you sure you want to delete this asset?")) {
+                                        try {
+                                          await onDelete(asset.id);
+                                          setError(null);
+                                        } catch (error) {
+                                          console.error("AssetList: Delete failed:", error);
+                                          setError("Failed to delete asset. Please try again.");
+                                        }
                                       }
-                                    }
-                                  }}
-                                  className="text-destructive focus:text-destructive"
-                                >
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                                    }}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
                           </td>
                         </>
                       )}
@@ -822,6 +873,7 @@ export const AssetList = ({
                             <div className="text-left">
                               <button
                                 onClick={() => {
+                                  console.log("AssetList: Opening details dialog for asset:", asset);
                                   setSelectedAsset(asset);
                                   setShowAssignedToOnly(false);
                                   setShowDetailsDialog(true);
@@ -881,6 +933,7 @@ export const AssetList = ({
                             <div className="text-left">
                               <button
                                 onClick={() => {
+                                  console.log("AssetList: Opening details dialog for asset:", asset);
                                   setSelectedAsset(asset);
                                   setShowAssignedToOnly(false);
                                   setShowDetailsDialog(true);
@@ -1032,8 +1085,8 @@ export const AssetList = ({
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Asset: {selectedAsset?.name}</Label>
-              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id}</p>
+              <Label>Asset: {selectedAsset?.name || "N/A"}</Label>
+              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id || "N/A"}</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="employeeId">Employee ID *</Label>
@@ -1068,7 +1121,7 @@ export const AssetList = ({
               </Button>
               <Button
                 onClick={handleAssignAsset}
-                disabled={!userName.trim() || !employeeId.trim()}
+                disabled={!userName.trim() || !employeeId.trim() || !selectedAsset}
                 className="flex-1 bg-gradient-primary hover:shadow-glow transition-smooth"
               >
                 Assign
@@ -1085,8 +1138,8 @@ export const AssetList = ({
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Asset: {selectedAsset?.name}</Label>
-              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id}</p>
+              <Label>Asset: {selectedAsset?.name || "N/A"}</Label>
+              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id || "N/A"}</p>
             </div>
             <div className="space-y-2">
               <Label>Status</Label>
@@ -1128,7 +1181,7 @@ export const AssetList = ({
               </Button>
               <Button
                 onClick={handleUpdateStatus}
-                disabled={!newStatus}
+                disabled={!newStatus || !selectedAsset}
                 className="flex-1 bg-gradient-primary hover:shadow-glow transition-smooth"
               >
                 Update
@@ -1145,8 +1198,8 @@ export const AssetList = ({
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Asset: {selectedAsset?.name}</Label>
-              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id}</p>
+              <Label>Asset: {selectedAsset?.name || "N/A"}</Label>
+              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id || "N/A"}</p>
             </div>
             <div className="space-y-2">
               <Label>Location</Label>
@@ -1177,7 +1230,7 @@ export const AssetList = ({
               </Button>
               <Button
                 onClick={handleUpdateLocation}
-                disabled={!newLocation}
+                disabled={!newLocation || !selectedAsset}
                 className="flex-1 bg-gradient-primary hover:shadow-glow transition-smooth"
               >
                 Update
@@ -1194,8 +1247,8 @@ export const AssetList = ({
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Asset: {selectedAsset?.name}</Label>
-              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id}</p>
+              <Label>Asset: {selectedAsset?.name || "N/A"}</Label>
+              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id || "N/A"}</p>
             </div>
             <div className="space-y-2">
               <Label>Location *</Label>
@@ -1244,7 +1297,7 @@ export const AssetList = ({
               </Button>
               <Button
                 onClick={handleReturnAsset}
-                disabled={!returnLocation}
+                disabled={!returnLocation || !selectedAsset}
                 className="flex-1 bg-gradient-primary hover:shadow-glow transition-smooth"
               >
                 Return
@@ -1313,6 +1366,28 @@ export const AssetList = ({
         </DialogContent>
       </Dialog>
 
+      <Dialog open={showStickerDialog} onOpenChange={(open) => {
+        console.log("AssetList: Sticker Dialog open state:", open, "with selectedAsset:", selectedAsset);
+        setShowStickerDialog(open);
+        if (!open) setSelectedAsset(null);
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Asset Sticker</DialogTitle>
+          </DialogHeader>
+          {selectedAsset ? (
+            <>
+              <p className="text-sm text-muted-foreground">Generating sticker for {selectedAsset.asset_id}</p>
+              <AssetSticker asset={selectedAsset} />
+            </>
+          ) : (
+            <div className="text-center py-4 text-destructive">
+              No asset selected for sticker generation.
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <EnhancedBarcodeScanner
         isOpen={showScanner}
         onClose={() => setShowScanner(false)}
@@ -1331,9 +1406,12 @@ export const AssetList = ({
 
       <EditAssetDialog
         asset={selectedAsset}
-        assets={assets} // Pass assets for validation
+        assets={assets}
         open={showEditDialog}
-        onOpenChange={setShowEditDialog}
+        onOpenChange={(open) => {
+          setShowEditDialog(open);
+          if (!open) setSelectedAsset(null);
+        }}
         onUpdate={onUpdateAsset}
       />
 
@@ -1353,12 +1431,12 @@ export const AssetList = ({
       <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
         <DialogContent className="max-w-2xl h-[80vh]">
           <DialogHeader className="pb-0">
-            <DialogTitle className="mt-0">Edit History for {selectedAsset?.name}</DialogTitle>
+            <DialogTitle className="mt-0">Edit History for {selectedAsset?.name || "N/A"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-1 pt-0">
             <div>
-              <Label className="mt-0">Asset: {selectedAsset?.name}</Label>
-              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id}</p>
+              <Label className="mt-0">Asset: {selectedAsset?.name || "N/A"}</Label>
+              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id || "N/A"}</p>
             </div>
             {historyLoading ? (
               <div className="text-center py-4">
