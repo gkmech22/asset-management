@@ -169,9 +169,9 @@ export const AssetList = ({
         (asset.employee_id && asset.employee_id.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (asset.received_by && asset.received_by.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (asset.assigned_date && asset.assigned_date.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (asset.return_date && asset.return_date.toLowerCase().includes(searchTerm.toLowerCase())) ||
         asset.status?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         asset.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (asset.received_by && asset.received_by.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (asset.warranty_start && asset.warranty_start.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (asset.warranty_end && asset.warranty_end.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (asset.provider && asset.provider.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -279,6 +279,13 @@ export const AssetList = ({
   const handleReturnAsset = async () => {
     if (selectedAsset && returnLocation) {
       try {
+        console.log("Returning asset:", {
+          assetId: selectedAsset.id,
+          remarks: returnRemarks,
+          receivedBy,
+          returnLocation,
+        });
+        // Note: Ensure onUnassign sets return_date to the current timestamp in the backend
         await onUnassign(selectedAsset.id, returnRemarks, receivedBy, returnLocation);
         setShowReturnDialog(false);
         setReturnRemarks("");
@@ -373,6 +380,8 @@ export const AssetList = ({
       "Status",
       "Asset Location",
       "Asset Check",
+      "Assigned Date",
+      "Return Date",
     ];
 
     const escapeCsvField = (value: string | null | undefined): string => {
@@ -393,6 +402,8 @@ export const AssetList = ({
           escapeCsvField(asset.status),
           escapeCsvField(asset.location),
           escapeCsvField(asset.asset_check),
+          escapeCsvField(asset.assigned_date),
+          escapeCsvField(asset.return_date),
         ].join(",")
       ),
     ].join("\n");
@@ -749,7 +760,9 @@ export const AssetList = ({
                           </td>
                           <td className="p-2 text-xs">
                             <div className="text-left">
-                              {formatDate(asset.assigned_date)}
+                              {asset.status === "Available" && asset.return_date
+                                ? formatDate(asset.return_date)
+                                : formatDate(asset.assigned_date) || "No date"}
                             </div>
                           </td>
                           <td className="p-2 text-xs">
