@@ -72,27 +72,27 @@ export const AssetSticker: React.FC<AssetStickerProps> = ({ asset }) => {
       const widthPx = (60 / mmToInches) * dpi; // 60 mm to inches * 600 DPI ≈ 1417 px
       const heightPx = (40 / mmToInches) * dpi; // 40 mm to inches * 600 DPI ≈ 945 px
 
-      // Set canvas size
-      canvas.width = Math.round(widthPx); // 1417 px
-      canvas.height = Math.round(heightPx); // 945 px
+      // Set canvas size to full resolution (scaled by CSS transform)
+      canvas.width = Math.round(widthPx); // ~1417 px
+      canvas.height = Math.round(heightPx); // ~945 px
 
       // Clear canvas with white background
       ctx.fillStyle = "white";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // Adjust for high DPI
-      ctx.scale(dpi / 96, dpi / 96); // 100% scale to fit content
+      ctx.scale(dpi / 96, dpi / 96);
 
       // Optimize for barcode printer
-      ctx.imageSmoothingEnabled = false; // Prevent blurry scaling
+      ctx.imageSmoothingEnabled = false;
       ctx.textRendering = "optimizeLegibility";
 
-      // Content dimensions with increased sizes and adjusted spacing
-      const headerFontSize = 12; // Maintained at 12 px
-      const barcodeHeight = 25; // Maintained at 15 mm
-      const serialFontSize = 10; // Maintained at 10 px
-      const assetIdFontSize = 10; // Maintained at 10 px
-      const spacing = 3; // Maintained at 3 px for most spacing
+      // Content dimensions
+      const headerFontSize = 12;
+      const barcodeHeight = 25;
+      const serialFontSize = 10;
+      const assetIdFontSize = 10;
+      const spacing = 3;
       const totalContentHeight = headerFontSize + barcodeHeight + serialFontSize + assetIdFontSize + 4 * spacing;
 
       // Position content vertically
@@ -120,23 +120,22 @@ export const AssetSticker: React.FC<AssetStickerProps> = ({ asset }) => {
         console.log("AssetSticker: Generating barcode with serial:", serialNumber);
         window.JsBarcode(barcodeCanvas, serialNumber, {
           format: "CODE128",
-          width: 1.5, // Maintained at 1.5 mm for wider barcode
+          width: 1.5,
           height: barcodeHeight,
           displayValue: false,
           margin: 0,
           background: "#FFFFFF",
           lineColor: "#000000",
-          quietZone: 10, // Maintained
+          quietZone: 10,
         });
         console.log("AssetSticker: Barcode canvas dimensions", {
           width: barcodeCanvas.width,
-          height: barcodeCanvas.height
+          height: barcodeCanvas.height,
         });
         const barcodeWidth = Math.min(barcodeCanvas.width, (canvas.width / (dpi / 96)) * 0.85);
         const x = ((canvas.width / (dpi / 96)) - barcodeWidth) / 2;
         ctx.drawImage(barcodeCanvas, x, currentY, barcodeWidth, barcodeHeight);
-        currentY += barcodeHeight + 5; // Maintained at 5 px spacing between barcode and serial number
-
+        currentY += barcodeHeight + 5;
         ctx.font = `bold ${serialFontSize}px "Arial"`;
         ctx.fillStyle = "#000000";
         ctx.fillText(serialNumber || "N/A", centerX, currentY);
@@ -155,7 +154,7 @@ export const AssetSticker: React.FC<AssetStickerProps> = ({ asset }) => {
       ctx.fillText(`${asset.asset_id || "N/A"}`, centerX, currentY);
 
       // Reset scale
-      ctx.scale(96 / dpi, 96 / dpi); // Reset with 100% scale
+      ctx.scale(96 / dpi, 96 / dpi);
     };
 
     loadJsBarcode();
@@ -168,7 +167,7 @@ export const AssetSticker: React.FC<AssetStickerProps> = ({ asset }) => {
   const handlePrintSticker = () => {
     if (canvasRef.current) {
       const dataUrl = canvasRef.current.toDataURL("image/png", 1.0);
-      const printWindow = window.open('', '_blank');
+      const printWindow = window.open("", "_blank");
       if (printWindow) {
         printWindow.document.write(`
           <html>
@@ -244,8 +243,10 @@ export const AssetSticker: React.FC<AssetStickerProps> = ({ asset }) => {
   }
 
   return (
-    <div className="flex flex-col items-center w-full max-w-[1000px] p-2">
-      {/* Canvas with no header, print button below with white background */}
+    <div
+      className="flex flex-col items-center w-full max-w-[1000px] p-2"
+      style={{ transform: "scale(1.1)", transformOrigin: "center top" }}
+    >
       <canvas
         ref={canvasRef}
         className="border-2 border-red-500 bg-gray-100"
