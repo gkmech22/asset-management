@@ -183,19 +183,16 @@ export const UserProfile = () => {
     e.preventDefault();
     if (!selectedUser || (userRole !== 'Super Admin' && userRole !== 'Admin')) return;
 
-    // Prevent Admins from editing Super Admin or Admin users
     if (userRole === 'Admin' && (selectedUser.role === 'Super Admin' || selectedUser.role === 'Admin')) {
       setErrorMessage('Admins cannot edit Super Admin or Admin users.');
       return;
     }
 
-    // Prevent Admins from changing any user's role to Super Admin or Admin
     if (userRole === 'Admin' && (role === 'Super Admin' || role === 'Admin')) {
       setErrorMessage('Admins can only assign Operator or Reporter roles.');
       return;
     }
 
-    // Prevent Admins from changing their own role
     if (userRole === 'Admin' && selectedUser.id === user.id && role !== selectedUser.role) {
       setErrorMessage('Admins cannot change their own role.');
       return;
@@ -284,8 +281,8 @@ export const UserProfile = () => {
         .toUpperCase()
     : user.email?.[0]?.toUpperCase() || 'U';
 
-  if (!user) return <div>Please log in to access this page.</div>;
-  if (!isAuthorized) return <div>Access denied. You are not an authorized user.</div>;
+  if (!user) return <div className="text-sm">Please log in to access this page.</div>;
+  if (!isAuthorized) return <div className="text-sm">Access denied. You are not an authorized user.</div>;
 
   return (
     <>
@@ -303,7 +300,7 @@ export const UserProfile = () => {
             </Avatar>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56" align="end">
+        <DropdownMenuContent className="w-56 text-sm">
           <DropdownMenuLabel className="font-normal">
             <div className="flex flex-col space-y-1">
               <p className="text-sm font-medium leading-none">
@@ -336,7 +333,7 @@ export const UserProfile = () => {
       </DropdownMenu>
 
       <Dialog open={openProfile} onOpenChange={setOpenProfile}>
-        <DialogContent className="max-w-[400px]">
+        <DialogContent className="max-w-[400px] text-sm">
           <DialogHeader>
             <DialogTitle>Edit Profile</DialogTitle>
             <DialogDescription>Update your profile information.</DialogDescription>
@@ -344,17 +341,17 @@ export const UserProfile = () => {
           <form onSubmit={handleUpdateProfile}>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="fullName" className="text-right">Full Name</Label>
+                <Label htmlFor="fullName" className="text-right text-sm">Full Name</Label>
                 <Input
                   id="fullName"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className="col-span-3"
+                  className="col-span-3 text-sm"
                 />
               </div>
             </div>
             <DialogFooter>
-              <Button type="submit" disabled={isLoading}>
+              <Button type="submit" disabled={isLoading} className="text-sm">
                 {isLoading ? 'Saving...' : 'Save changes'}
               </Button>
             </DialogFooter>
@@ -363,7 +360,7 @@ export const UserProfile = () => {
       </Dialog>
 
       <Dialog open={openSettings} onOpenChange={setOpenSettings}>
-        <DialogContent className="max-w-full w-auto overflow-y-auto">
+        <DialogContent className="max-w-[90vw] w-auto max-h-[70vh] overflow-y-auto text-sm">
           <DialogHeader className="flex justify-between items-center">
             <div>
               <DialogTitle>User Management</DialogTitle>
@@ -372,7 +369,7 @@ export const UserProfile = () => {
             {(userRole === 'Super Admin' || userRole === 'Admin') && (
               <Button 
                 onClick={() => setOpenCreateUser(true)}
-                className="ml-auto"
+                className="ml-auto text-sm"
               >
                 Add new users
               </Button>
@@ -384,7 +381,7 @@ export const UserProfile = () => {
                 placeholder="Search users..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full"
+                className="w-full max-w-md text-sm"
               />
               <Button variant="outline" size="icon" onClick={() => setSearchQuery('')}>
                 <Search className="h-4 w-4" />
@@ -393,66 +390,68 @@ export const UserProfile = () => {
             {errorMessage && (
               <div className="text-red-500 text-sm mb-4">{errorMessage}</div>
             )}
-            <div className="overflow-y-auto">
-              <Table>
-                <TableHeader className="sticky top-0 bg-gray-100">
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Department</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Account Type</TableHead>
-                    <TableHead className="w-[100px]">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredUsers.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell>{user.email.split('@')[0]}</TableCell>
-                      <TableCell>{user.department}</TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>{user.role}</TableCell>
-                      <TableCell>{user.account_type}</TableCell>
-                      <TableCell className="flex space-x-2">
-                        {(userRole === 'Super Admin' || (userRole === 'Admin' && user.role !== 'Super Admin' && user.role !== 'Admin')) ? (
-                          <>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              onClick={() => handleEditUser(user)}
-                              disabled={userRole === 'Admin' && (user.role === 'Super Admin' || user.role === 'Admin')}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleDeleteUser(user.id)}>
-                              <Trash className="h-4 w-4 text-red-500" />
-                            </Button>
-                          </>
-                        ) : (
-                          <span className="text-muted-foreground text-xs">Read-only</span>
-                        )}
-                      </TableCell>
+            <div className="relative overflow-x-auto">
+              <div className="max-h-[40vh] overflow-y-auto">
+                <Table className="w-full table-fixed text-sm">
+                  <TableHeader className="sticky top-0 bg-gray-100 z-10">
+                    <TableRow>
+                      <TableHead className="w-[150px] font-medium">Name</TableHead>
+                      <TableHead className="w-[150px] font-medium">Department</TableHead>
+                      <TableHead className="w-[200px] font-medium">Email</TableHead>
+                      <TableHead className="w-[120px] font-medium">Role</TableHead>
+                      <TableHead className="w-[120px] font-medium">Account Type</TableHead>
+                      <TableHead className="w-[100px] font-medium">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredUsers.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell className="truncate text-sm">{user.email.split('@')[0]}</TableCell>
+                        <TableCell className="truncate text-sm">{user.department}</TableCell>
+                        <TableCell className="truncate text-sm">{user.email}</TableCell>
+                        <TableCell className="truncate text-sm">{user.role}</TableCell>
+                        <TableCell className="truncate text-sm">{user.account_type}</TableCell>
+                        <TableCell className="flex space-x-2">
+                          {(userRole === 'Super Admin' || (userRole === 'Admin' && user.role !== 'Super Admin' && user.role !== 'Admin')) ? (
+                            <>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => handleEditUser(user)}
+                                disabled={userRole === 'Admin' && (user.role === 'Super Admin' || user.role === 'Admin')}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => handleDeleteUser(user.id)}>
+                                <Trash className="h-4 w-4 text-red-500" />
+                              </Button>
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">Read-only</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={openCreateUser} onOpenChange={setOpenCreateUser}>
-        <DialogContent className="max-w-full w-auto overflow-y-auto text-sm">
+        <DialogContent className="max-w-[400px] max-h-[70vh] text-sm">
           <DialogHeader>
             <DialogTitle>Create new users</DialogTitle>
           </DialogHeader>
           {errorMessage && (
             <div className="text-red-500 text-sm mb-4">{errorMessage}</div>
           )}
-          <form onSubmit={handleCreateUser} className="space-y-4 py-4 overflow-y-auto">
+          <form onSubmit={handleCreateUser} className="space-y-4 py-4 overflow-y-auto max-h-[50vh]">
             <div>
-              <Label htmlFor="accountType">Account Type *</Label>
-              <select id="accountType" className="w-full p-2 border rounded" value={accountType} onChange={(e) => setAccountType(e.target.value)}>
+              <Label htmlFor="accountType" className="text-sm">Account Type *</Label>
+              <select id="accountType" className="w-full p-2 border rounded text-sm" value={accountType} onChange={(e) => setAccountType(e.target.value)}>
                 <option value="">Select Account Type</option>
                 <option value="0">0</option>
                 <option value="1">1</option>
@@ -463,16 +462,17 @@ export const UserProfile = () => {
               </select>
             </div>
             <div>
-              <Label htmlFor="email">Email *</Label>
+              <Label htmlFor="email" className="text-sm">Email *</Label>
               <Input
                 id="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                className="text-sm"
               />
             </div>
             <div>
-              <Label htmlFor="department">Select Department *</Label>
-              <select id="department" className="w-full p-2 border rounded" value={department} onChange={(e) => setDepartment(e.target.value)}>
+              <Label htmlFor="department" className="text-sm">Select Department *</Label>
+              <select id="department" className="w-full p-2 border rounded text-sm" value={department} onChange={(e) => setDepartment(e.target.value)}>
                 <option value="">Select Department</option>
                 <option value="Administrators">Administrators</option>
                 <option value="Customer Support">Customer Support</option>
@@ -483,8 +483,8 @@ export const UserProfile = () => {
               </select>
             </div>
             <div>
-              <Label htmlFor="role">Select role *</Label>
-              <select id="role" className="w-full p-2 border rounded" value={role} onChange={(e) => setRole(e.target.value)}>
+              <Label htmlFor="role" className="text-sm">Select role *</Label>
+              <select id="role" className="w-full p-2 border rounded text-sm" value={role} onChange={(e) => setRole(e.target.value)}>
                 <option value="">Select Role</option>
                 {userRole === 'Super Admin' && (
                   <>
@@ -497,8 +497,8 @@ export const UserProfile = () => {
               </select>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setOpenCreateUser(false)}>Cancel</Button>
-              <Button type="submit" disabled={isLoading}>
+              <Button variant="outline" onClick={() => setOpenCreateUser(false)} className="text-sm">Cancel</Button>
+              <Button type="submit" disabled={isLoading} className="text-sm">
                 {isLoading ? 'Creating...' : 'Create'}
               </Button>
             </DialogFooter>
@@ -512,7 +512,7 @@ export const UserProfile = () => {
         }
         setOpenEditUser(open);
       }}>
-        <DialogContent className="sm:max-w-[400px] max-h-[70vh] text-sm">
+        <DialogContent className="max-w-[400px] max-h-[70vh] text-sm">
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
           </DialogHeader>
@@ -521,16 +521,17 @@ export const UserProfile = () => {
           )}
           <form onSubmit={handleSaveEdit} className="space-y-4 py-4 overflow-y-auto max-h-[50vh]">
             <div>
-              <Label htmlFor="editEmail">Email *</Label>
+              <Label htmlFor="editEmail" className="text-sm">Email *</Label>
               <Input
                 id="editEmail"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                className="text-sm"
               />
             </div>
             <div>
-              <Label htmlFor="editDepartment">Select Department *</Label>
-              <select id="editDepartment" className="w-full p-2 border rounded" value={department} onChange={(e) => setDepartment(e.target.value)}>
+              <Label htmlFor="editDepartment" className="text-sm">Select Department *</Label>
+              <select id="editDepartment" className="w-full p-2 border rounded text-sm" value={department} onChange={(e) => setDepartment(e.target.value)}>
                 <option value="">Select Department</option>
                 <option value="Administrators">Administrators</option>
                 <option value="Customer Support">Customer Support</option>
@@ -541,8 +542,8 @@ export const UserProfile = () => {
               </select>
             </div>
             <div>
-              <Label htmlFor="editRole">Select role *</Label>
-              <select id="editRole" className="w-full p-2 border rounded" value={role} onChange={(e) => setRole(e.target.value)} disabled={userRole === 'Admin' && selectedUser?.id === user.id}>
+              <Label htmlFor="editRole" className="text-sm">Select role *</Label>
+              <select id="editRole" className="w-full p-2 border rounded text-sm" value={role} onChange={(e) => setRole(e.target.value)} disabled={userRole === 'Admin' && selectedUser?.id === user.id}>
                 <option value="">Select Role</option>
                 {userRole === 'Super Admin' && (
                   <>
@@ -555,8 +556,8 @@ export const UserProfile = () => {
               </select>
             </div>
             <div>
-              <Label htmlFor="editAccountType">Account Type *</Label>
-              <select id="editAccountType" className="w-full p-2 border rounded" value={accountType} onChange={(e) => setAccountType(e.target.value)}>
+              <Label htmlFor="editAccountType" className="text-sm">Account Type *</Label>
+              <select id="editAccountType" className="w-full p-2 border rounded text-sm" value={accountType} onChange={(e) => setAccountType(e.target.value)}>
                 <option value="">Select Account Type</option>
                 <option value="0">0</option>
                 <option value="1">1</option>
@@ -567,8 +568,8 @@ export const UserProfile = () => {
               </select>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={handleCancelEdit}>Cancel</Button>
-              <Button type="submit" disabled={isLoading}>
+              <Button variant="outline" onClick={handleCancelEdit} className="text-sm">Cancel</Button>
+              <Button type="submit" disabled={isLoading} className="text-sm">
                 {isLoading ? 'Saving...' : 'Save'}
               </Button>
             </DialogFooter>
