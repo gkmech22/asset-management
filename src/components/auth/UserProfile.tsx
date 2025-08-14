@@ -360,7 +360,7 @@ export const UserProfile = () => {
       </Dialog>
 
       <Dialog open={openSettings} onOpenChange={setOpenSettings}>
-        <DialogContent className="max-w-[90vw] w-auto max-h-[70vh] overflow-y-auto text-sm">
+        <DialogContent className="max-w-[90vw] w-[900px] text-sm">
           <DialogHeader className="flex justify-between items-center">
             <div>
               <DialogTitle>User Management</DialogTitle>
@@ -390,7 +390,7 @@ export const UserProfile = () => {
             {errorMessage && (
               <div className="text-red-500 text-sm mb-4">{errorMessage}</div>
             )}
-            <div className="relative overflow-x-auto">
+            <div className="relative">
               <div className="max-h-[40vh] overflow-y-auto">
                 <Table className="w-full table-fixed text-sm">
                   <TableHeader className="sticky top-0 bg-gray-100 z-10">
