@@ -68,6 +68,7 @@ export const AssetList = ({
   const [showDetailsDialog, setShowDetailsDialog] = React.useState(false);
   const [showHistoryDialog, setShowHistoryDialog] = React.useState(false);
   const [showReturnDialog, setShowReturnDialog] = React.useState(false);
+  const [showRevokeDialog, setShowRevokeDialog] = React.useState(false);
   const [showStickerDialog, setShowStickerDialog] = React.useState(false);
   const [returnRemarks, setReturnRemarks] = React.useState("");
   const [returnLocation, setReturnLocation] = React.useState("");
@@ -145,7 +146,7 @@ export const AssetList = ({
 
   const filteredAssets = React.useMemo(() => {
     return assets.filter((asset) => {
-      if (!asset) return false; // Guard against null/undefined assets
+      if (!asset) return false;
       if (viewType === 'audit' && asset.status === 'Assigned') {
         return false;
       }
@@ -234,6 +235,7 @@ export const AssetList = ({
         }
 
         await onAssign(selectedAsset.id, userName.trim(), employeeId.trim());
+        await onUpdateAsset(selectedAsset.id, { status: "Assigned", received_by: "", return_date: "" });
         setShowAssignDialog(false);
         setUserName("");
         setEmployeeId("");
@@ -249,7 +251,15 @@ export const AssetList = ({
   const handleUpdateStatus = async () => {
     if (selectedAsset && newStatus) {
       try {
+        if (selectedAsset.status === "Assigned" && newStatus !== "Assigned") {
+          setShowStatusDialog(false);
+          setShowReturnDialog(true);
+          return;
+        }
         await onUpdateStatus(selectedAsset.id, newStatus);
+        if (newStatus === "Assigned") {
+          await onUpdateAsset(selectedAsset.id, { received_by: "", return_date: "" });
+        }
         setShowStatusDialog(false);
         setNewStatus("");
         setSelectedAsset(null);
@@ -257,21 +267,6 @@ export const AssetList = ({
       } catch (error) {
         console.error("AssetList: Update status failed:", error);
         setError("Failed to update status. Please try again.");
-      }
-    }
-  };
-
-  const handleUpdateLocation = async () => {
-    if (selectedAsset && newLocation) {
-      try {
-        await onUpdateLocation(selectedAsset.id, newLocation);
-        setShowLocationDialog(false);
-        setNewLocation("");
-        setSelectedAsset(null);
-        setError(null);
-      } catch (error) {
-        console.error("AssetList: Update location failed:", error);
-        setError("Failed to update location. Please try again.");
       }
     }
   };
@@ -285,16 +280,65 @@ export const AssetList = ({
           receivedBy,
           returnLocation,
         });
-        // Note: Ensure onUnassign sets return_date to the current timestamp in the backend
         await onUnassign(selectedAsset.id, returnRemarks, receivedBy, returnLocation);
+        if (newStatus && newStatus !== "Assigned") {
+          await onUpdateStatus(selectedAsset.id, newStatus);
+          await onUpdateAsset(selectedAsset.id, { received_by: receivedBy });
+        } else {
+          await onUpdateStatus(selectedAsset.id, "Available");
+          await onUpdateAsset(selectedAsset.id, { received_by: receivedBy });
+        }
         setShowReturnDialog(false);
         setReturnRemarks("");
         setReturnLocation("");
+        setNewStatus("");
         setSelectedAsset(null);
         setError(null);
       } catch (error) {
         console.error("AssetList: Return failed:", error);
         setError("Failed to return asset. Please try again.");
+      }
+    }
+  };
+
+  const handleRevokeAsset = async () => {
+    if (selectedAsset) {
+      try {
+        const lastAssignment = history
+          .filter(entry => entry.field_changed === "assigned_to" || entry.field_changed === "employee_id")
+          .sort((a, b) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime())[0];
+
+        const userName = lastAssignment?.field_changed === "assigned_to" ? lastAssignment.new_value : selectedAsset.assigned_to || "";
+        const employeeId = lastAssignment?.field_changed === "employee_id" ? lastAssignment.new_value : selectedAsset.employee_id || "";
+
+        if (!userName || !employeeId) {
+          setError("Cannot revoke: No previous assignment details found.");
+          return;
+        }
+
+        await onAssign(selectedAsset.id, userName, employeeId);
+        await onUpdateAsset(selectedAsset.id, { status: "Assigned", received_by: "", return_date: "" });
+        setShowRevokeDialog(false);
+        setSelectedAsset(null);
+        setError(null);
+      } catch (error) {
+        console.error("AssetList: Revoke failed:", error);
+        setError("Failed to revoke asset assignment. Please try again.");
+      }
+    }
+  };
+
+  const handleUpdateLocation = async () => {
+    if (selectedAsset && newLocation) {
+      try {
+        await onUpdateLocation(selectedAsset.id, newLocation);
+        setShowLocationDialog(false);
+        setNewLocation("");
+        setSelectedAsset(null);
+        setError(null);
+      } catch (error) {
+        console.error("AssetList: Location update failed:", error);
+        setError("Failed to update location. Please try again.");
       }
     }
   };
@@ -382,6 +426,7 @@ export const AssetList = ({
       "Asset Check",
       "Assigned Date",
       "Return Date",
+      "Received By",
     ];
 
     const escapeCsvField = (value: string | null | undefined): string => {
@@ -404,6 +449,7 @@ export const AssetList = ({
           escapeCsvField(asset.asset_check),
           escapeCsvField(asset.assigned_date),
           escapeCsvField(asset.return_date),
+          escapeCsvField(asset.status === "Assigned" ? "" : asset.received_by),
         ].join(",")
       ),
     ].join("\n");
@@ -446,7 +492,7 @@ export const AssetList = ({
   };
 
   const formatDate = (dateString: string | null) => {
-    if (!dateString) return "No date";
+    if (!dateString) return "";
     if (viewType === 'amcs' || viewType === 'summary') {
       return new Date(dateString).toLocaleDateString("en-US", {
         month: "short",
@@ -657,8 +703,8 @@ export const AssetList = ({
           <>
             <div className="overflow-x-auto max-h-[60vh] relative">
               <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-muted text-xs text-muted-foreground sticky top-0 z-10">
+                <thead className="sticky top-0 bg-muted z-10">
+                  <tr className="text-xs text-muted-foreground">
                     {viewType === 'dashboard' && (
                       <>
                         <th className="p-2 w-[5%] text-left">S.No.</th>
@@ -734,11 +780,7 @@ export const AssetList = ({
                             </div>
                           </td>
                           <td className="p-2 text-xs">
-                            <div className="text-left">
-                              <code className="bg-muted px-1 py-0.5 rounded text-xs">
-                                {asset.serial_number}
-                              </code>
-                            </div>
+                            <div className="text-left">{asset.serial_number}</div>
                           </td>
                           <td className="p-2 text-xs">
                             <div className="text-left">
@@ -756,13 +798,15 @@ export const AssetList = ({
                             </div>
                           </td>
                           <td className="p-2 text-xs">
-                            <div className="text-left">{asset.received_by || "-"}</div>
+                            <div className="text-left">
+                              {asset.status === "Assigned" ? "-" : (asset.received_by || "-")}
+                            </div>
                           </td>
                           <td className="p-2 text-xs">
                             <div className="text-left">
                               {asset.status === "Available" && asset.return_date
                                 ? formatDate(asset.return_date)
-                                : formatDate(asset.assigned_date) || "No date"}
+                                : formatDate(asset.assigned_date) || ""}
                             </div>
                           </td>
                           <td className="p-2 text-xs">
@@ -855,6 +899,17 @@ export const AssetList = ({
                                   >
                                     History
                                   </DropdownMenuItem>
+                                  {asset.received_by && asset.status !== "Assigned" && (
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        console.log("AssetList: Opening revoke dialog for asset:", asset);
+                                        setSelectedAsset(asset);
+                                        setShowRevokeDialog(true);
+                                      }}
+                                    >
+                                      Revoke
+                                    </DropdownMenuItem>
+                                  )}
                                   <DropdownMenuItem
                                     onClick={async () => {
                                       if (confirm("Are you sure you want to delete this asset?")) {
@@ -910,11 +965,7 @@ export const AssetList = ({
                             </div>
                           </td>
                           <td className="p-2 text-xs">
-                            <div className="text-left">
-                              <code className="bg-muted px-1 py-0.5 rounded text-xs">
-                                {asset.serial_number}
-                              </code>
-                            </div>
+                            <div className="text-left">{asset.serial_number}</div>
                           </td>
                           <td className="p-2 text-xs">
                             <div className="text-left">
@@ -970,31 +1021,19 @@ export const AssetList = ({
                             </div>
                           </td>
                           <td className="p-2 text-xs">
-                            <div className="text-left">
-                              <code className="bg-muted px-1 py-0.5 rounded text-xs">
-                                {asset.serial_number}
-                              </code>
-                            </div>
+                            <div className="text-left">{asset.serial_number}</div>
                           </td>
                           <td className="p-2 text-xs">
-                            <div className="text-left">
-                              {asset.provider || "-"}
-                            </div>
+                            <div className="text-left">{asset.provider || "-"}</div>
                           </td>
                           <td className="p-2 text-xs">
-                            <div className="text-left">
-                              {formatDate(asset.warranty_start)}
-                            </div>
+                            <div className="text-left">{formatDate(asset.warranty_start)}</div>
                           </td>
                           <td className="p-2 text-xs">
-                            <div className="text-left">
-                              {formatDate(asset.warranty_end)}
-                            </div>
+                            <div className="text-left">{formatDate(asset.warranty_end)}</div>
                           </td>
                           <td className="p-2 text-xs">
-                            <div className="text-left">
-                              {getWarrantyStatusBadge(asset.warranty_status || "-")}
-                            </div>
+                            <div className="text-left">{getWarrantyStatusBadge(asset.warranty_status || "-")}</div>
                           </td>
                         </>
                       )}
@@ -1196,7 +1235,7 @@ export const AssetList = ({
                 disabled={!newStatus || !selectedAsset}
                 className="flex-1 bg-gradient-primary hover:shadow-glow transition-smooth"
               >
-                Update
+                {selectedAsset?.status === "Assigned" && newStatus !== "Assigned" ? "Proceed to Return" : "Update"}
               </Button>
             </div>
           </div>
@@ -1294,6 +1333,16 @@ export const AssetList = ({
                 placeholder="Enter remarks (optional)"
               />
             </div>
+            {newStatus && newStatus !== "Assigned" && (
+              <div className="space-y-2">
+                <Label>New Status</Label>
+                <Input
+                  value={newStatus}
+                  disabled
+                  className="text-muted-foreground"
+                />
+              </div>
+            )}
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -1301,6 +1350,7 @@ export const AssetList = ({
                   setShowReturnDialog(false);
                   setReturnRemarks("");
                   setReturnLocation("");
+                  setNewStatus("");
                   setSelectedAsset(null);
                 }}
                 className="flex-1"
@@ -1313,6 +1363,40 @@ export const AssetList = ({
                 className="flex-1 bg-gradient-primary hover:shadow-glow transition-smooth"
               >
                 Return
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showRevokeDialog} onOpenChange={setShowRevokeDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Revoke Asset Return</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Asset: {selectedAsset?.name || "N/A"}</Label>
+              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id || "N/A"}</p>
+            </div>
+            <p className="text-sm">Are you sure you want to revoke the return of this asset? This will reassign it to the previous user and set the status to "Assigned".</p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowRevokeDialog(false);
+                  setSelectedAsset(null);
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleRevokeAsset}
+                disabled={!selectedAsset}
+                className="flex-1 bg-gradient-primary hover:shadow-glow transition-smooth"
+              >
+                Revoke
               </Button>
             </div>
           </div>
@@ -1464,8 +1548,8 @@ export const AssetList = ({
                   style={{ scrollBehavior: "smooth" }}
                 >
                   <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="bg-muted text-xs text-muted-foreground">
+                    <thead className="sticky top-0 bg-muted z-10">
+                      <tr className="text-xs text-muted-foreground">
                         <th className="p-2 text-left">Field</th>
                         <th className="p-2 text-left">Old Value</th>
                         <th className="p-2 text-left">New Value</th>
@@ -1480,9 +1564,7 @@ export const AssetList = ({
                           <td className="p-2 text-xs">{entry.old_value || "-"}</td>
                           <td className="p-2 text-xs">{entry.new_value || "-"}</td>
                           <td className="p-2 text-xs">{entry.changed_by}</td>
-                          <td className="p-2 text-xs">
-                            {formatDate(entry.changed_at)}
-                          </td>
+                          <td className="p-2 text-xs">{formatDate(entry.changed_at)}</td>
                         </tr>
                       ))}
                     </tbody>
