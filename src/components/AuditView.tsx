@@ -53,6 +53,7 @@ const AuditView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus
         asset.warranty_end || "",
         asset.amc_start || "",
         asset.amc_end || "",
+        asset.recovery_amount || "",
         asset.asset_check || "",
       ].some((field) => field.toLowerCase().includes(searchQuery.toLowerCase()));
 
