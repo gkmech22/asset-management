@@ -177,24 +177,24 @@ const AuditView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus
                 </PopoverTrigger>
                 <PopoverContent className="w-56">
                   <div className="space-y-2">
-                   {assetStatuses.map((status: string) => (
-                     <div key={status} className="flex items-center space-x-2">
-                       <Checkbox
-                         id={`status-${status}`}
-                         checked={statusFilter.includes(status)}
-                         onCheckedChange={(checked) => {
-                           if (checked) {
-                             setStatusFilter([...statusFilter, status]);
-                           } else {
-                             setStatusFilter(statusFilter.filter((s: string) => s !== status));
-                           }
-                         }}
-                       />
-                       <Label htmlFor={`status-${status}`} className="text-sm">
-                         {status}
-                       </Label>
-                     </div>
-                   ))}
+                    {assetStatuses.map((status) => (
+                      <div key={status} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`status-${status}`}
+                          checked={statusFilter.includes(status)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setStatusFilter([...statusFilter, status]);
+                            } else {
+                              setStatusFilter(statusFilter.filter((s) => s !== status));
+                            }
+                          }}
+                        />
+                        <Label htmlFor={`status-${status}`} className="text-sm">
+                          {status}
+                        </Label>
+                      </div>
+                    ))}
                   </div>
                 </PopoverContent>
               </Popover>
