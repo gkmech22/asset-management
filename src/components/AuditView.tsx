@@ -111,11 +111,11 @@ const AuditView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
-                   {assetTypes.map((type: string) => (
-                     <SelectItem key={type} value={type} className="text-xs">
-                       {type}
-                     </SelectItem>
-                   ))}
+                  {assetTypes.map((type) => (
+                    <SelectItem key={type} value={type} className="text-xs">
+                      {type}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -127,11 +127,11 @@ const AuditView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Brands</SelectItem>
-                   {assetBrands.map((brand: string) => (
-                     <SelectItem key={brand} value={brand} className="text-xs">
-                       {brand}
-                     </SelectItem>
-                   ))}
+                  {assetBrands.map((brand) => (
+                    <SelectItem key={brand} value={brand} className="text-xs">
+                      {brand}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -143,11 +143,11 @@ const AuditView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Configurations</SelectItem>
-                   {assetConfigurations.map((config: string) => (
-                     <SelectItem key={config} value={config} className="text-xs">
-                       {config}
-                     </SelectItem>
-                   ))}
+                  {assetConfigurations.map((config) => (
+                    <SelectItem key={config} value={config} className="text-xs">
+                      {config}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -159,11 +159,11 @@ const AuditView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Locations</SelectItem>
-                   {assetLocations.map((location: string) => (
-                     <SelectItem key={location} value={location} className="text-xs">
-                       {location}
-                     </SelectItem>
-                   ))}
+                  {assetLocations.map((location) => (
+                    <SelectItem key={location} value={location} className="text-xs">
+                      {location}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -177,24 +177,24 @@ const AuditView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus
                 </PopoverTrigger>
                 <PopoverContent className="w-56">
                   <div className="space-y-2">
-                   {assetStatuses.map((status: string) => (
-                     <div key={status} className="flex items-center space-x-2">
-                       <Checkbox
-                         id={`status-${status}`}
-                         checked={statusFilter.includes(status)}
-                         onCheckedChange={(checked) => {
-                           if (checked) {
-                             setStatusFilter([...statusFilter, status]);
-                           } else {
-                             setStatusFilter(statusFilter.filter((s: string) => s !== status));
-                           }
-                         }}
-                       />
-                       <Label htmlFor={`status-${status}`} className="text-sm">
-                         {status}
-                       </Label>
-                     </div>
-                   ))}
+                    {assetStatuses.map((status) => (
+                      <div key={status} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`status-${status}`}
+                          checked={statusFilter.includes(status)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setStatusFilter([...statusFilter, status]);
+                            } else {
+                              setStatusFilter(statusFilter.filter((s) => s !== status));
+                            }
+                          }}
+                        />
+                        <Label htmlFor={`status-${status}`} className="text-sm">
+                          {status}
+                        </Label>
+                      </div>
+                    ))}
                   </div>
                 </PopoverContent>
               </Popover>

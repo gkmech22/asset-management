@@ -26,47 +26,23 @@ export interface Asset {
   warranty_end: string | null;
   warranty_status: string | null;
   provider: string | null;
-  recovery_amount?: number;
 }
 
 export const useAssets = () => {
   return useQuery({
     queryKey: ['assets'],
-    queryFn: async (): Promise<Asset[]> => {
-      let allAssets: Asset[] = [];
-      let start = 0;
-      const pageSize = 1000; // Supabase max rows per query
-
-      while (true) {
-        const { data, error } = await supabase
-          .from('assets')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .range(start, start + pageSize - 1);
-
-        if (error) {
-          console.error('Supabase fetch error:', error.message);
-          throw new Error(`Failed to fetch assets batch: ${error.message}`);
-        }
-
-        if (!data || data.length === 0) {
-          break; // No more rows to fetch
-        }
-
-        allAssets = [...allAssets, ...data];
-        start += pageSize;
-
-        // Optional delay to avoid rate limits for very large datasets
-        if (start % (pageSize * 5) === 0) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('assets')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Supabase fetch error:', error.message);
+        throw new Error(`Failed to fetch assets: ${error.message}`);
       }
-
-      console.log(`Fetched ${allAssets.length} assets in ${Math.ceil(start / pageSize)} batches`);
-      return allAssets;
+      return data as Asset[];
     },
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-    retry: 2, // Retry failed batches
   });
 };
 
