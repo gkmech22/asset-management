@@ -1171,6 +1171,7 @@ export const AssetList = ({
                   ) : (
                     <>
                       <SelectItem value="Available">Available</SelectItem>
+                      <SelectItem value="Assigned">Assigned</SelectItem>
                       <SelectItem value="Scrap/Damage">Scrap/Damage</SelectItem>
                       <SelectItem value="Sold">Sold</SelectItem>
                       <SelectItem value="Others">Others</SelectItem>
