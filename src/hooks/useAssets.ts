@@ -7,26 +7,25 @@ export interface Asset {
   name: string;
   type: string;
   brand: string;
-  configuration?: string | null;
+  configuration: string | null;
   serial_number: string;
-  assigned_to?: string | null;
-  employee_id?: string | null;
+  assigned_to: string | null;
+  employee_id: string | null;
   status: string;
   location: string;
-  assigned_date?: string | null;
-  created_by?: string | null;
-  created_at?: string | null;
-  updated_by?: string | null;
-  updated_at?: string | null;
-  received_by?: string | null;
-  return_date?: string | null;
-  remarks?: string | null;
-  asset_check?: string | null;
-  warranty_start?: string | null;
-  warranty_end?: string | null;
-  warranty_status?: string | null;
-  provider?: string | null;
-  recovery_amount?: number | null;
+  assigned_date: string | null;
+  created_by: string;
+  created_at: string;
+  updated_by: string;
+  updated_at: string;
+  received_by: string | null;
+  return_date: string | null;
+  remarks: string | null;
+  asset_check: string;
+  warranty_start: string | null;
+  warranty_end: string | null;
+  warranty_status: string | null;
+  provider: string | null;
 }
 
 export const useAssets = () => {

@@ -2,31 +2,21 @@ import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Upload, Download, FileSpreadsheet, AlertCircle, CheckCircle } from "lucide-react";
+import { Upload, Download, FileSpreadsheet, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import Papa from "papaparse";
-import { useBulkUploadAssets, CsvAsset } from "@/hooks/useBulkAssets";
-import { toast } from "sonner";
 
 interface BulkUploadProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onUpload: (file: File) => void;
   onDownload: () => void;
 }
 
-export const BulkUpload = ({ open, onOpenChange, onDownload }: BulkUploadProps) => {
+export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }: BulkUploadProps) => {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadResults, setUploadResults] = useState<{
-    created: number;
-    updated: number;
-    skipped: number;
-    errors: string[];
-  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const bulkUploadMutation = useBulkUploadAssets();
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -59,81 +49,13 @@ export const BulkUpload = ({ open, onOpenChange, onDownload }: BulkUploadProps) 
   };
 
   const handleUpload = () => {
-    if (!selectedFile) {
+    if (selectedFile) {
+      onUpload(selectedFile);
+      setSelectedFile(null);
+      setError(null);
+    } else {
       setError("No file selected.");
-      return;
     }
-
-    setIsUploading(true);
-    setError(null);
-    setUploadResults(null);
-
-    Papa.parse(selectedFile, {
-      header: true,
-      skipEmptyLines: true,
-      transformHeader: (header: string) => {
-        // Normalize header names
-        const normalized = header.toLowerCase().trim();
-        const mapping: { [key: string]: string } = {
-          'asset id': 'asset_id',
-          'assetid': 'asset_id',
-          'asset name': 'name',
-          'assetname': 'name',
-          'asset type': 'type',
-          'assettype': 'type',
-          'serial number': 'serial_number',
-          'serialnumber': 'serial_number',
-          'warranty start': 'warranty_start',
-          'warrantystart': 'warranty_start',
-          'warranty end': 'warranty_end',
-          'warrantyend': 'warranty_end',
-        };
-        return mapping[normalized] || normalized;
-      },
-      complete: async (results) => {
-        try {
-          const csvAssets: CsvAsset[] = results.data
-            .filter((row: any) => row.asset_id && row.name && row.type && row.brand && row.serial_number)
-            .map((row: any) => ({
-              asset_id: row.asset_id?.toString().trim(),
-              name: row.name?.toString().trim(),
-              type: row.type?.toString().trim(),
-              brand: row.brand?.toString().trim(),
-              configuration: row.configuration?.toString().trim() || undefined,
-              serial_number: row.serial_number?.toString().trim(),
-              provider: row.provider?.toString().trim() || undefined,
-              warranty_start: row.warranty_start?.toString().trim() || undefined,
-              warranty_end: row.warranty_end?.toString().trim() || undefined,
-            }));
-
-          if (csvAssets.length === 0) {
-            setError("No valid assets found in the CSV file. Please check the format and required columns.");
-            setIsUploading(false);
-            return;
-          }
-
-          const result = await bulkUploadMutation.mutateAsync(csvAssets);
-          setUploadResults(result);
-          
-          toast.success(
-            `Upload completed! Created: ${result.created}, Updated: ${result.updated}, Errors: ${result.errors.length}`
-          );
-
-          if (result.errors.length === 0) {
-            setSelectedFile(null);
-          }
-        } catch (error) {
-          setError(error instanceof Error ? error.message : "Upload failed");
-          toast.error("Upload failed");
-        } finally {
-          setIsUploading(false);
-        }
-      },
-      error: (error) => {
-        setError(`Failed to parse CSV: ${error.message}`);
-        setIsUploading(false);
-      }
-    });
   };
 
   const handleDownloadTemplate = () => {
@@ -212,26 +134,6 @@ export const BulkUpload = ({ open, onOpenChange, onDownload }: BulkUploadProps) 
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {uploadResults && (
-          <Alert className="mb-4">
-            <CheckCircle className="h-4 w-4" />
-            <AlertDescription>
-              Upload Results: Created {uploadResults.created}, Updated {uploadResults.updated}, 
-              {uploadResults.errors.length > 0 && ` Errors: ${uploadResults.errors.length}`}
-              {uploadResults.errors.length > 0 && (
-                <div className="mt-2 text-sm">
-                  {uploadResults.errors.slice(0, 3).map((error, index) => (
-                    <div key={index} className="text-red-600">• {error}</div>
-                  ))}
-                  {uploadResults.errors.length > 3 && (
-                    <div className="text-muted-foreground">... and {uploadResults.errors.length - 3} more errors</div>
-                  )}
-                </div>
-              )}
-            </AlertDescription>
           </Alert>
         )}
 
@@ -334,11 +236,11 @@ export const BulkUpload = ({ open, onOpenChange, onDownload }: BulkUploadProps) 
                 </Button>
                 <Button 
                   onClick={handleUpload}
-                  disabled={!selectedFile || isUploading}
+                  disabled={!selectedFile}
                   className="flex-1 bg-gradient-primary hover:shadow-glow transition-smooth"
                 >
                   <Upload className="h-4 w-4 mr-2" />
-                  {isUploading ? "Uploading..." : "Upload Assets"}
+                  Upload Assets
                 </Button>
               </div>
             </CardContent>
