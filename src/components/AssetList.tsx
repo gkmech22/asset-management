@@ -167,7 +167,6 @@ export const AssetList: React.FC<AssetListProps> = ({
   // Derive receivedBy
   const receivedBy = React.useMemo(() => {
     if (!user) return "Unknown User";
-    if (user.displayName) return user.displayName;
     if (user.email) {
       const prefix = user.email.split("@")[0];
       const parts = prefix.split(/[_.\-]/).filter(Boolean);
@@ -1354,11 +1353,12 @@ export const AssetList: React.FC<AssetListProps> = ({
             <DialogTitle>Scan Barcode</DialogTitle>
           </DialogHeader>
           <EnhancedBarcodeScanner
+            isOpen={showScanner}
+            onClose={() => setShowScanner(false)}
             onScan={(result) => {
               setSearchTerm(result);
               setShowScanner(false);
             }}
-            onError={(err) => setError(`Barcode scan error: ${err}`)}
           />
         </DialogContent>
       </Dialog>
@@ -1370,12 +1370,13 @@ export const AssetList: React.FC<AssetListProps> = ({
             <DialogTitle>Scan Asset Check</DialogTitle>
           </DialogHeader>
           <EnhancedBarcodeScanner
+            isOpen={showAssetCheckScanner}
+            onClose={() => setShowAssetCheckScanner(false)}
             onScan={(result) => {
               setAssetCheckId(result);
               handleAssetCheck();
               setShowAssetCheckScanner(false);
             }}
-            onError={(err) => setError(`Barcode scan error: ${err}`)}
           />
         </DialogContent>
       </Dialog>
@@ -1413,7 +1414,8 @@ export const AssetList: React.FC<AssetListProps> = ({
             setShowDetailsDialog(open);
             if (!open) setSelectedAsset(null);
           }}
-          asset={selectedAsset}
+          asset={{...selectedAsset, configuration: selectedAsset.configuration || ""}}
+          showAssignedToOnly={false}
         />
       )}
 
@@ -1425,13 +1427,7 @@ export const AssetList: React.FC<AssetListProps> = ({
               <DialogTitle>Asset Sticker</DialogTitle>
             </DialogHeader>
             <AssetSticker
-              assetId={selectedAsset.asset_id}
-              serialNumber={selectedAsset.serial_number}
-              name={selectedAsset.name}
-              onClose={() => {
-                setShowStickerDialog(false);
-                setSelectedAsset(null);
-              }}
+              asset={selectedAsset}
             />
           </DialogContent>
         </Dialog>

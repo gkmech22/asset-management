@@ -21,7 +21,7 @@ export const LoginPage = () => {
 
         if (accessToken && refreshToken && expiresIn) {
           // Process tokens with Supabase
-          signInWithGoogle({ accessToken, refreshToken, expiresIn }).catch((error) => {
+          signInWithGoogle().catch((error) => {
             console.error('Error processing OAuth tokens:', error);
           });
 

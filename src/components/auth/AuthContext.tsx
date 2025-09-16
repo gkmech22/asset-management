@@ -53,7 +53,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const { data, error } = await supabase.auth.setSession({
           access_token: tokens.accessToken,
           refresh_token: tokens.refreshToken,
-          expires_in: parseInt(tokens.expiresIn),
         });
         if (error) throw error;
         setUser(data.session?.user ?? null);

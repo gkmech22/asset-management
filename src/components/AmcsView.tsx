@@ -107,11 +107,11 @@ const AmcsView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus,
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
-                  {assetTypes.map((type) => (
-                    <SelectItem key={type} value={type} className="text-xs">
-                      {type}
-                    </SelectItem>
-                  ))}
+                   {assetTypes.map((type: string) => (
+                     <SelectItem key={type} value={type} className="text-xs">
+                       {type}
+                     </SelectItem>
+                   ))}
                 </SelectContent>
               </Select>
             </div>
@@ -123,11 +123,11 @@ const AmcsView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus,
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Brands</SelectItem>
-                  {assetBrands.map((brand) => (
-                    <SelectItem key={brand} value={brand} className="text-xs">
-                      {brand}
-                    </SelectItem>
-                  ))}
+                   {assetBrands.map((brand: string) => (
+                     <SelectItem key={brand} value={brand} className="text-xs">
+                       {brand}
+                     </SelectItem>
+                   ))}
                 </SelectContent>
               </Select>
             </div>
@@ -139,11 +139,11 @@ const AmcsView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus,
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Configurations</SelectItem>
-                  {assetConfigurations.map((config) => (
-                    <SelectItem key={config} value={config} className="text-xs">
-                      {config}
-                    </SelectItem>
-                  ))}
+                   {assetConfigurations.map((config: string) => (
+                     <SelectItem key={config} value={config} className="text-xs">
+                       {config}
+                     </SelectItem>
+                   ))}
                 </SelectContent>
               </Select>
             </div>
@@ -155,11 +155,11 @@ const AmcsView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus,
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Locations</SelectItem>
-                  {assetLocations.map((location) => (
-                    <SelectItem key={location} value={location} className="text-xs">
-                      {location}
-                    </SelectItem>
-                  ))}
+                   {assetLocations.map((location: string) => (
+                     <SelectItem key={location} value={location} className="text-xs">
+                       {location}
+                     </SelectItem>
+                   ))}
                 </SelectContent>
               </Select>
             </div>
@@ -171,11 +171,11 @@ const AmcsView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus,
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
-                  {assetStatuses.map((status) => (
-                    <SelectItem key={status} value={status} className="text-xs">
-                      {status}
-                    </SelectItem>
-                  ))}
+                   {assetStatuses.map((status: string) => (
+                     <SelectItem key={status} value={status} className="text-xs">
+                       {status}
+                     </SelectItem>
+                   ))}
                 </SelectContent>
               </Select>
             </div>
@@ -187,21 +187,22 @@ const AmcsView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus,
         </CardContent>
       </Card>
 
-      <AssetList
-        assets={filteredAssets}
-        onAssign={onAssign}
-        onUnassign={onUnassign}
-        onUpdateAsset={onUpdateAsset}
-        onUpdateStatus={onUpdateStatus}
-        onUpdateLocation={onUpdateLocation}
-        onDelete={onDelete}
-        dateRange={dateRange}
-        typeFilter={typeFilter}
-        brandFilter={brandFilter}
-        configFilter={configFilter}
-        defaultRowsPerPage={100}
-        viewType="amcs"
-      />
+       <AssetList
+         assets={filteredAssets}
+         onAssign={onAssign}
+         onUnassign={onUnassign}
+         onUpdateAsset={onUpdateAsset}
+         onUpdateStatus={onUpdateStatus}
+         onUpdateLocation={onUpdateLocation}
+         onUpdateAssetCheck={() => Promise.resolve()}
+         onDelete={onDelete}
+         dateRange={dateRange}
+         typeFilter={typeFilter}
+         brandFilter={brandFilter}
+         configFilter={configFilter}
+         defaultRowsPerPage={100}
+         viewType="amcs"
+       />
     </>
   );
 };
