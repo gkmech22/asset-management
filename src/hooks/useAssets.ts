@@ -7,43 +7,66 @@ export interface Asset {
   name: string;
   type: string;
   brand: string;
-  configuration?: string | null;
+  configuration: string | null;
   serial_number: string;
-  assigned_to?: string | null;
-  employee_id?: string | null;
+  assigned_to: string | null;
+  employee_id: string | null;
   status: string;
   location: string;
-  assigned_date?: string | null;
-  created_by?: string | null;
-  created_at?: string | null;
-  updated_by?: string | null;
-  updated_at?: string | null;
-  received_by?: string | null;
-  return_date?: string | null;
-  remarks?: string | null;
-  asset_check?: string | null;
-  warranty_start?: string | null;
-  warranty_end?: string | null;
-  warranty_status?: string | null;
-  provider?: string | null;
-  recovery_amount?: number | null;
+  assigned_date: string | null;
+  created_by: string;
+  created_at: string;
+  updated_by: string;
+  updated_at: string;
+  received_by: string | null;
+  return_date: string | null;
+  remarks: string | null;
+  asset_check: string;
+  warranty_start: string | null;
+  warranty_end: string | null;
+  warranty_status: string | null;
+  provider: string | null;
+  recovery_amount?: number;
 }
 
 export const useAssets = () => {
   return useQuery({
     queryKey: ['assets'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('assets')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error('Supabase fetch error:', error.message);
-        throw new Error(`Failed to fetch assets: ${error.message}`);
+    queryFn: async (): Promise<Asset[]> => {
+      let allAssets: Asset[] = [];
+      let start = 0;
+      const pageSize = 1000; // Supabase max rows per query
+
+      while (true) {
+        const { data, error } = await supabase
+          .from('assets')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .range(start, start + pageSize - 1);
+
+        if (error) {
+          console.error('Supabase fetch error:', error.message);
+          throw new Error(`Failed to fetch assets batch: ${error.message}`);
+        }
+
+        if (!data || data.length === 0) {
+          break; // No more rows to fetch
+        }
+
+        allAssets = [...allAssets, ...data];
+        start += pageSize;
+
+        // Optional delay to avoid rate limits for very large datasets
+        if (start % (pageSize * 5) === 0) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
       }
-      return data as Asset[];
+
+      console.log(`Fetched ${allAssets.length} assets in ${Math.ceil(start / pageSize)} batches`);
+      return allAssets;
     },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    retry: 2, // Retry failed batches
   });
 };
 
