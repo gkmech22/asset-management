@@ -6,7 +6,7 @@ export const useAssetHistory = (assetId: string | null) => {
     queryKey: ["asset_history", assetId],
     queryFn: async () => {
       if (!assetId) return [];
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("asset_edit_history")
         .select("*")
         .eq("asset_id", assetId)
