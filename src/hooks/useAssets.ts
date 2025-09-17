@@ -26,23 +26,30 @@ export interface Asset {
   warranty_end: string | null;
   warranty_status: string | null;
   provider: string | null;
+  recovery_amount?: number | null;
 }
 
 export const useAssets = () => {
   return useQuery({
     queryKey: ['assets'],
-    queryFn: async () => {
+    queryFn: async (): Promise<Asset[]> => {
+      console.log('Fetching all assets from database...');
       const { data, error } = await supabase
         .from('assets')
         .select('*')
         .order('created_at', { ascending: false });
-      
+
       if (error) {
         console.error('Supabase fetch error:', error.message);
         throw new Error(`Failed to fetch assets: ${error.message}`);
       }
-      return data as Asset[];
+
+      console.log(`Successfully fetched ${data?.length || 0} assets`);
+      return data || [];
     },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    cacheTime: 10 * 60 * 1000, // Keep data in cache for 10 minutes
+    retry: 2,
   });
 };
 
