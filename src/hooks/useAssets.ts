@@ -26,51 +26,30 @@ export interface Asset {
   warranty_end: string | null;
   warranty_status: string | null;
   provider: string | null;
-  recovery_amount?: number;
+  recovery_amount?: number | null;
 }
 
 export const useAssets = () => {
   return useQuery({
     queryKey: ['assets'],
     queryFn: async (): Promise<Asset[]> => {
-      let allAssets: Asset[] = [];
-      let start = 0;
-      const pageSize = 1000; // Supabase max rows per query
+      console.log('Fetching all assets from database...');
+      const { data, error } = await supabase
+        .from('assets')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      while (true) {
-        console.log(`Fetching assets batch: rows ${start}-${start + pageSize - 1}`);
-        const { data, error } = await supabase
-          .from('assets')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .range(start, start + pageSize - 1);
-
-        if (error) {
-          console.error('Supabase fetch error:', error.message);
-          throw new Error(`Failed to fetch assets batch: ${error.message}`);
-        }
-
-        if (!data || data.length === 0) {
-          console.log('No more assets to fetch');
-          break; // No more rows to fetch
-        }
-
-        allAssets = [...allAssets, ...data];
-        start += pageSize;
-
-        // Delay to avoid rate limits for very large datasets
-        if (start % (pageSize * 5) === 0) {
-          console.log(`Pausing for 200ms at ${start} rows`);
-          await new Promise(resolve => setTimeout(resolve, 200));
-        }
+      if (error) {
+        console.error('Supabase fetch error:', error.message);
+        throw new Error(`Failed to fetch assets: ${error.message}`);
       }
 
-      console.log(`Fetched ${allAssets.length} assets in ${Math.ceil(start / pageSize)} batches`);
-      return allAssets;
+      console.log(`Successfully fetched ${data?.length || 0} assets`);
+      return data || [];
     },
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
     cacheTime: 10 * 60 * 1000, // Keep data in cache for 10 minutes
-    retry: 2, // Retry failed batches
+    retry: 2,
   });
 };
 

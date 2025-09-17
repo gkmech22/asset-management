@@ -8,6 +8,7 @@ interface AuthContextType {
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  updateUser: (data: any) => Promise<void>;
 }
 
 const AuthContext = React.createContext<AuthContextType>({
@@ -16,6 +17,7 @@ const AuthContext = React.createContext<AuthContextType>({
   loading: true,
   signInWithGoogle: async () => {},
   signOut: async () => {},
+  updateUser: async () => {},
 });
 
 export const useAuth = () => {
@@ -73,6 +75,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const updateUser = async (updates: any) => {
+    const { error } = await supabase.auth.updateUser(updates);
+    if (error) {
+      console.error('Error updating user:', error);
+      throw error;
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -80,6 +90,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       loading,
       signInWithGoogle,
       signOut,
+      updateUser,
     }}>
       {children}
     </AuthContext.Provider>
