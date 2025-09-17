@@ -74,6 +74,7 @@ export const AssetList = ({
   const [returnLocation, setReturnLocation] = React.useState("");
   const [newStatus, setNewStatus] = React.useState("");
   const [newLocation, setNewLocation] = React.useState("");
+  const [recoveryAmount, setRecoveryAmount] = React.useState("");
   const [currentPage, setCurrentPage] = React.useState(1);
   const [rowsPerPage, setRowsPerPage] = React.useState(defaultRowsPerPage);
   const [error, setError] = React.useState<string | null>(null);
@@ -104,6 +105,9 @@ export const AssetList = ({
     "Bangalore WH",
     "Jaipur WH",
   ];
+
+  const statusesNeedingRecovery = ["Sale", "Lost", "Emp Damage", "Courier Damage"];
+  const allStatuses = ["Available", "Scrap/Damage", "Sale", "Lost", "Emp Damage", "Courier Damage"];
 
   const receivedBy = React.useMemo(() => {
     try {
@@ -176,7 +180,8 @@ export const AssetList = ({
         (asset.warranty_start && asset.warranty_start.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (asset.warranty_end && asset.warranty_end.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (asset.provider && asset.provider.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (asset.warranty_status && asset.warranty_status.toLowerCase().includes(searchTerm.toLowerCase()));
+        (asset.warranty_status && asset.warranty_status.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (asset.recovery_amount && asset.recovery_amount.toLowerCase().includes(searchTerm.toLowerCase()));
 
       const matchesDateRange =
         !dateRange?.from ||
@@ -235,7 +240,7 @@ export const AssetList = ({
         }
 
         await onAssign(selectedAsset.id, userName.trim(), employeeId.trim());
-        await onUpdateAsset(selectedAsset.id, { status: "Assigned", received_by: "", return_date: "" });
+        await onUpdateAsset(selectedAsset.id, { status: "Assigned", received_by: "", return_date: "", recovery_amount: "" });
         setShowAssignDialog(false);
         setUserName("");
         setEmployeeId("");
@@ -256,12 +261,19 @@ export const AssetList = ({
           setShowReturnDialog(true);
           return;
         }
+        if (statusesNeedingRecovery.includes(newStatus) && !recoveryAmount) {
+          setError("Recovery amount is required for this status.");
+          return;
+        }
         await onUpdateStatus(selectedAsset.id, newStatus);
         if (newStatus === "Assigned") {
-          await onUpdateAsset(selectedAsset.id, { received_by: "", return_date: "" });
+          await onUpdateAsset(selectedAsset.id, { received_by: "", return_date: "", recovery_amount: "" });
+        } else if (statusesNeedingRecovery.includes(newStatus)) {
+          await onUpdateAsset(selectedAsset.id, { recovery_amount: recoveryAmount });
         }
         setShowStatusDialog(false);
         setNewStatus("");
+        setRecoveryAmount("");
         setSelectedAsset(null);
         setError(null);
       } catch (error) {
@@ -272,26 +284,39 @@ export const AssetList = ({
   };
 
   const handleReturnAsset = async () => {
-    if (selectedAsset && returnLocation) {
+    if (selectedAsset) {
       try {
+        if (newStatus !== "Assigned" && !returnLocation) {
+          setError("Location is required for this status.");
+          return;
+        }
+        if (statusesNeedingRecovery.includes(newStatus) && !recoveryAmount) {
+          setError("Recovery amount is required for this status.");
+          return;
+        }
         console.log("Returning asset:", {
           assetId: selectedAsset.id,
           remarks: returnRemarks,
           receivedBy,
           returnLocation,
+          recoveryAmount: statusesNeedingRecovery.includes(newStatus) ? recoveryAmount : undefined,
         });
-        await onUnassign(selectedAsset.id, returnRemarks, receivedBy, returnLocation);
+        await onUnassign(selectedAsset.id, returnRemarks, receivedBy, newStatus !== "Assigned" ? returnLocation : undefined);
         if (newStatus && newStatus !== "Assigned") {
           await onUpdateStatus(selectedAsset.id, newStatus);
-          await onUpdateAsset(selectedAsset.id, { received_by: receivedBy });
+          await onUpdateAsset(selectedAsset.id, { 
+            received_by: receivedBy,
+            recovery_amount: statusesNeedingRecovery.includes(newStatus) ? recoveryAmount : ""
+          });
         } else {
           await onUpdateStatus(selectedAsset.id, "Available");
-          await onUpdateAsset(selectedAsset.id, { received_by: receivedBy });
+          await onUpdateAsset(selectedAsset.id, { received_by: receivedBy, recovery_amount: "" });
         }
         setShowReturnDialog(false);
         setReturnRemarks("");
         setReturnLocation("");
         setNewStatus("");
+        setRecoveryAmount("");
         setSelectedAsset(null);
         setError(null);
       } catch (error) {
@@ -317,7 +342,7 @@ export const AssetList = ({
         }
 
         await onAssign(selectedAsset.id, userName, employeeId);
-        await onUpdateAsset(selectedAsset.id, { status: "Assigned", received_by: "", return_date: "" });
+        await onUpdateAsset(selectedAsset.id, { status: "Assigned", received_by: "", return_date: "", recovery_amount: "" });
         setShowRevokeDialog(false);
         setSelectedAsset(null);
         setError(null);
@@ -427,6 +452,7 @@ export const AssetList = ({
       "Assigned Date",
       "Return Date",
       "Received By",
+      "Recovery Amount",
     ];
 
     const escapeCsvField = (value: string | null | undefined): string => {
@@ -450,6 +476,7 @@ export const AssetList = ({
           escapeCsvField(asset.assigned_date),
           escapeCsvField(asset.return_date),
           escapeCsvField(asset.status === "Assigned" ? "" : asset.received_by),
+          escapeCsvField(asset.recovery_amount),
         ].join(",")
       ),
     ].join("\n");
@@ -471,24 +498,29 @@ export const AssetList = ({
         return <Badge className="bg-success text-success-foreground">Available</Badge>;
       case "Scrap/Damage":
         return <Badge className="bg-destructive text-destructive-foreground">Scrap/Damage</Badge>;
-      case "Sold":
-        return <Badge className="bg-blue-500 text-white">Sold</Badge>;
-      case "Others":
-        return <Badge variant="secondary">Others</Badge>;
+      case "Sale":
+        return <Badge className="bg-blue-500 text-white">Sale</Badge>;
+      case "Lost":
+        return <Badge className="bg-red-500 text-white">Lost</Badge>;
+      case "Emp Damage":
+        return <Badge className="bg-orange-500 text-white">Emp Damage</Badge>;
+      case "Courier Damage":
+        return <Badge className="bg-purple-500 text-white">Courier Damage</Badge>;
       default:
         return <Badge variant="secondary">{status || "Unknown"}</Badge>;
     }
   };
 
-  const getWarrantyStatusBadge = (warrantyStatus: string) => {
-    switch (warrantyStatus) {
-      case "In Warranty":
-        return <Badge className="bg-green-500 text-white">In Warranty</Badge>;
-      case "Out of Warranty":
-        return <Badge className="bg-red-500 text-white">Out of Warranty</Badge>;
-      default:
-        return <Badge variant="secondary">{warrantyStatus || "-"}</Badge>;
-    }
+  const getWarrantyStatusBadge = (warrantyEnd: string | null) => {
+    if (!warrantyEnd) return <Badge variant="secondary">Unknown</Badge>;
+    const endDate = new Date(warrantyEnd);
+    const today = new Date();
+    const warrantyStatus = endDate >= today ? "In Warranty" : "Out of Warranty";
+    return warrantyStatus === "In Warranty" ? (
+      <Badge className="bg-green-500 text-white">In Warranty</Badge>
+    ) : (
+      <Badge className="bg-red-500 text-white">Out of Warranty</Badge>
+    );
   };
 
   const formatDate = (dateString: string | null) => {
@@ -508,6 +540,29 @@ export const AssetList = ({
       minute: "2-digit",
       hour12: true,
     }).replace(/(\d+)(st|nd|rd|th)/, "$1").replace(',', '');
+  };
+
+  const formatWarrantyPeriod = (warrantyEnd: string | null) => {
+    if (!warrantyEnd) return "-";
+    const endDate = new Date(warrantyEnd);
+    const today = new Date();
+    const diffTime = endDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= 0) return "Expired";
+
+    const years = Math.floor(diffDays / 365);
+    const remainingDaysAfterYears = diffDays % 365;
+    const months = Math.floor(remainingDaysAfterYears / 30);
+    const remainingDays = remainingDaysAfterYears % 30;
+
+    if (years > 0) {
+      return `${years} Year${years > 1 ? "s" : ""}${months > 0 ? ` ${months} Month${months > 1 ? "s" : ""}` : ""}`;
+    } else if (months > 0) {
+      return `${months} Month${months > 1 ? "s" : ""}${remainingDays > 0 ? ` ${remainingDays} Day${remainingDays > 1 ? "s" : ""}` : ""}`;
+    } else {
+      return `${diffDays} Day${diffDays > 1 ? "s" : ""}`;
+    }
   };
 
   const getPageNumbers = () => {
@@ -710,8 +765,9 @@ export const AssetList = ({
                         <th className="p-2 w-[5%] text-left">S.No.</th>
                         <th className="p-2 w-[10%] text-left">Asset ID</th>
                         <th className="p-2 w-[15%] text-left">Asset Details</th>
-                        <th className="p-2 w-[20%] text-left">Specifications</th>
+                        <th className="p-2 w-[15%] text-left">Specifications</th>
                         <th className="p-2 w-[10%] text-left">Serial Number</th>
+                        <th className="p-2 w-[10%] text-left">Location</th>
                         <th className="p-2 w-[10%] text-left">Employee ID</th>
                         <th className="p-2 w-[10%] text-left">Received By</th>
                         <th className="p-2 w-[10%] text-left">Date</th>
@@ -739,6 +795,7 @@ export const AssetList = ({
                         <th className="p-2 w-[10%] text-left">Provider</th>
                         <th className="p-2 w-[12%] text-left">Warranty Start</th>
                         <th className="p-2 w-[12%] text-left">Warranty End</th>
+                        <th className="p-2 w-[11%] text-left">Warranty Period</th>
                         <th className="p-2 w-[11%] text-left">Warranty Status</th>
                       </>
                     )}
@@ -781,6 +838,9 @@ export const AssetList = ({
                           </td>
                           <td className="p-2 text-xs">
                             <div className="text-left">{asset.serial_number}</div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">{asset.location || "-"}</div>
                           </td>
                           <td className="p-2 text-xs">
                             <div className="text-left">
@@ -880,16 +940,18 @@ export const AssetList = ({
                                   >
                                     Status
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => {
-                                      console.log("AssetList: Opening location dialog for asset:", asset);
-                                      setSelectedAsset(asset);
-                                      setNewLocation(asset.location);
-                                      setShowLocationDialog(true);
-                                    }}
-                                  >
-                                    Location
-                                  </DropdownMenuItem>
+                                  {asset.status !== "Assigned" && (
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        console.log("AssetList: Opening location dialog for asset:", asset);
+                                        setSelectedAsset(asset);
+                                        setNewLocation(asset.location);
+                                        setShowLocationDialog(true);
+                                      }}
+                                    >
+                                      Location
+                                    </DropdownMenuItem>
+                                  )}
                                   <DropdownMenuItem
                                     onClick={() => {
                                       console.log("AssetList: Opening history dialog for asset:", asset);
@@ -1033,7 +1095,10 @@ export const AssetList = ({
                             <div className="text-left">{formatDate(asset.warranty_end)}</div>
                           </td>
                           <td className="p-2 text-xs">
-                            <div className="text-left">{getWarrantyStatusBadge(asset.warranty_status || "-")}</div>
+                            <div className="text-left">{formatWarrantyPeriod(asset.warranty_end)}</div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">{getWarrantyStatusBadge(asset.warranty_end)}</div>
                           </td>
                         </>
                       )}
@@ -1200,30 +1265,31 @@ export const AssetList = ({
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
-                  {isAuditView ? (
-                    <>
-                      <SelectItem value="Available">Available</SelectItem>
-                      <SelectItem value="Scrap/Damage">Scrap/Damage</SelectItem>
-                      <SelectItem value="Sold">Sold</SelectItem>
-                      <SelectItem value="Others">Others</SelectItem>
-                    </>
-                  ) : (
-                    <>
-                      <SelectItem value="Available">Available</SelectItem>
-                      <SelectItem value="Scrap/Damage">Scrap/Damage</SelectItem>
-                      <SelectItem value="Sold">Sold</SelectItem>
-                      <SelectItem value="Others">Others</SelectItem>
-                    </>
-                  )}
+                  {allStatuses.map(status => (
+                    <SelectItem key={status} value={status}>{status}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
+            {statusesNeedingRecovery.includes(newStatus) && (
+              <div className="space-y-2">
+                <Label htmlFor="recoveryAmount">Recovery Amount *</Label>
+                <Input
+                  id="recoveryAmount"
+                  type="number"
+                  value={recoveryAmount}
+                  onChange={(e) => setRecoveryAmount(e.target.value)}
+                  placeholder="Enter recovery amount"
+                />
+              </div>
+            )}
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 onClick={() => {
                   setShowStatusDialog(false);
                   setNewStatus("");
+                  setRecoveryAmount("");
                   setSelectedAsset(null);
                 }}
                 className="flex-1"
@@ -1232,7 +1298,7 @@ export const AssetList = ({
               </Button>
               <Button
                 onClick={handleUpdateStatus}
-                disabled={!newStatus || !selectedAsset}
+                disabled={!newStatus || !selectedAsset || (statusesNeedingRecovery.includes(newStatus) && !recoveryAmount)}
                 className="flex-1 bg-gradient-primary hover:shadow-glow transition-smooth"
               >
                 {selectedAsset?.status === "Assigned" && newStatus !== "Assigned" ? "Proceed to Return" : "Update"}
@@ -1302,7 +1368,7 @@ export const AssetList = ({
               <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id || "N/A"}</p>
             </div>
             <div className="space-y-2">
-              <Label>Location *</Label>
+              <Label>Location {newStatus !== "Assigned" ? "*" : ""}</Label>
               <Select value={returnLocation} onValueChange={setReturnLocation}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select location" />
@@ -1343,6 +1409,18 @@ export const AssetList = ({
                 />
               </div>
             )}
+            {statusesNeedingRecovery.includes(newStatus) && (
+              <div className="space-y-2">
+                <Label htmlFor="recoveryAmount">Recovery Amount *</Label>
+                <Input
+                  id="recoveryAmount"
+                  type="number"
+                  value={recoveryAmount}
+                  onChange={(e) => setRecoveryAmount(e.target.value)}
+                  placeholder="Enter recovery amount"
+                />
+              </div>
+            )}
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -1351,6 +1429,7 @@ export const AssetList = ({
                   setReturnRemarks("");
                   setReturnLocation("");
                   setNewStatus("");
+                  setRecoveryAmount("");
                   setSelectedAsset(null);
                 }}
                 className="flex-1"
@@ -1359,7 +1438,7 @@ export const AssetList = ({
               </Button>
               <Button
                 onClick={handleReturnAsset}
-                disabled={!returnLocation || !selectedAsset}
+                disabled={!selectedAsset || (newStatus !== "Assigned" && !returnLocation) || (statusesNeedingRecovery.includes(newStatus) && !recoveryAmount)}
                 className="flex-1 bg-gradient-primary hover:shadow-glow transition-smooth"
               >
                 Return
