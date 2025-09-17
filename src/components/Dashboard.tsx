@@ -7,8 +7,7 @@ import { Package, Users, Plus, Filter, Upload, Download, Search, Menu } from "lu
 import { UserProfile } from "@/components/auth/UserProfile";
 import { AssetForm } from "./AssetForm";
 import { BulkUpload } from "./BulkUpload";
-import { useAssets, useCreateAsset, useUpdateAsset, useUnassignAsset, useDeleteAsset, Asset } from "@/hooks/useAssets";
-import { StatusChangeDialog } from "./StatusChangeDialog";
+import { useAssets, useCreateAsset, useUpdateAsset, useUnassignAsset, useDeleteAsset } from "@/hooks/useAssets";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -44,8 +43,6 @@ export const Dashboard = () => {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState<'dashboard' | 'audit' | 'amcs' | 'summary'>('dashboard');
-  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
-  const [selectedAssetForStatus, setSelectedAssetForStatus] = useState<Asset | null>(null);
 
   useEffect(() => {
     const fetchUserAndAuthorize = async () => {
@@ -57,7 +54,7 @@ export const Dashboard = () => {
             .from('users')
             .select('email, role')
             .eq('email', user.email)
-            .maybeSingle();
+            .single();
           if (data && !error) {
             setIsAuthorized(true);
             setUserRole(data.role);
@@ -88,6 +85,7 @@ export const Dashboard = () => {
         old_value: oldValue,
         new_value: newValue,
         changed_by: currentUser,
+        changed_at: new Date().toISOString(),
       });
     } catch (error) {
       console.error("Failed to log edit history:", error);
@@ -96,16 +94,16 @@ export const Dashboard = () => {
 
   const validateAssetUniqueness = (assetId: string, serialNumber: string, excludeAssetId?: string) => {
     const existingAssetWithId = assets.find(
-      (a: Asset) => a.asset_id === assetId && (!excludeAssetId || a.id !== excludeAssetId)
+      (a) => a.asset_id === assetId && (!excludeAssetId || a.id !== excludeAssetId)
     );
     const existingAssetWithSerial = assets.find(
-      (a: Asset) => a.serial_number === serialNumber && (!excludeAssetId || a.id !== excludeAssetId)
+      (a) => a.serial_number === serialNumber && (!excludeAssetId || a.id !== excludeAssetId)
     );
     const assetWithDifferentSerial = assets.find(
-      (a: Asset) => a.asset_id === assetId && a.serial_number !== serialNumber && (!excludeAssetId || a.id !== excludeAssetId)
+      (a) => a.asset_id === assetId && a.serial_number !== serialNumber && (!excludeAssetId || a.id !== excludeAssetId)
     );
     const assetWithDifferentId = assets.find(
-      (a: Asset) => a.serial_number === serialNumber && a.asset_id !== assetId && (!excludeAssetId || a.id !== excludeAssetId)
+      (a) => a.serial_number === serialNumber && a.asset_id !== assetId && (!excludeAssetId || a.id !== excludeAssetId)
     );
 
     if (existingAssetWithId) {
@@ -222,33 +220,23 @@ export const Dashboard = () => {
     }
   };
 
-  const handleUnassignAsset = async (assetId: string, remarks?: string, receivedBy?: string, location?: string, recoveryAmount?: number) => {
+  const handleUnassignAsset = async (assetId: string, remarks?: string, receivedBy?: string, location?: string) => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
       toast.error("Unauthorized: Insufficient permissions.");
       return;
     }
 
     try {
-      const asset = assets.find((a: Asset) => a.id === assetId);
+      const asset = assets.find((a) => a.id === assetId);
       if (!asset) {
         throw new Error("Asset not found.");
       }
-
-      const updateData: any = {
+      await unassignAssetMutation.mutateAsync({
         id: assetId,
         remarks,
         receivedBy: receivedBy || currentUser,
-      };
-
-      if (location) {
-        updateData.location = location;
-      }
-
-      if (recoveryAmount !== undefined) {
-        updateData.recovery_amount = recoveryAmount;
-      }
-
-      await unassignAssetMutation.mutateAsync(updateData);
+        location,
+      });
       await logEditHistory(assetId, "assigned_to", asset?.assigned_to || null, null);
       await logEditHistory(assetId, "employee_id", asset?.employee_id || null, null);
       await logEditHistory(assetId, "status", asset?.status || null, "Available");
@@ -259,9 +247,6 @@ export const Dashboard = () => {
       }
       if (remarks) {
         await logEditHistory(assetId, "remarks", asset?.remarks || null, remarks);
-      }
-      if (recoveryAmount !== undefined) {
-        await logEditHistory(assetId, "recovery_amount", asset?.recovery_amount?.toString() || null, recoveryAmount.toString());
       }
       toast.success("Asset returned successfully");
     } catch (error: any) {
@@ -342,55 +327,24 @@ export const Dashboard = () => {
     }
   };
 
-  const handleUpdateStatus = async (assetId: string, status: string, data?: any) => {
+  const handleUpdateStatus = async (assetId: string, status: string) => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
       toast.error("Unauthorized: Insufficient permissions.");
       return;
     }
 
     try {
-      const asset = assets.find((a: Asset) => a.id === assetId);
+      const asset = assets.find((a) => a.id === assetId);
       if (!asset) {
         throw new Error("Asset not found.");
       }
-
-      const updateData: any = {
-        id: assetId,
+      await updateAssetMutation.mutateAsync({ 
+        id: assetId, 
         status,
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
-      };
-
-      // Handle return dialog data
-      if (asset.status === 'Assigned' && data) {
-        if (data.receivedBy) {
-          updateData.received_by = data.receivedBy;
-          updateData.return_date = new Date().toISOString();
-        }
-        if (data.location) {
-          updateData.location = data.location;
-        }
-        if (data.remarks) {
-          updateData.remarks = data.remarks;
-        }
-        // Clear assignment fields when returning
-        updateData.assigned_to = null;
-        updateData.employee_id = null;
-        updateData.assigned_date = null;
-      }
-
-      // Handle recovery amount for specific statuses
-      if (data?.recovery_amount !== undefined) {
-        updateData.recovery_amount = data.recovery_amount;
-      }
-
-      await updateAssetMutation.mutateAsync(updateData);
+      });
       await logEditHistory(assetId, "status", asset?.status || null, status);
-      
-      if (data?.recovery_amount !== undefined) {
-        await logEditHistory(assetId, "recovery_amount", asset?.recovery_amount?.toString() || null, data.recovery_amount.toString());
-      }
-
       toast.success("Status updated successfully");
     } catch (error: any) {
       toast.error(error.message || "Failed to update status.");
