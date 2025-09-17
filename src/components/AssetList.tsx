@@ -167,7 +167,7 @@ export const AssetList: React.FC<AssetListProps> = ({
   // Derive receivedBy
   const receivedBy = React.useMemo(() => {
     if (!user) return "Unknown User";
-    if (user.user_metadata?.full_name) return user.user_metadata.full_name;
+    if (user.displayName) return user.displayName;
     if (user.email) {
       const prefix = user.email.split("@")[0];
       const parts = prefix.split(/[_.\-]/).filter(Boolean);
