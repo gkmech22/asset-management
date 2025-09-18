@@ -8,21 +8,8 @@ import { Filter, Search } from "lucide-react";
 import { AssetList } from "./AssetList";
 import { DatePickerWithRange } from "./DatePickerWithRange";
 import { DateRange } from "react-day-picker";
-import { Asset } from "@/hooks/useAssets";
 
-interface AmcsViewProps {
-  assets: Asset[];
-  onAssign: (assetId: string, userName: string, employeeId: string) => Promise<void>;
-  onUnassign: (assetId: string, remarks?: string, receivedBy?: string, location?: string) => Promise<void>;
-  onUpdateAsset: (assetId: string, updatedAsset: any) => Promise<void>;
-  onUpdateStatus: (assetId: string, status: string) => Promise<void>;
-  onUpdateLocation: (assetId: string, location: string) => Promise<void>;
-  onUpdateAssetCheck: (assetId: string, assetCheck: string) => Promise<void>;
-  onDelete: (assetId: string) => Promise<void>;
-  userRole: string | null;
-}
-
-const AmcsView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus, onUpdateLocation, onUpdateAssetCheck, onDelete, userRole }: AmcsViewProps) => {
+const AmcsView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus, onUpdateLocation, onDelete, userRole }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -31,11 +18,11 @@ const AmcsView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus,
   const [locationFilter, setLocationFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("");
 
-  const assetTypes = [...new Set(assets.map((asset: Asset) => asset.type))];
-  const assetBrands = [...new Set(assets.map((asset: Asset) => asset.brand))];
-  const assetConfigurations = [...new Set(assets.map((asset: Asset) => asset.configuration).filter(Boolean))];
-  const assetLocations = [...new Set(assets.map((asset: Asset) => asset.location))];
-  const assetStatuses = [...new Set(assets.map((asset: Asset) => asset.status))];
+  const assetTypes = [...new Set(assets.map((asset) => asset.type))];
+  const assetBrands = [...new Set(assets.map((asset) => asset.brand))];
+  const assetConfigurations = [...new Set(assets.map((asset) => asset.configuration).filter(Boolean))];
+  const assetLocations = [...new Set(assets.map((asset) => asset.location))];
+  const assetStatuses = [...new Set(assets.map((asset) => asset.status))];
 
   const filteredAssets = assets.filter((asset) => {
     const typeMatch = typeFilter === "all" || asset.type === typeFilter;
@@ -62,8 +49,8 @@ const AmcsView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus,
         asset.remarks || "",
         asset.warranty_start || "",
         asset.warranty_end || "",
-        asset.warranty_start || "",
-        asset.warranty_end || "",
+        asset.amc_start || "",
+        asset.amc_end || "",
       ].some((field) => field.toLowerCase().includes(searchQuery.toLowerCase()));
 
     return typeMatch && brandMatch && configMatch && locationMatch && statusMatch && searchMatch;
@@ -118,14 +105,14 @@ const AmcsView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus,
                 <SelectTrigger className="text-xs h-7">
                   <SelectValue placeholder="All Types" />
                 </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    {assetTypes.map((type: string) => (
-                      <SelectItem key={type} value={type} className="text-xs">
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  {assetTypes.map((type) => (
+                    <SelectItem key={type} value={type} className="text-xs">
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
@@ -134,14 +121,14 @@ const AmcsView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus,
                 <SelectTrigger className="text-xs h-7">
                   <SelectValue placeholder="All Brands" />
                 </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Brands</SelectItem>
-                    {assetBrands.map((brand: string) => (
-                      <SelectItem key={brand} value={brand} className="text-xs">
-                        {brand}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                <SelectContent>
+                  <SelectItem value="all">All Brands</SelectItem>
+                  {assetBrands.map((brand) => (
+                    <SelectItem key={brand} value={brand} className="text-xs">
+                      {brand}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
@@ -150,14 +137,14 @@ const AmcsView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus,
                 <SelectTrigger className="text-xs h-7">
                   <SelectValue placeholder="All Configurations" />
                 </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Configurations</SelectItem>
-                    {assetConfigurations.map((config: string) => (
-                      <SelectItem key={config} value={config} className="text-xs">
-                        {config}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                <SelectContent>
+                  <SelectItem value="all">All Configurations</SelectItem>
+                  {assetConfigurations.map((config) => (
+                    <SelectItem key={config} value={config} className="text-xs">
+                      {config}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
@@ -166,14 +153,14 @@ const AmcsView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus,
                 <SelectTrigger className="text-xs h-7">
                   <SelectValue placeholder="All Locations" />
                 </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Locations</SelectItem>
-                    {assetLocations.map((location: string) => (
-                      <SelectItem key={location} value={location} className="text-xs">
-                        {location}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                <SelectContent>
+                  <SelectItem value="all">All Locations</SelectItem>
+                  {assetLocations.map((location) => (
+                    <SelectItem key={location} value={location} className="text-xs">
+                      {location}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
@@ -182,14 +169,14 @@ const AmcsView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus,
                 <SelectTrigger className="text-xs h-7">
                   <SelectValue placeholder="Select Status" />
                 </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    {assetStatuses.map((status: string) => (
-                      <SelectItem key={status} value={status} className="text-xs">
-                        {status}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  {assetStatuses.map((status) => (
+                    <SelectItem key={status} value={status} className="text-xs">
+                      {status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
@@ -207,7 +194,6 @@ const AmcsView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus,
         onUpdateAsset={onUpdateAsset}
         onUpdateStatus={onUpdateStatus}
         onUpdateLocation={onUpdateLocation}
-        onUpdateAssetCheck={onUpdateAssetCheck}
         onDelete={onDelete}
         dateRange={dateRange}
         typeFilter={typeFilter}

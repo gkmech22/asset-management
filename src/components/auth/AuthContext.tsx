@@ -1,10 +1,13 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = 'https://wyijpwoyskwrbgazwspp.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind5aWpwd295c2t3cmJnYXp3c3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1NDkyODQsImV4cCI6MjA3MDEyNTI4NH0.VumtxlEXegD8JqqsAxcZgDA1_TLojuc4lOCR_2KlBq0';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 interface AuthContextType {
   user: any | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ access_token: string; refresh_token: string }>;
   signInWithGoogle: (tokens?: { accessToken: string; refreshToken: string; expiresIn: string }) => Promise<void>;
   signOut: () => Promise<void>;
   updateUser: (attributes: any) => Promise<void>;
@@ -43,25 +46,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
-  const signIn = async (email: string, password: string) => {
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
-      return {
-        access_token: data.session?.access_token || '',
-        refresh_token: data.session?.refresh_token || '',
-      };
-    } catch (error) {
-      console.error('Sign-in error:', error);
-      throw error;
-    }
-  };
-
   const signInWithGoogle = async (tokens?: { accessToken: string; refreshToken: string; expiresIn: string }) => {
     try {
       if (tokens) {
@@ -69,6 +53,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const { data, error } = await supabase.auth.setSession({
           access_token: tokens.accessToken,
           refresh_token: tokens.refreshToken,
+          expires_in: parseInt(tokens.expiresIn),
         });
         if (error) throw error;
         setUser(data.session?.user ?? null);
@@ -77,7 +62,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const { error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: window.location.origin,
+            redirectTo: window.location.origin, // http://localhost:3000
             queryParams: {
               access_type: 'offline',
               prompt: 'consent',
@@ -115,7 +100,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signInWithGoogle, signOut, updateUser }}>
+    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signOut, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
