@@ -266,6 +266,7 @@ export const Dashboard = () => {
   };
 
   const handleUpdateStatus = async (assetId: string, status: string) => {
+    if (!Array.isArray(assets)) return;
     const asset = assets.find(a => a.id === assetId);
     if (asset) {
       setSelectedAsset(asset);
@@ -344,6 +345,7 @@ export const Dashboard = () => {
       "Recovery Amount",
     ];
 
+    if (!Array.isArray(assets)) return;
     const csvContent = [
       headers.join(","),
       ...assets.map((asset: any) =>
@@ -446,7 +448,7 @@ export const Dashboard = () => {
                     className="hover:bg-primary hover:text-primary-foreground transition-smooth text-sm h-8"
                   >
                     <Upload className="w-3 h-3 mr-1" />
-                    Bulk Operations
+                    Bulk Upload
                   </Button>
                   <Button
                     onClick={() => setShowAddForm(true)}

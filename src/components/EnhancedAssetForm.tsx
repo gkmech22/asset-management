@@ -4,10 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Plus } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Plus, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Asset } from "@/hooks/useAssets";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface EnhancedAssetFormProps {
   onSubmit: (asset: any) => void;
@@ -16,10 +19,25 @@ interface EnhancedAssetFormProps {
   assets?: Asset[];
 }
 
+const locations = [
+  "Mumbai Office",
+  "Hyderabad WH", 
+  "Ghaziabad WH",
+  "Bhiwandi WH",
+  "Patiala WH",
+  "Bangalore Office",
+  "Kolkata WH",
+  "Trichy WH",
+  "Gurugram Office",
+  "Indore WH",
+  "Bangalore WH",
+  "Jaipur WH",
+];
+
 export const EnhancedAssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: EnhancedAssetFormProps) => {
   const [formData, setFormData] = React.useState({
     assetId: initialData?.asset_id || "",
-    name: initialData?.name || "",
+    model: initialData?.name || "",
     type: initialData?.type || "",
     brand: initialData?.brand || "",
     configuration: initialData?.configuration || "",
@@ -27,6 +45,9 @@ export const EnhancedAssetForm = ({ onSubmit, onCancel, initialData, assets = []
     provider: initialData?.provider || "",
     warrantyStart: initialData?.warranty_start || "",
     warrantyEnd: initialData?.warranty_end || "",
+    location: initialData?.location || "",
+    employeeId: initialData?.employee_id || "",
+    employeeName: initialData?.assigned_to || "",
   });
 
   const [customValues, setCustomValues] = React.useState({
@@ -34,6 +55,7 @@ export const EnhancedAssetForm = ({ onSubmit, onCancel, initialData, assets = []
     brand: "",
     configuration: "",
     provider: "",
+    model: "",
   });
 
   const [showCustom, setShowCustom] = React.useState({
@@ -41,7 +63,15 @@ export const EnhancedAssetForm = ({ onSubmit, onCancel, initialData, assets = []
     brand: false,
     configuration: false,
     provider: false,
+    model: false,
   });
+
+  const [warrantyStartDate, setWarrantyStartDate] = React.useState<Date | undefined>(
+    initialData?.warranty_start ? new Date(initialData.warranty_start) : undefined
+  );
+  const [warrantyEndDate, setWarrantyEndDate] = React.useState<Date | undefined>(
+    initialData?.warranty_end ? new Date(initialData.warranty_end) : undefined
+  );
 
   const [error, setError] = React.useState<string | null>(null);
 
@@ -50,6 +80,7 @@ export const EnhancedAssetForm = ({ onSubmit, onCancel, initialData, assets = []
   const uniqueBrands = [...new Set(assets.map(a => a.brand).filter(Boolean))];
   const uniqueConfigurations = [...new Set(assets.map(a => a.configuration).filter(Boolean))];
   const uniqueProviders = [...new Set(assets.map(a => a.provider).filter(Boolean))];
+  const uniqueModels = [...new Set(assets.map(a => a.name).filter(Boolean))];
 
   const validateUniqueness = () => {
     const existingAssetWithId = assets.find(
@@ -62,7 +93,7 @@ export const EnhancedAssetForm = ({ onSubmit, onCancel, initialData, assets = []
     if (existingAssetWithId) {
       return `Asset ID ${formData.assetId} is already in use.`;
     }
-    if (existingAssetWithSerial) {
+    if (existingAssetWithSerial && formData.serialNumber) {
       return `Serial Number ${formData.serialNumber} is already in use.`;
     }
     return null;
@@ -70,9 +101,10 @@ export const EnhancedAssetForm = ({ onSubmit, onCancel, initialData, assets = []
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.assetId || !formData.name || !formData.type || !formData.brand || !formData.serialNumber) {
-      setError("Please fill in all required fields.");
-      toast.error("Please fill in all required fields.");
+    
+    if (!formData.assetId || !formData.model || !formData.type || !formData.brand || !formData.serialNumber || !formData.location) {
+      setError("Please fill in all required fields (Asset ID, Model, Type, Brand, Serial Number, Location).");
+      toast.error("Please fill in all required fields (Asset ID, Model, Type, Brand, Serial Number, Location).");
       return;
     }
 
@@ -86,10 +118,13 @@ export const EnhancedAssetForm = ({ onSubmit, onCancel, initialData, assets = []
     // Use custom values if provided
     const finalData = {
       ...formData,
+      name: showCustom.model ? customValues.model : formData.model,
       type: showCustom.type ? customValues.type : formData.type,
       brand: showCustom.brand ? customValues.brand : formData.brand,
       configuration: showCustom.configuration ? customValues.configuration : formData.configuration,
       provider: showCustom.provider ? customValues.provider : formData.provider,
+      warrantyStart: warrantyStartDate ? format(warrantyStartDate, "yyyy-MM-dd") : "",
+      warrantyEnd: warrantyEndDate ? format(warrantyEndDate, "yyyy-MM-dd") : "",
     };
 
     onSubmit(finalData);
@@ -149,6 +184,43 @@ export const EnhancedAssetForm = ({ onSubmit, onCancel, initialData, assets = []
     </div>
   );
 
+  const renderDatePicker = (
+    label: string,
+    date: Date | undefined,
+    onDateChange: (date: Date | undefined) => void,
+    required = false
+  ) => (
+    <div className="space-y-2">
+      <Label>{label} {required && "*"}</Label>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className={cn(
+              "w-full justify-start text-left font-normal",
+              !date && "text-muted-foreground"
+            )}
+          >
+            <CalendarIcon className="mr-2 h-4 w-4" />
+            {date ? format(date, "PPP") : <span>Pick a date</span>}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            mode="single"
+            selected={date}
+            onSelect={onDateChange}
+            initialFocus
+            className={cn("p-3 pointer-events-auto")}
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+
+  // Only show employee fields if status is Assigned during edit
+  const showEmployeeFields = !initialData || initialData.status === "Assigned";
+
   return (
     <Dialog open={true} onOpenChange={() => { onCancel(); setError(null); }}>
       <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
@@ -174,16 +246,14 @@ export const EnhancedAssetForm = ({ onSubmit, onCancel, initialData, assets = []
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="name">Asset Name *</Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="e.g., MacBook Pro 16 inch"
-              required
-            />
-          </div>
+          {renderSelectWithCustom(
+            "model",
+            "Model",
+            uniqueModels,
+            formData.model,
+            (value) => setFormData({ ...formData, model: value }),
+            true
+          )}
 
           {renderSelectWithCustom(
             "type",
@@ -231,24 +301,56 @@ export const EnhancedAssetForm = ({ onSubmit, onCancel, initialData, assets = []
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="warrantyStart">Warranty Start Date</Label>
-            <Input
-              id="warrantyStart"
-              type="date"
-              value={formData.warrantyStart}
-              onChange={(e) => setFormData({ ...formData, warrantyStart: e.target.value })}
-            />
+            <Label htmlFor="location">Location *</Label>
+            <Select value={formData.location} onValueChange={(value) => setFormData({ ...formData, location: value })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select location" />
+              </SelectTrigger>
+              <SelectContent>
+                {locations.map((location) => (
+                  <SelectItem key={location} value={location}>
+                    {location}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="warrantyEnd">Warranty End Date</Label>
-            <Input
-              id="warrantyEnd"
-              type="date"
-              value={formData.warrantyEnd}
-              onChange={(e) => setFormData({ ...formData, warrantyEnd: e.target.value })}
-            />
-          </div>
+          {renderDatePicker(
+            "Warranty Start Date",
+            warrantyStartDate,
+            setWarrantyStartDate
+          )}
+
+          {renderDatePicker(
+            "Warranty End Date",
+            warrantyEndDate,
+            setWarrantyEndDate
+          )}
+
+          {showEmployeeFields && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="employeeId">Employee ID</Label>
+                <Input
+                  id="employeeId"
+                  value={formData.employeeId}
+                  onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
+                  placeholder="e.g., EMP001 (optional)"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="employeeName">Employee Name</Label>
+                <Input
+                  id="employeeName"
+                  value={formData.employeeName}
+                  onChange={(e) => setFormData({ ...formData, employeeName: e.target.value })}
+                  placeholder="e.g., John Doe (optional)"
+                />
+              </div>
+            </>
+          )}
 
           {initialData && (
             <>
@@ -314,7 +416,7 @@ export const EnhancedAssetForm = ({ onSubmit, onCancel, initialData, assets = []
             <Button 
               type="submit" 
               className="flex-1 bg-gradient-primary hover:shadow-glow transition-smooth"
-              disabled={!formData.assetId || !formData.name || !formData.type || !formData.brand || !formData.serialNumber}
+              disabled={!formData.assetId || !formData.model || !formData.type || !formData.brand || !formData.serialNumber || !formData.location}
             >
               {initialData ? "Update Asset" : "Add Asset"}
             </Button>

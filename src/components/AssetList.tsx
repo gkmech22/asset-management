@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { UserPlus, UserMinus, Search, Calendar, MoreVertical, ScanBarcode, Tag } from "lucide-react";
@@ -11,7 +10,6 @@ import { EditAssetDialog } from "./EditAssetDialog";
 import { AssetDetailsDialog } from "./AssetDetailsDialog";
 import { AssetSticker } from "./AssetSticker";
 import { Asset } from "@/hooks/useAssets";
-import { useAssetHistory } from "@/hooks/useAssetHistory";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   DropdownMenu,
@@ -19,7 +17,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { EnhancedBarcodeScanner } from "./EnhancedBarcodeScanner";
 
 interface AssetListProps {
   assets: Asset[];
@@ -62,19 +59,12 @@ export const AssetList = ({
   const [userName, setUserName] = React.useState("");
   const [employeeId, setEmployeeId] = React.useState("");
   const [showAssignDialog, setShowAssignDialog] = React.useState(false);
-  const [showStatusDialog, setShowStatusDialog] = React.useState(false);
-  const [showLocationDialog, setShowLocationDialog] = React.useState(false);
   const [showEditDialog, setShowEditDialog] = React.useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = React.useState(false);
-  const [showHistoryDialog, setShowHistoryDialog] = React.useState(false);
   const [showReturnDialog, setShowReturnDialog] = React.useState(false);
-  const [showRevokeDialog, setShowRevokeDialog] = React.useState(false);
   const [showStickerDialog, setShowStickerDialog] = React.useState(false);
   const [returnRemarks, setReturnRemarks] = React.useState("");
   const [returnLocation, setReturnLocation] = React.useState("");
-  const [newStatus, setNewStatus] = React.useState("");
-  const [newLocation, setNewLocation] = React.useState("");
-  const [recoveryAmount, setRecoveryAmount] = React.useState("");
   const [currentPage, setCurrentPage] = React.useState(1);
   const [rowsPerPage, setRowsPerPage] = React.useState(defaultRowsPerPage);
   const [error, setError] = React.useState<string | null>(null);
@@ -83,11 +73,7 @@ export const AssetList = ({
   const [showConfirmDialog, setShowConfirmDialog] = React.useState(false);
   const [showStatusCheckDialog, setShowStatusCheckDialog] = React.useState(false);
   const [filterCheckStatus, setFilterCheckStatus] = React.useState<string | null>(null);
-  const [showScanner, setShowScanner] = React.useState(false);
-  const [showAssetCheckScanner, setShowAssetCheckScanner] = React.useState(false);
   const [showAssignedToOnly, setShowAssignedToOnly] = React.useState(false);
-
-  const { data: history = [], isLoading: historyLoading } = useAssetHistory(selectedAsset?.id);
 
   console.log("AssetList: Rendering with assets:", assets);
 
@@ -253,70 +239,21 @@ export const AssetList = ({
     }
   };
 
-  const handleUpdateStatus = async () => {
-    if (selectedAsset && newStatus) {
-      try {
-        if (selectedAsset.status === "Assigned" && newStatus !== "Assigned") {
-          setShowStatusDialog(false);
-          setShowReturnDialog(true);
-          return;
-        }
-        if (statusesNeedingRecovery.includes(newStatus) && !recoveryAmount) {
-          setError("Recovery amount is required for this status.");
-          return;
-        }
-        await onUpdateStatus(selectedAsset.id, newStatus);
-        if (newStatus === "Assigned") {
-          await onUpdateAsset(selectedAsset.id, { received_by: "", return_date: "", recovery_amount: "" });
-        } else if (statusesNeedingRecovery.includes(newStatus)) {
-          await onUpdateAsset(selectedAsset.id, { recovery_amount: recoveryAmount });
-        }
-        setShowStatusDialog(false);
-        setNewStatus("");
-        setRecoveryAmount("");
-        setSelectedAsset(null);
-        setError(null);
-      } catch (error) {
-        console.error("AssetList: Update status failed:", error);
-        setError("Failed to update status. Please try again.");
-      }
-    }
-  };
-
   const handleReturnAsset = async () => {
     if (selectedAsset) {
       try {
-        if (newStatus !== "Assigned" && !returnLocation) {
-          setError("Location is required for this status.");
-          return;
-        }
-        if (statusesNeedingRecovery.includes(newStatus) && !recoveryAmount) {
-          setError("Recovery amount is required for this status.");
-          return;
-        }
         console.log("Returning asset:", {
           assetId: selectedAsset.id,
           remarks: returnRemarks,
           receivedBy,
           returnLocation,
-          recoveryAmount: statusesNeedingRecovery.includes(newStatus) ? recoveryAmount : undefined,
         });
-        await onUnassign(selectedAsset.id, returnRemarks, receivedBy, newStatus !== "Assigned" ? returnLocation : undefined);
-        if (newStatus && newStatus !== "Assigned") {
-          await onUpdateStatus(selectedAsset.id, newStatus);
-          await onUpdateAsset(selectedAsset.id, { 
-            received_by: receivedBy,
-            recovery_amount: statusesNeedingRecovery.includes(newStatus) ? recoveryAmount : ""
-          });
-        } else {
-          await onUpdateStatus(selectedAsset.id, "Available");
-          await onUpdateAsset(selectedAsset.id, { received_by: receivedBy, recovery_amount: "" });
-        }
+        await onUnassign(selectedAsset.id, returnRemarks, receivedBy, returnLocation);
+        await onUpdateStatus(selectedAsset.id, "Available");
+        await onUpdateAsset(selectedAsset.id, { received_by: receivedBy, recovery_amount: "" });
         setShowReturnDialog(false);
         setReturnRemarks("");
         setReturnLocation("");
-        setNewStatus("");
-        setRecoveryAmount("");
         setSelectedAsset(null);
         setError(null);
       } catch (error) {
@@ -326,39 +263,11 @@ export const AssetList = ({
     }
   };
 
-  const handleRevokeAsset = async () => {
-    if (selectedAsset) {
-      try {
-        const lastAssignment = history
-          .filter((entry: any) => entry.field_changed === "assigned_to" || entry.field_changed === "employee_id")
-          .sort((a: any, b: any) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime())[0];
-
-        const userName = lastAssignment?.field_changed === "assigned_to" ? lastAssignment.new_value : selectedAsset.assigned_to || "";
-        const employeeId = lastAssignment?.field_changed === "employee_id" ? lastAssignment.new_value : selectedAsset.employee_id || "";
-
-        if (!userName || !employeeId) {
-          setError("Cannot revoke: No previous assignment details found.");
-          return;
-        }
-
-        await onAssign(selectedAsset.id, userName, employeeId);
-        await onUpdateAsset(selectedAsset.id, { status: "Assigned", received_by: "", return_date: "", recovery_amount: "" });
-        setShowRevokeDialog(false);
-        setSelectedAsset(null);
-        setError(null);
-      } catch (error) {
-        console.error("AssetList: Revoke failed:", error);
-        setError("Failed to revoke asset assignment. Please try again.");
-      }
-    }
-  };
-
   const handleUpdateLocation = async () => {
-    if (selectedAsset && newLocation) {
+    if (selectedAsset && returnLocation) {
       try {
-        await onUpdateLocation(selectedAsset.id, newLocation);
-        setShowLocationDialog(false);
-        setNewLocation("");
+        await onUpdateLocation(selectedAsset.id, returnLocation);
+        setReturnLocation("");
         setSelectedAsset(null);
         setError(null);
       } catch (error) {
@@ -438,58 +347,6 @@ export const AssetList = ({
     setShowStatusCheckDialog(true);
   };
 
-  const handleGenerateReport = () => {
-    const headers = [
-      "Asset ID",
-      "Asset Type",
-      "Asset Name",
-      "Brand",
-      "Configuration",
-      "Serial Number",
-      "Status",
-      "Asset Location",
-      "Asset Check",
-      "Assigned Date",
-      "Return Date",
-      "Received By",
-      "Recovery Amount",
-    ];
-
-    const escapeCsvField = (value: string | null | undefined): string => {
-      if (!value) return "";
-      return value.includes(",") ? `"${value.replace(/"/g, '""')}"` : value;
-    };
-
-    const csvContent = [
-      headers.join(","),
-      ...filteredAssets.map((asset) =>
-        [
-          escapeCsvField(asset.asset_id),
-          escapeCsvField(asset.type),
-          escapeCsvField(asset.name),
-          escapeCsvField(asset.brand),
-          escapeCsvField(asset.configuration),
-          escapeCsvField(asset.serial_number),
-          escapeCsvField(asset.status),
-          escapeCsvField(asset.location),
-          escapeCsvField(asset.asset_check),
-          escapeCsvField(asset.assigned_date),
-          escapeCsvField(asset.return_date),
-          escapeCsvField(asset.status === "Assigned" ? "" : asset.received_by),
-          escapeCsvField(asset.recovery_amount),
-        ].join(",")
-      ),
-    ].join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `audit_report_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "Assigned":
@@ -567,9 +424,9 @@ export const AssetList = ({
 
   const getPageNumbers = () => {
     const pageNumbers = [];
-              const maxPagesToShow = 5;
-              let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
-              let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+    const maxPagesToShow = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+    let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
 
     if (endPage - startPage + 1 < maxPagesToShow) {
       startPage = Math.max(1, endPage - maxPagesToShow + 1);
@@ -583,8 +440,6 @@ export const AssetList = ({
   };
 
   const { startPage, endPage, pageNumbers } = getPageNumbers();
-
-  const historyTableRef = React.useRef<HTMLDivElement>(null);
 
   const handleOpenStickerDialog = (asset: Asset) => {
     if (!asset || !asset.asset_id || !asset.serial_number) {
@@ -661,14 +516,6 @@ export const AssetList = ({
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 w-64 h-9 text-sm"
             />
-            <Button
-              variant="outline"
-              size="sm"
-              className="absolute right-1 top-1 h-8 w-8 p-0"
-              onClick={() => setShowScanner(true)}
-            >
-              <ScanBarcode className="h-4 w-4" />
-            </Button>
           </div>
         </div>
         {isAuditView && (
@@ -702,14 +549,6 @@ export const AssetList = ({
                   }}
                   className="pl-10 w-64 h-9 text-sm"
                 />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="absolute right-1 top-1 h-8 w-8 p-0"
-                  onClick={() => setShowAssetCheckScanner(true)}
-                >
-                  <ScanBarcode className="h-4 w-4" />
-                </Button>
               </div>
               <Button
                 onClick={handleAssetCheck}
@@ -933,45 +772,11 @@ export const AssetList = ({
                                   <DropdownMenuItem
                                     onClick={() => {
                                       console.log("AssetList: Opening status dialog for asset:", asset);
-                                      setSelectedAsset(asset);
-                                      setNewStatus(asset.status);
-                                      setShowStatusDialog(true);
+                                      onUpdateStatus(asset.id, asset.status);
                                     }}
                                   >
                                     Status
                                   </DropdownMenuItem>
-                                  {asset.status !== "Assigned" && (
-                                    <DropdownMenuItem
-                                      onClick={() => {
-                                        console.log("AssetList: Opening location dialog for asset:", asset);
-                                        setSelectedAsset(asset);
-                                        setNewLocation(asset.location);
-                                        setShowLocationDialog(true);
-                                      }}
-                                    >
-                                      Location
-                                    </DropdownMenuItem>
-                                  )}
-                                  <DropdownMenuItem
-                                    onClick={() => {
-                                      console.log("AssetList: Opening history dialog for asset:", asset);
-                                      setSelectedAsset(asset);
-                                      setShowHistoryDialog(true);
-                                    }}
-                                  >
-                                    History
-                                  </DropdownMenuItem>
-                                  {asset.received_by && asset.status !== "Assigned" && (
-                                    <DropdownMenuItem
-                                      onClick={() => {
-                                        console.log("AssetList: Opening revoke dialog for asset:", asset);
-                                        setSelectedAsset(asset);
-                                        setShowRevokeDialog(true);
-                                      }}
-                                    >
-                                      Revoke
-                                    </DropdownMenuItem>
-                                  )}
                                   <DropdownMenuItem
                                     onClick={async () => {
                                       if (confirm("Are you sure you want to delete this asset?")) {
@@ -1089,10 +894,10 @@ export const AssetList = ({
                             <div className="text-left">{asset.provider || "-"}</div>
                           </td>
                           <td className="p-2 text-xs">
-                            <div className="text-left">{formatDate(asset.warranty_start)}</div>
+                            <div className="text-left">{asset.warranty_start ? formatDate(asset.warranty_start) : "-"}</div>
                           </td>
                           <td className="p-2 text-xs">
-                            <div className="text-left">{formatDate(asset.warranty_end)}</div>
+                            <div className="text-left">{asset.warranty_end ? formatDate(asset.warranty_end) : "-"}</div>
                           </td>
                           <td className="p-2 text-xs">
                             <div className="text-left">{formatWarrantyPeriod(asset.warranty_end)}</div>
@@ -1107,553 +912,172 @@ export const AssetList = ({
                 </tbody>
               </table>
             </div>
-            <div className="flex flex-col sm:flex-row justify-between items-center mt-4 gap-4">
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <div>
-                  Showing {(currentPage - 1) * rowsPerPage + 1} to{" "}
-                  {Math.min(currentPage * rowsPerPage, filteredAssets.length)} of {filteredAssets.length} assets
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4 text-sm">
+                <div className="text-muted-foreground">
+                  Showing {(currentPage - 1) * rowsPerPage + 1} to {Math.min(currentPage * rowsPerPage, filteredAssets.length)} of {filteredAssets.length} assets
                 </div>
                 <div className="flex items-center gap-2">
-                  <Label>Rows per page:</Label>
-                  <Select
-                    value={rowsPerPage.toString()}
-                    onValueChange={(value) => {
-                      setRowsPerPage(Number(value));
-                      setCurrentPage(1);
-                    }}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
                   >
-                    <SelectTrigger className="w-20">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="10">10</SelectItem>
-                      <SelectItem value="50">50</SelectItem>
-                      <SelectItem value="100">100</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    Previous
+                  </Button>
+                  {pageNumbers.map((pageNum) => (
+                    <Button
+                      key={pageNum}
+                      variant={currentPage === pageNum ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentPage(pageNum)}
+                      className="w-8"
+                    >
+                      {pageNum}
+                    </Button>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
                 </div>
               </div>
-              <div className="flex items-center gap-2 justify-center">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                  className="h-8 w-8 p-0"
-                >
-                  &lt;
-                </Button>
-                {startPage > 1 && (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(1)}
-                      className="h-8 w-8 p-0"
-                    >
-                      1
-                    </Button>
-                    {startPage > 2 && <span className="text-sm px-2">...</span>}
-                  </>
-                )}
-                {pageNumbers.map((page) => (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setCurrentPage(page)}
-                    className={`h-8 w-8 p-0 ${currentPage === page ? "bg-primary text-primary-foreground" : ""}`}
-                  >
-                    {page}
-                  </Button>
-                ))}
-                {endPage < totalPages && (
-                  <>
-                    {endPage < totalPages - 1 && <span className="text-sm px-2">...</span>}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(totalPages)}
-                      className="h-8 w-8 p-0"
-                    >
-                      {totalPages}
-                    </Button>
-                  </>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                  className="h-8 w-8 p-0"
-                >
-                  &gt;
-                </Button>
-              </div>
-            </div>
+            )}
           </>
         )}
       </CardContent>
 
-      <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Assign Asset</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Asset: {selectedAsset?.name || "N/A"}</Label>
-              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id || "N/A"}</p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="employeeId">Employee ID *</Label>
-              <Input
-                id="employeeId"
-                value={employeeId}
-                onChange={(e) => setEmployeeId(e.target.value)}
-                placeholder="Enter employee ID"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="userName">Employee Name *</Label>
-              <Input
-                id="userName"
-                value={userName}
-                onChange={(e) => setUserName(e.target.value)}
-                placeholder="Enter employee name"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowAssignDialog(false);
-                  setUserName("");
-                  setEmployeeId("");
-                  setSelectedAsset(null);
-                }}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleAssignAsset}
-                disabled={!userName.trim() || !employeeId.trim() || !selectedAsset}
-                className="flex-1 bg-gradient-primary hover:shadow-glow transition-smooth"
-              >
-                Assign
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Update Asset Status</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Asset: {selectedAsset?.name || "N/A"}</Label>
-              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id || "N/A"}</p>
-            </div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={newStatus} onValueChange={setNewStatus}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allStatuses.map(status => (
-                    <SelectItem key={status} value={status}>{status}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {statusesNeedingRecovery.includes(newStatus) && (
+      {showAssignDialog && selectedAsset && (
+        <Dialog open={showAssignDialog} onOpenChange={() => setShowAssignDialog(false)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Assign Asset</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="recoveryAmount">Recovery Amount *</Label>
+                <Label htmlFor="userName">Employee Name</Label>
                 <Input
-                  id="recoveryAmount"
-                  type="number"
-                  value={recoveryAmount}
-                  onChange={(e) => setRecoveryAmount(e.target.value)}
-                  placeholder="Enter recovery amount"
+                  id="userName"
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                  placeholder="Enter employee name"
                 />
               </div>
-            )}
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowStatusDialog(false);
-                  setNewStatus("");
-                  setRecoveryAmount("");
-                  setSelectedAsset(null);
-                }}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleUpdateStatus}
-                disabled={!newStatus || !selectedAsset || (statusesNeedingRecovery.includes(newStatus) && !recoveryAmount)}
-                className="flex-1 bg-gradient-primary hover:shadow-glow transition-smooth"
-              >
-                {selectedAsset?.status === "Assigned" && newStatus !== "Assigned" ? "Proceed to Return" : "Update"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showLocationDialog} onOpenChange={setShowLocationDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Update Asset Location</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Asset: {selectedAsset?.name || "N/A"}</Label>
-              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id || "N/A"}</p>
-            </div>
-            <div className="space-y-2">
-              <Label>Location</Label>
-              <Select value={newLocation} onValueChange={setNewLocation}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select location" />
-                </SelectTrigger>
-                <SelectContent>
-                  {locations.map((location) => (
-                    <SelectItem key={location} value={location}>
-                      {location}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowLocationDialog(false);
-                  setNewLocation("");
-                  setSelectedAsset(null);
-                }}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleUpdateLocation}
-                disabled={!newLocation || !selectedAsset}
-                className="flex-1 bg-gradient-primary hover:shadow-glow transition-smooth"
-              >
-                Update
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showReturnDialog} onOpenChange={setShowReturnDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Return Asset</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Asset: {selectedAsset?.name || "N/A"}</Label>
-              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id || "N/A"}</p>
-            </div>
-            <div className="space-y-2">
-              <Label>Location {newStatus !== "Assigned" ? "*" : ""}</Label>
-              <Select value={returnLocation} onValueChange={setReturnLocation}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select location" />
-                </SelectTrigger>
-                <SelectContent>
-                  {locations.map((location) => (
-                    <SelectItem key={location} value={location}>
-                      {location}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Received By</Label>
-              <Input
-                value={receivedBy}
-                disabled
-                className="text-muted-foreground"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="returnRemarks">Remarks</Label>
-              <Input
-                id="returnRemarks"
-                value={returnRemarks}
-                onChange={(e) => setReturnRemarks(e.target.value)}
-                placeholder="Enter remarks (optional)"
-              />
-            </div>
-            {newStatus && newStatus !== "Assigned" && (
               <div className="space-y-2">
-                <Label>New Status</Label>
+                <Label htmlFor="employeeId">Employee ID</Label>
                 <Input
-                  value={newStatus}
-                  disabled
-                  className="text-muted-foreground"
+                  id="employeeId"
+                  value={employeeId}
+                  onChange={(e) => setEmployeeId(e.target.value)}
+                  placeholder="Enter employee ID"
                 />
               </div>
-            )}
-            {statusesNeedingRecovery.includes(newStatus) && (
+              <div className="flex gap-2 pt-4">
+                <Button variant="outline" onClick={() => setShowAssignDialog(false)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={handleAssignAsset} className="flex-1">
+                  Assign
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {showReturnDialog && selectedAsset && (
+        <Dialog open={showReturnDialog} onOpenChange={() => setShowReturnDialog(false)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Return Asset</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="recoveryAmount">Recovery Amount *</Label>
+                <Label htmlFor="returnRemarks">Remarks</Label>
                 <Input
-                  id="recoveryAmount"
-                  type="number"
-                  value={recoveryAmount}
-                  onChange={(e) => setRecoveryAmount(e.target.value)}
-                  placeholder="Enter recovery amount"
+                  id="returnRemarks"
+                  value={returnRemarks}
+                  onChange={(e) => setReturnRemarks(e.target.value)}
+                  placeholder="Optional remarks"
                 />
               </div>
-            )}
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowReturnDialog(false);
-                  setReturnRemarks("");
-                  setReturnLocation("");
-                  setNewStatus("");
-                  setRecoveryAmount("");
-                  setSelectedAsset(null);
-                }}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleReturnAsset}
-                disabled={!selectedAsset || (newStatus !== "Assigned" && !returnLocation) || (statusesNeedingRecovery.includes(newStatus) && !recoveryAmount)}
-                className="flex-1 bg-gradient-primary hover:shadow-glow transition-smooth"
-              >
-                Return
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showRevokeDialog} onOpenChange={setShowRevokeDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Revoke Asset Return</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Asset: {selectedAsset?.name || "N/A"}</Label>
-              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id || "N/A"}</p>
-            </div>
-            <p className="text-sm">Are you sure you want to revoke the return of this asset? This will reassign it to the previous user and set the status to "Assigned".</p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowRevokeDialog(false);
-                  setSelectedAsset(null);
-                }}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleRevokeAsset}
-                disabled={!selectedAsset}
-                className="flex-1 bg-gradient-primary hover:shadow-glow transition-smooth"
-              >
-                Revoke
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Confirm Clear All</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p>Are you sure you want to clear all asset check details?</p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={cancelClear}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleAssetCheckClear}
-                className="flex-1 bg-destructive hover:shadow-glow transition-smooth"
-              >
-                Confirm
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showStatusCheckDialog} onOpenChange={setShowStatusCheckDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Asset Check Status</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p>
-              {unmatchedCount === 0 ? (
-                <span style={{ color: 'green' }}>All assets are matched.</span>
-              ) : (
-                <span style={{ color: 'red' }}>{unmatchedCount} Asset{unmatchedCount === 1 ? '' : 's'} not matched.</span>
-              )}
-            </p>
-            <div className="flex gap-2">
-              <Button
-                onClick={handleGenerateReport}
-                variant="outline"
-                className="flex-1"
-              >
-                Generate Report
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowStatusCheckDialog(false)}
-                className="flex-1"
-              >
-                Close
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showStickerDialog} onOpenChange={(open) => {
-        console.log("AssetList: Sticker Dialog open state:", open, "with selectedAsset:", selectedAsset);
-        setShowStickerDialog(open);
-        if (!open) setSelectedAsset(null);
-      }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Asset Sticker</DialogTitle>
-          </DialogHeader>
-          {selectedAsset ? (
-            <>
-              <p className="text-sm text-muted-foreground">Generating sticker for {selectedAsset.asset_id}</p>
-              <AssetSticker asset={selectedAsset} />
-            </>
-          ) : (
-            <div className="text-center py-4 text-destructive">
-              No asset selected for sticker generation.
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <EnhancedBarcodeScanner
-        isOpen={showScanner}
-        onClose={() => setShowScanner(false)}
-        onScan={(result) => setSearchTerm(result)}
-        totalIFPQty="0"
-        existingSerials={[]}
-      />
-
-      <EnhancedBarcodeScanner
-        isOpen={showAssetCheckScanner}
-        onClose={() => setShowAssetCheckScanner(false)}
-        onScan={(result) => setAssetCheckId(result)}
-        totalIFPQty="0"
-        existingSerials={[]}
-      />
-
-      <EditAssetDialog
-        asset={selectedAsset}
-        assets={assets}
-        open={showEditDialog}
-        onOpenChange={(open) => {
-          setShowEditDialog(open);
-          if (!open) setSelectedAsset(null);
-        }}
-        onUpdate={onUpdateAsset}
-      />
-
-      <AssetDetailsDialog
-        asset={selectedAsset}
-        open={showDetailsDialog}
-        onOpenChange={(open) => {
-          setShowDetailsDialog(open);
-          if (!open) {
-            setSelectedAsset(null);
-            setShowAssignedToOnly(false);
-          }
-        }}
-        showAssignedToOnly={showAssignedToOnly}
-      />
-
-      <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
-        <DialogContent className="max-w-2xl h-[80vh]">
-          <DialogHeader className="pb-0">
-            <DialogTitle className="mt-0">Edit History for {selectedAsset?.name || "N/A"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-1 pt-0">
-            <div>
-              <Label className="mt-0">Asset: {selectedAsset?.name || "N/A"}</Label>
-              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id || "N/A"}</p>
-            </div>
-            {historyLoading ? (
-              <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <div className="space-y-2">
+                <Label htmlFor="returnLocation">Return Location</Label>
+                <Input
+                  id="returnLocation"
+                  value={returnLocation}
+                  onChange={(e) => setReturnLocation(e.target.value)}
+                  placeholder="Return location"
+                />
               </div>
-            ) : history.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No edit history available.</p>
-            ) : (
-              <div className="relative">
-                <div
-                  ref={historyTableRef}
-                  className="max-h-[65vh] overflow-y-auto"
-                  style={{ scrollBehavior: "smooth" }}
-                >
-                  <table className="w-full border-collapse">
-                    <thead className="sticky top-0 bg-muted z-10">
-                      <tr className="text-xs text-muted-foreground">
-                        <th className="p-2 text-left">Field</th>
-                        <th className="p-2 text-left">Old Value</th>
-                        <th className="p-2 text-left">New Value</th>
-                        <th className="p-2 text-left">Changed By</th>
-                        <th className="p-2 text-left">Changed At</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {history.map((entry) => (
-                        <tr key={entry.id} className="border-b">
-                          <td className="p-2 text-xs">{entry.field_changed}</td>
-                          <td className="p-2 text-xs">{entry.old_value || "-"}</td>
-                          <td className="p-2 text-xs">{entry.new_value || "-"}</td>
-                          <td className="p-2 text-xs">{entry.changed_by}</td>
-                          <td className="p-2 text-xs">{formatDate(entry.changed_at)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+              <div className="flex gap-2 pt-4">
+                <Button variant="outline" onClick={() => setShowReturnDialog(false)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={handleReturnAsset} className="flex-1">
+                  Return
+                </Button>
               </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {showEditDialog && selectedAsset && (
+        <EditAssetDialog
+          asset={selectedAsset}
+          onClose={() => setShowEditDialog(false)}
+          onSubmit={(updatedAsset) => {
+            onUpdateAsset(selectedAsset.id, updatedAsset);
+            setShowEditDialog(false);
+          }}
+          assets={assets}
+        />
+      )}
+
+      {showDetailsDialog && selectedAsset && (
+        <AssetDetailsDialog
+          asset={selectedAsset}
+          open={showDetailsDialog}
+          onOpenChange={() => setShowDetailsDialog(false)}
+          showAssignedToOnly={showAssignedToOnly}
+        />
+      )}
+
+      {showStickerDialog && selectedAsset && (
+        <AssetSticker
+          asset={selectedAsset}
+          open={showStickerDialog}
+          onOpenChange={() => setShowStickerDialog(false)}
+        />
+      )}
+
+      {showConfirmDialog && (
+        <Dialog open={showConfirmDialog} onOpenChange={cancelClear}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Confirm Clear All</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p>Are you sure you want to clear all asset checks? This action cannot be undone.</p>
+              <div className="flex gap-2 pt-4">
+                <Button variant="outline" onClick={cancelClear} className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={handleAssetCheckClear} variant="destructive" className="flex-1">
+                  Clear All
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </Card>
   );
 };

@@ -10,35 +10,34 @@ import { Asset } from "@/hooks/useAssets";
 interface StatusChangeDialogProps {
   asset: Asset | null;
   open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onConfirm: (newStatus: string, recoveryAmount?: string, remarks?: string, location?: string) => void;
+  onClose: () => void;
+  onStatusChange: (status: string, recoveryAmount?: string, remarks?: string, location?: string) => Promise<void>;
 }
 
-export const StatusChangeDialog = ({ asset, open, onOpenChange, onConfirm }: StatusChangeDialogProps) => {
+const locations = [
+  "Mumbai Office",
+  "Hyderabad WH",
+  "Ghaziabad WH",
+  "Bhiwandi WH",
+  "Patiala WH",
+  "Bangalore Office",
+  "Kolkata WH",
+  "Trichy WH",
+  "Gurugram Office",
+  "Indore WH",
+  "Bangalore WH",
+  "Jaipur WH",
+];
+
+const allStatuses = ["Available", "Scrap/Damage", "Sale", "Lost", "Emp Damage", "Courier Damage"];
+const statusesNeedingRecovery = ["Sale", "Lost", "Emp Damage", "Courier Damage"];
+
+export const StatusChangeDialog = ({ asset, open, onClose, onStatusChange }: StatusChangeDialogProps) => {
   const [newStatus, setNewStatus] = React.useState("");
   const [recoveryAmount, setRecoveryAmount] = React.useState("");
   const [remarks, setRemarks] = React.useState("");
   const [location, setLocation] = React.useState("");
-
-  const statusesNeedingRecovery = ["Sale", "Lost", "Emp Damage", "Courier Damage"];
-  const allStatuses = asset?.status === "Assigned" 
-    ? ["Available", "Scrap/Damage", "Sale", "Lost", "Emp Damage", "Courier Damage"]
-    : ["Available", "Scrap/Damage", "Sale", "Lost", "Emp Damage", "Courier Damage"];
-
-  const locations = [
-    "Mumbai Office",
-    "Hyderabad WH",
-    "Ghaziabad WH",
-    "Bhiwandi WH",
-    "Patiala WH",
-    "Bangalore Office",
-    "Kolkata WH",
-    "Trichy WH",
-    "Gurugram Office",
-    "Indore WH",
-    "Bangalore WH",
-    "Jaipur WH",
-  ];
+  const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (asset) {
@@ -46,35 +45,54 @@ export const StatusChangeDialog = ({ asset, open, onOpenChange, onConfirm }: Sta
       setLocation(asset.location || "");
       setRecoveryAmount("");
       setRemarks("");
+      setError(null);
     }
   }, [asset]);
 
-  const handleConfirm = () => {
-    onConfirm(newStatus, recoveryAmount || undefined, remarks || undefined, location || undefined);
-    onOpenChange(false);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newStatus) {
+      setError("Please select a status.");
+      return;
+    }
+
+    if (statusesNeedingRecovery.includes(newStatus) && !recoveryAmount) {
+      setError("Recovery amount is required for this status.");
+      return;
+    }
+
+    if (asset?.status === "Assigned" && newStatus !== "Assigned" && !location) {
+      setError("Location is required when changing from Assigned status.");
+      return;
+    }
+
+    try {
+      await onStatusChange(newStatus, recoveryAmount || undefined, remarks || undefined, location || undefined);
+      onClose();
+      setError(null);
+    } catch (error) {
+      setError("Failed to update status. Please try again.");
+    }
   };
 
-  const needsRecoveryAmount = statusesNeedingRecovery.includes(newStatus);
-  const needsLocation = asset?.status === "Assigned" && newStatus !== "Assigned";
-  const isReturning = asset?.status === "Assigned";
+  const availableStatuses = asset?.status === "Assigned" 
+    ? allStatuses.filter(status => status !== "Assigned")
+    : allStatuses;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-xl font-semibold bg-gradient-primary bg-clip-text text-transparent">
-            {isReturning ? "Return Asset" : "Change Status"}
-          </DialogTitle>
+          <DialogTitle>Change Asset Status</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
+        {error && (
+          <div className="text-destructive text-sm mb-4">
+            <p>{error}</p>
+          </div>
+        )}
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="currentStatus">Current Status</Label>
-            <Input
-              id="currentStatus"
-              value={asset?.status || ""}
-              disabled
-              className="bg-muted"
-            />
+            <Label>Current Status: {asset?.status}</Label>
           </div>
 
           <div className="space-y-2">
@@ -84,7 +102,7 @@ export const StatusChangeDialog = ({ asset, open, onOpenChange, onConfirm }: Sta
                 <SelectValue placeholder="Select new status" />
               </SelectTrigger>
               <SelectContent>
-                {allStatuses.map((status) => (
+                {availableStatuses.map((status) => (
                   <SelectItem key={status} value={status}>
                     {status}
                   </SelectItem>
@@ -93,7 +111,7 @@ export const StatusChangeDialog = ({ asset, open, onOpenChange, onConfirm }: Sta
             </Select>
           </div>
 
-          {needsLocation && (
+          {asset?.status === "Assigned" && newStatus && newStatus !== "Assigned" && (
             <div className="space-y-2">
               <Label htmlFor="location">Location *</Label>
               <Select value={location} onValueChange={setLocation}>
@@ -111,15 +129,16 @@ export const StatusChangeDialog = ({ asset, open, onOpenChange, onConfirm }: Sta
             </div>
           )}
 
-          {needsRecoveryAmount && (
+          {statusesNeedingRecovery.includes(newStatus) && (
             <div className="space-y-2">
-              <Label htmlFor="recoveryAmount">Recovery Amount</Label>
+              <Label htmlFor="recoveryAmount">Recovery Amount *</Label>
               <Input
                 id="recoveryAmount"
                 type="number"
                 value={recoveryAmount}
                 onChange={(e) => setRecoveryAmount(e.target.value)}
                 placeholder="Enter recovery amount"
+                required
               />
             </div>
           )}
@@ -130,30 +149,20 @@ export const StatusChangeDialog = ({ asset, open, onOpenChange, onConfirm }: Sta
               id="remarks"
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
-              placeholder="Enter any remarks"
+              placeholder="Optional remarks"
               rows={3}
             />
           </div>
 
           <div className="flex gap-2 pt-4">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => onOpenChange(false)}
-              className="flex-1"
-            >
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
               Cancel
             </Button>
-            <Button 
-              type="button" 
-              onClick={handleConfirm}
-              className="flex-1 bg-gradient-primary hover:shadow-glow transition-smooth"
-              disabled={!newStatus || (needsLocation && !location)}
-            >
-              Confirm
+            <Button type="submit" className="flex-1">
+              Update Status
             </Button>
           </div>
-        </div>
+        </form>
       </DialogContent>
     </Dialog>
   );
