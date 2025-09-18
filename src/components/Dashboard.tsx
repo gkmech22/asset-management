@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Package, Users, Plus, Filter, Upload, Download, Search, Menu } from "lucide-react";
 import { UserProfile } from "@/components/auth/UserProfile";
-import { AssetForm } from "./AssetForm";
+import { EnhancedAssetForm } from "./EnhancedAssetForm";
+import { StatusChangeDialog } from "./StatusChangeDialog";
 import { BulkUpload } from "./BulkUpload";
 import { useAssets, useCreateAsset, useUpdateAsset, useUnassignAsset, useDeleteAsset } from "@/hooks/useAssets";
 import { toast } from "sonner";
@@ -43,6 +44,8 @@ export const Dashboard = () => {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState<'dashboard' | 'audit' | 'amcs' | 'summary'>('dashboard');
+  const [showStatusChangeDialog, setShowStatusChangeDialog] = useState(false);
+  const [selectedAssetForStatus, setSelectedAssetForStatus] = useState<any>(null);
 
   useEffect(() => {
     const fetchUserAndAuthorize = async () => {

@@ -26,7 +26,7 @@ export interface Asset {
   warranty_end: string | null;
   warranty_status: string | null;
   provider: string | null;
-  recovery_amount?: number;
+  recovery_amount?: number | null;
 }
 
 export const useAssets = () => {
