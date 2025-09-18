@@ -40,7 +40,7 @@ export const AssetDetailsDialog = ({ asset, open, onOpenChange, showAssignedToOn
           {showAssignedToOnly ? (
             <div className="space-y-2">
               <Label htmlFor="assignedTo">Assigned To</Label>
-              <Input id="assignedTo" value={asset.assigned_to || asset.userName || "Unassigned"} disabled className="bg-muted" />
+              <Input id="assignedTo" value={asset.assigned_to || "Unassigned"} disabled className="bg-muted" />
             </div>
           ) : (
             <>

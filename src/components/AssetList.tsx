@@ -111,7 +111,7 @@ export const AssetList = ({
 
   const receivedBy = React.useMemo(() => {
     try {
-      if (user?.displayName) return user.displayName;
+      if (user?.user_metadata?.full_name) return user.user_metadata.full_name;
       if (user?.email) {
         const prefix = user.email.split('@')[0];
         const parts = prefix.split(/[_.\-]/).filter(Boolean);
@@ -181,7 +181,7 @@ export const AssetList = ({
         (asset.warranty_end && asset.warranty_end.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (asset.provider && asset.provider.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (asset.warranty_status && asset.warranty_status.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (asset.recovery_amount && asset.recovery_amount.toLowerCase().includes(searchTerm.toLowerCase()));
+        (asset.recovery_amount && String(asset.recovery_amount).toLowerCase().includes(searchTerm.toLowerCase()));
 
       const matchesDateRange =
         !dateRange?.from ||
@@ -329,12 +329,9 @@ export const AssetList = ({
   const handleRevokeAsset = async () => {
     if (selectedAsset) {
       try {
-        const lastAssignment = history
-          .filter(entry => entry.field_changed === "assigned_to" || entry.field_changed === "employee_id")
-          .sort((a, b) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime())[0];
-
-        const userName = lastAssignment?.field_changed === "assigned_to" ? lastAssignment.new_value : selectedAsset.assigned_to || "";
-        const employeeId = lastAssignment?.field_changed === "employee_id" ? lastAssignment.new_value : selectedAsset.employee_id || "";
+        // Use current asset data since history structure is different
+        const userName = selectedAsset.assigned_to || "";
+        const employeeId = selectedAsset.employee_id || "";
 
         if (!userName || !employeeId) {
           setError("Cannot revoke: No previous assignment details found.");
@@ -1567,16 +1564,12 @@ export const AssetList = ({
         isOpen={showScanner}
         onClose={() => setShowScanner(false)}
         onScan={(result) => setSearchTerm(result)}
-        totalIFPQty="0"
-        existingSerials={[]}
       />
 
       <EnhancedBarcodeScanner
         isOpen={showAssetCheckScanner}
         onClose={() => setShowAssetCheckScanner(false)}
         onScan={(result) => setAssetCheckId(result)}
-        totalIFPQty="0"
-        existingSerials={[]}
       />
 
       <EditAssetDialog

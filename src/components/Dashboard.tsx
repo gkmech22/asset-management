@@ -52,7 +52,7 @@ export const Dashboard = () => {
           setCurrentUser(user.email);
           const { data, error } = await supabase
             .from('users')
-            .select('email, role')
+            .select('*')
             .eq('email', user.email)
             .single();
           if (data && !error) {
