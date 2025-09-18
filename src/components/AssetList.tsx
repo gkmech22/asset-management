@@ -10,7 +10,7 @@ import { EditAssetDialog } from "./EditAssetDialog";
 import { AssetDetailsDialog } from "./AssetDetailsDialog";
 import { AssetSticker } from "./AssetSticker";
 import { Asset } from "@/hooks/useAssets";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/components/auth/AuthContext";
 import {
   DropdownMenu,
   DropdownMenuContent,

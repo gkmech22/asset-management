@@ -66,15 +66,15 @@ export const AssetSticker: React.FC<AssetStickerProps> = ({ asset }) => {
 
       console.log("AssetSticker: Rendering sticker with dimensions", { width: canvas.width, height: canvas.height });
 
-      // Label dimensions: 60 mm x 40 mm at 600 DPI
-      const dpi = 600;
+      // Label dimensions: 60 mm x 40 mm at 300 DPI for proper sizing
+      const dpi = 300;
       const mmToInches = 25.4;
-      const widthPx = (60 / mmToInches) * dpi; // 60 mm to inches * 600 DPI ≈ 1417 px
-      const heightPx = (40 / mmToInches) * dpi; // 40 mm to inches * 600 DPI ≈ 945 px
+      const widthPx = (60 / mmToInches) * dpi; // 60 mm to inches * 300 DPI ≈ 708 px
+      const heightPx = (40 / mmToInches) * dpi; // 40 mm to inches * 300 DPI ≈ 472 px
 
-      // Set canvas size to full resolution (scaled by CSS transform)
-      canvas.width = Math.round(widthPx); // ~1417 px
-      canvas.height = Math.round(heightPx); // ~945 px
+      // Set canvas size to full resolution
+      canvas.width = Math.round(widthPx); // ~708 px
+      canvas.height = Math.round(heightPx); // ~472 px
 
       // Clear canvas with white background
       ctx.fillStyle = "white";

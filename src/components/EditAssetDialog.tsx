@@ -113,7 +113,7 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="name">Asset Name *</Label>
+            <Label htmlFor="name">Model *</Label>
             <Input
               id="name"
               value={formData.name}
@@ -244,6 +244,30 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
               className="bg-muted"
             />
           </div>
+
+          {/* Only show employee fields if status is Assigned */}
+          {asset.status === "Assigned" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="employeeId">Employee ID</Label>
+                <Input
+                  id="employeeId"
+                  value={asset.employee_id || ""}
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="employeeName">Employee Name</Label>
+                <Input
+                  id="employeeName"
+                  value={asset.assigned_to || ""}
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
+            </>
+          )}
 
           <div className="flex gap-2 pt-4">
             <Button 

@@ -55,22 +55,28 @@ export const SimpleDashboard = () => {
 
   const handleAddAsset = async (newAsset: any) => {
     try {
+      console.log("SimpleDashboard: Adding asset", newAsset);
+      
       const warrantyStatus = newAsset.warrantyEnd
         ? new Date(newAsset.warrantyEnd) >= new Date() ? "In Warranty" : "Out of Warranty"
         : "Out of Warranty";
       
+      // Determine status based on employee assignment
+      const status = (newAsset.employeeId && newAsset.employeeName) ? "Assigned" : "Available";
+      const assignedDate = status === "Assigned" ? new Date().toISOString() : null;
+      
       const asset = {
         asset_id: newAsset.assetId,
-        name: newAsset.name,
+        name: newAsset.name || newAsset.model,
         type: newAsset.type,
         brand: newAsset.brand,
-        configuration: newAsset.configuration,
+        configuration: newAsset.configuration || "",
         serial_number: newAsset.serialNumber,
-        status: "Available",
-        location: locations[0],
-        assigned_to: null,
-        employee_id: null,
-        assigned_date: null,
+        status,
+        location: newAsset.location,
+        assigned_to: newAsset.employeeName || null,
+        employee_id: newAsset.employeeId || null,
+        assigned_date: assignedDate,
         received_by: null,
         return_date: null,
         remarks: null,
@@ -78,17 +84,19 @@ export const SimpleDashboard = () => {
         created_at: new Date().toISOString(),
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
-        warranty_start: newAsset.warrantyStart,
-        warranty_end: newAsset.warrantyEnd,
+        warranty_start: newAsset.warrantyStart || null,
+        warranty_end: newAsset.warrantyEnd || null,
         asset_check: "",
-        provider: newAsset.provider,
+        provider: newAsset.provider || null,
         warranty_status: warrantyStatus,
       };
       
+      console.log("SimpleDashboard: Saving asset to database", asset);
       await createAssetMutation.mutateAsync(asset);
       toast.success("Asset created successfully");
       setShowAddForm(false);
     } catch (error: any) {
+      console.error("SimpleDashboard: Failed to create asset", error);
       toast.error(error.message || "Failed to create asset.");
     }
   };
@@ -189,7 +197,70 @@ export const SimpleDashboard = () => {
   };
 
   const handleBulkUpload = async (file: File) => {
-    toast.info("Bulk upload feature will be implemented in next version");
+    try {
+      console.log("SimpleDashboard: Processing bulk upload", file.name);
+      const text = await file.text();
+      const lines = text.split('\n').filter(line => line.trim());
+      
+      if (lines.length === 0) {
+        toast.error("File is empty");
+        return;
+      }
+      
+      // Skip header row
+      const dataLines = lines.slice(1);
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (const line of dataLines) {
+        const columns = line.split(',').map(col => col.trim().replace(/"/g, ''));
+        if (columns.length < 6) continue;
+        
+        try {
+          const [assetId, name, type, brand, configuration, serialNumber, provider, warrantyStart, warrantyEnd] = columns;
+          
+          const warrantyStatus = warrantyEnd && new Date(warrantyEnd) >= new Date() ? "In Warranty" : "Out of Warranty";
+          
+          const asset = {
+            asset_id: assetId,
+            name: name,
+            type: type,
+            brand: brand,
+            configuration: configuration || "",
+            serial_number: serialNumber,
+            status: "Available",
+            location: locations[0],
+            assigned_to: null,
+            employee_id: null,
+            assigned_date: null,
+            received_by: null,
+            return_date: null,
+            remarks: null,
+            created_by: currentUser,
+            created_at: new Date().toISOString(),
+            updated_by: currentUser,
+            updated_at: new Date().toISOString(),
+            warranty_start: warrantyStart || null,
+            warranty_end: warrantyEnd || null,
+            asset_check: "",
+            provider: provider || null,
+            warranty_status: warrantyStatus,
+          };
+          
+          await createAssetMutation.mutateAsync(asset);
+          successCount++;
+        } catch (error) {
+          console.error("Failed to create asset from bulk upload:", error);
+          errorCount++;
+        }
+      }
+      
+      toast.success(`Bulk upload completed! ${successCount} assets created, ${errorCount} errors`);
+      setShowBulkUpload(false);
+    } catch (error: any) {
+      console.error("Bulk upload failed:", error);
+      toast.error("Failed to process bulk upload");
+    }
   };
 
   const handleDownloadData = () => {
@@ -269,8 +340,8 @@ export const SimpleDashboard = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <div className="fixed top-0 left-0 right-0 z-50 bg-card border-b shadow-card">
+    <div className="flex flex-col h-screen">
+      <div className="flex-shrink-0 bg-card border-b shadow-card z-50">
         <div className="container mx-auto px-2 py-1">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -280,7 +351,7 @@ export const SimpleDashboard = () => {
                     <Menu className="h-6 w-6" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
+                <DropdownMenuContent align="start" className="z-50 bg-background border shadow-lg">
                   <DropdownMenuItem onSelect={() => setCurrentPage('dashboard')}>Dashboard</DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => setCurrentPage('audit')}>Audit</DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => setCurrentPage('amcs')}>AMCs</DropdownMenuItem>
