@@ -8,11 +8,26 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
 interface AssetFormProps {
-  onSubmit: (asset: any) => void;
+  onSubmit: (asset: any) => Promise<void>; // Assume onSubmit returns a Promise
   onCancel: () => void;
   initialData?: any;
-  assets?: any[]; // Added for uniqueness validation
+  assets?: any[];
 }
+
+const locations = [
+  "Mumbai Office",
+  "Hyderabad WH",
+  "Ghaziabad WH",
+  "Bhiwandi WH",
+  "Patiala WH",
+  "Bangalore Office",
+  "Kolkata WH",
+  "Trichy WH",
+  "Gurugram Office",
+  "Indore WH",
+  "Bangalore WH",
+  "Jaipur WH",
+];
 
 export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: AssetFormProps) => {
   const [formData, setFormData] = React.useState({
@@ -25,8 +40,24 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
     provider: initialData?.provider || "",
     warrantyStart: initialData?.warrantyStart || "",
     warrantyEnd: initialData?.warrantyEnd || "",
+    location: initialData?.location || "",
+    employeeId: initialData?.employeeId || "",
+    employeeName: initialData?.employeeName || "",
   });
   const [error, setError] = React.useState<string | null>(null);
+  const [customType, setCustomType] = React.useState("");
+  const [customBrand, setCustomBrand] = React.useState("");
+  const [customProvider, setCustomProvider] = React.useState("");
+  const [customName, setCustomName] = React.useState("");
+  const [customConfiguration, setCustomConfiguration] = React.useState("");
+  const [isSubmitting, setIsSubmitting] = React.useState(false); // Track submission state
+
+  // Extract unique values for select options
+  const uniqueTypes = Array.from(new Set(assets.map((a) => a.type).filter(Boolean)));
+  const uniqueBrands = Array.from(new Set(assets.map((a) => a.brand).filter(Boolean)));
+  const uniqueProviders = Array.from(new Set(assets.map((a) => a.provider).filter(Boolean)));
+  const uniqueNames = Array.from(new Set(assets.map((a) => a.name).filter(Boolean)));
+  const uniqueConfigurations = Array.from(new Set(assets.map((a) => a.configuration).filter(Boolean)));
 
   const validateUniqueness = () => {
     const existingAssetWithId = assets.find(
@@ -36,10 +67,16 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
       (a) => a.serial_number === formData.serialNumber && (!initialData || a.id !== initialData.id)
     );
     const assetWithDifferentSerial = assets.find(
-      (a) => a.asset_id === formData.assetId && a.serial_number !== formData.serialNumber && (!initialData || a.id !== initialData.id)
+      (a) =>
+        a.asset_id === formData.assetId &&
+        a.serial_number !== formData.serialNumber &&
+        (!initialData || a.id !== initialData.id)
     );
     const assetWithDifferentId = assets.find(
-      (a) => a.serial_number === formData.serialNumber && a.asset_id !== formData.assetId && (!initialData || a.id !== initialData.id)
+      (a) =>
+        a.serial_number === formData.serialNumber &&
+        a.asset_id !== formData.assetId &&
+        (!initialData || a.id !== initialData.id)
     );
 
     if (existingAssetWithId) {
@@ -57,23 +94,76 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
     return null;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.assetId || !formData.name || !formData.type || !formData.brand || !formData.serialNumber) {
-      setError("Please fill in all required fields.");
-      toast.error("Please fill in all required fields.");
-      return;
+  const validateForm = () => {
+    if (!formData.assetId || !formData.name || !formData.type || !formData.brand || !formData.serialNumber || !formData.location) {
+      return "Please fill in all required fields: Asset ID, Name, Type, Brand, Serial Number, and Location.";
     }
+    if (formData.employeeId && !formData.employeeName) {
+      return "Employee Name is required if Employee ID is provided.";
+    }
+    if (formData.employeeName && !formData.employeeId) {
+      return "Employee ID is required if Employee Name is provided.";
+    }
+    if (formData.type === "custom" && !customType) {
+      return "Please provide a custom asset type.";
+    }
+    if (formData.brand === "custom" && !customBrand) {
+      return "Please provide a custom brand.";
+    }
+    if (formData.provider === "custom" && !customProvider) {
+      return "Please provide a custom provider.";
+    }
+    if (formData.name === "custom" && !customName) {
+      return "Please provide a custom asset name.";
+    }
+    if (formData.configuration === "custom" && !customConfiguration) {
+      return "Please provide a custom configuration.";
+    }
+    return validateUniqueness();
+  };
 
-    const validationError = validateUniqueness();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsSubmitting(true); // Disable submit button during submission
+
+    const validationError = validateForm();
     if (validationError) {
       setError(validationError);
       toast.error(validationError);
+      setIsSubmitting(false);
       return;
     }
 
-    onSubmit(formData);
-    setError(null);
+    const submitData = {
+      assetId: formData.assetId,
+      name: formData.name === "custom" ? customName : formData.name,
+      type: formData.type === "custom" ? customType : formData.type,
+      brand: formData.brand === "custom" ? customBrand : formData.brand,
+      configuration: formData.configuration === "custom" ? customConfiguration : formData.configuration || null,
+      serialNumber: formData.serialNumber,
+      provider: formData.provider === "custom" ? customProvider : formData.provider || null,
+      warrantyStart: formData.warrantyStart || null,
+      warrantyEnd: formData.warrantyEnd || null,
+      location: formData.location,
+      employeeId: formData.employeeId || null,
+      employeeName: formData.employeeName || null,
+    };
+
+    try {
+      await onSubmit(submitData); // Wait for backend response
+      toast.success("Asset added successfully!");
+      onCancel(); // Close the dialog on success
+    } catch (error: any) {
+      const errorMessage =
+        error.message?.includes("duplicate key value violates unique constraint")
+          ? `Asset ID ${formData.assetId} is already in use in the database. Please choose a different ID.`
+          : error.message || "Failed to create asset. Please try again.";
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsSubmitting(false); // Re-enable submit button
+    }
   };
 
   return (
@@ -103,55 +193,110 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
 
           <div className="space-y-2">
             <Label htmlFor="name">Asset Name *</Label>
-            <Input
-              id="name"
+            <Select
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="e.g., MacBook Pro 16 inch"
-              required
-            />
+              onValueChange={(value) => setFormData({ ...formData, name: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select asset name" />
+              </SelectTrigger>
+              <SelectContent>
+                {uniqueNames.map((name) => (
+                  <SelectItem key={name} value={name}>{name}</SelectItem>
+                ))}
+                <SelectItem value="custom">Custom</SelectItem>
+              </SelectContent>
+            </Select>
+            {formData.name === "custom" && (
+              <Input
+                value={customName}
+                onChange={(e) => setCustomName(e.target.value)}
+                placeholder="Enter custom asset name"
+                className="mt-2"
+                required
+              />
+            )}
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="type">Asset Type *</Label>
-            <Select 
-              value={formData.type} 
+            <Select
+              value={formData.type}
               onValueChange={(value) => setFormData({ ...formData, type: value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select asset type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Laptop">Laptop</SelectItem>
-                <SelectItem value="Tablet">Tablet</SelectItem>
-                <SelectItem value="Desktop">Desktop</SelectItem>
-                <SelectItem value="Monitor">Monitor</SelectItem>
-                <SelectItem value="Phone">Phone</SelectItem>
-                <SelectItem value="Accessories">Accessories</SelectItem>
+                {uniqueTypes.map((type) => (
+                  <SelectItem key={type} value={type}>{type}</SelectItem>
+                ))}
+                <SelectItem value="custom">Custom</SelectItem>
               </SelectContent>
             </Select>
+            {formData.type === "custom" && (
+              <Input
+                value={customType}
+                onChange={(e) => setCustomType(e.target.value)}
+                placeholder="Enter custom type"
+                className="mt-2"
+                required
+              />
+            )}
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="brand">Brand *</Label>
-            <Input
-              id="brand"
+            <Select
               value={formData.brand}
-              onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-              placeholder="e.g., Apple, Dell, HP"
-              required
-            />
+              onValueChange={(value) => setFormData({ ...formData, brand: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select brand" />
+              </SelectTrigger>
+              <SelectContent>
+                {uniqueBrands.map((brand) => (
+                  <SelectItem key={brand} value={brand}>{brand}</SelectItem>
+                ))}
+                <SelectItem value="custom">Custom</SelectItem>
+              </SelectContent>
+            </Select>
+            {formData.brand === "custom" && (
+              <Input
+                value={customBrand}
+                onChange={(e) => setCustomBrand(e.target.value)}
+                placeholder="Enter custom brand"
+                className="mt-2"
+                required
+              />
+            )}
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="configuration">Configuration</Label>
-            <Textarea
-              id="configuration"
+            <Select
               value={formData.configuration}
-              onChange={(e) => setFormData({ ...formData, configuration: e.target.value })}
-              placeholder="e.g., 16GB RAM, 512GB SSD"
-              rows={2}
-            />
+              onValueChange={(value) => setFormData({ ...formData, configuration: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select configuration" />
+              </SelectTrigger>
+              <SelectContent>
+                {uniqueConfigurations.map((config) => (
+                  <SelectItem key={config} value={config}>{config}</SelectItem>
+                ))}
+                <SelectItem value="custom">Custom</SelectItem>
+              </SelectContent>
+            </Select>
+            {formData.configuration === "custom" && (
+              <Textarea
+                value={customConfiguration}
+                onChange={(e) => setCustomConfiguration(e.target.value)}
+                placeholder="Enter custom configuration"
+                className="mt-2"
+                rows={2}
+              />
+            )}
           </div>
 
           <div className="space-y-2">
@@ -167,11 +312,65 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
 
           <div className="space-y-2">
             <Label htmlFor="provider">Provider</Label>
-            <Input
-              id="provider"
+            <Select
               value={formData.provider}
-              onChange={(e) => setFormData({ ...formData, provider: e.target.value })}
-              placeholder="e.g., Amazon, Dell Direct"
+              onValueChange={(value) => setFormData({ ...formData, provider: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select provider" />
+              </SelectTrigger>
+              <SelectContent>
+                {uniqueProviders.map((provider) => (
+                  <SelectItem key={provider} value={provider}>{provider}</SelectItem>
+                ))}
+                <SelectItem value="custom">Custom</SelectItem>
+              </SelectContent>
+            </Select>
+            {formData.provider === "custom" && (
+              <Input
+                value={customProvider}
+                onChange={(e) => setCustomProvider(e.target.value)}
+                placeholder="Enter custom provider"
+                className="mt-2"
+                required
+              />
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="location">Location *</Label>
+            <Select
+              value={formData.location}
+              onValueChange={(value) => setFormData({ ...formData, location: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select location" />
+              </SelectTrigger>
+              <SelectContent>
+                {locations.map((location) => (
+                  <SelectItem key={location} value={location}>{location}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="employeeId">Employee ID</Label>
+            <Input
+              id="employeeId"
+              value={formData.employeeId}
+              onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
+              placeholder="e.g., EMP-001"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="employeeName">Employee Name</Label>
+            <Input
+              id="employeeName"
+              value={formData.employeeName}
+              onChange={(e) => setFormData({ ...formData, employeeName: e.target.value })}
+              placeholder="e.g., John Doe"
             />
           </div>
 
@@ -239,18 +438,32 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
           )}
 
           <div className="flex gap-2 pt-4">
-            <Button 
-              type="button" 
-              variant="outline" 
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => { onCancel(); setError(null); }}
               className="flex-1"
+              disabled={isSubmitting}
             >
               Cancel
             </Button>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               className="flex-1 bg-gradient-primary hover:shadow-glow transition-smooth"
-              disabled={!formData.assetId || !formData.name || !formData.type || !formData.brand || !formData.serialNumber}
+              disabled={
+                isSubmitting ||
+                !formData.assetId ||
+                !formData.name ||
+                (formData.name === "custom" && !customName) ||
+                !formData.type ||
+                (formData.type === "custom" && !customType) ||
+                !formData.brand ||
+                (formData.brand === "custom" && !customBrand) ||
+                !formData.serialNumber ||
+                !formData.location ||
+                (formData.employeeId && !formData.employeeName) ||
+                (formData.employeeName && !formData.employeeId)
+              }
             >
               {initialData ? "Update Asset" : "Add Asset"}
             </Button>

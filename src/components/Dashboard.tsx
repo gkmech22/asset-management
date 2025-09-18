@@ -128,7 +128,6 @@ export const Dashboard = () => {
     }
 
     try {
-      // Validate uniqueness
       const validationError = validateAssetUniqueness(newAsset.assetId, newAsset.serialNumber);
       if (validationError) {
         toast.error(validationError);
@@ -145,13 +144,13 @@ export const Dashboard = () => {
         name: newAsset.name,
         type: newAsset.type,
         brand: newAsset.brand,
-        configuration: newAsset.configuration,
+        configuration: newAsset.configuration || null,
         serial_number: newAsset.serialNumber,
-        status: "Available",
-        location: locations[0],
-        assigned_to: null,
-        employee_id: null,
-        assigned_date: null,
+        status: newAsset.employeeId && newAsset.employeeName ? "Assigned" : "Available",
+        location: newAsset.location || locations[0],
+        assigned_to: newAsset.employeeName || null,
+        employee_id: newAsset.employeeId || null,
+        assigned_date: newAsset.employeeId && newAsset.employeeName ? new Date().toISOString() : null,
         received_by: null,
         return_date: null,
         remarks: null,
@@ -159,10 +158,10 @@ export const Dashboard = () => {
         created_at: new Date().toISOString(),
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
-        warranty_start: newAsset.warrantyStart,
-        warranty_end: newAsset.warrantyEnd,
+        warranty_start: newAsset.warrantyStart || null,
+        warranty_end: newAsset.warrantyEnd || null,
         asset_check: "",
-        provider: newAsset.provider,
+        provider: newAsset.provider || null,
         warranty_status: warrantyStatus,
       };
       const { data, error } = await createAssetMutation.mutateAsync(asset);
@@ -177,7 +176,7 @@ export const Dashboard = () => {
     }
   };
 
-  const handleAssignAsset = async (assetId: string, userName: string, employeeId: string) => {
+  const handleAssignAsset = async (assetId: string, userName: string, employeeId: string, location?: string) => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
       toast.error("Unauthorized: Insufficient permissions.");
       return;
@@ -202,7 +201,7 @@ export const Dashboard = () => {
         throw new Error(`Serial Number ${asset.serial_number} is already associated with another Employee ID (${existingAssetWithSerial.employee_id}).`);
       }
 
-      await updateAssetMutation.mutateAsync({
+      const updatePayload: any = {
         id: assetId,
         assigned_to: userName,
         employee_id: employeeId,
@@ -210,10 +209,19 @@ export const Dashboard = () => {
         assigned_date: new Date().toISOString(),
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
-      });
+      };
+
+      if (location && location !== asset.location) {
+        updatePayload.location = location;
+      }
+
+      await updateAssetMutation.mutateAsync(updatePayload);
       await logEditHistory(assetId, "assigned_to", asset?.assigned_to || null, userName);
       await logEditHistory(assetId, "employee_id", asset?.employee_id || null, employeeId);
       await logEditHistory(assetId, "status", asset?.status || null, "Assigned");
+      if (location && location !== asset.location) {
+        await logEditHistory(assetId, "location", asset?.location || null, location);
+      }
       toast.success("Asset assigned successfully");
     } catch (error: any) {
       toast.error(error.message || "Failed to assign asset.");
@@ -231,21 +239,36 @@ export const Dashboard = () => {
       if (!asset) {
         throw new Error("Asset not found.");
       }
-      await unassignAssetMutation.mutateAsync({
+
+      const updatePayload: any = {
         id: assetId,
-        remarks,
-        receivedBy: receivedBy || currentUser,
-        location,
-      });
+        assigned_to: null,
+        employee_id: null,
+        status: "Available",
+        return_date: new Date().toISOString(),
+        received_by: receivedBy || currentUser,
+        updated_by: currentUser,
+        updated_at: new Date().toISOString(),
+        configuration: asset.configuration, // Preserve existing configuration
+      };
+
+      if (remarks && remarks !== asset.remarks) {
+        updatePayload.remarks = remarks;
+      }
+      if (location && location !== asset.location) {
+        updatePayload.location = location;
+      }
+
+      await unassignAssetMutation.mutateAsync(updatePayload);
       await logEditHistory(assetId, "assigned_to", asset?.assigned_to || null, null);
       await logEditHistory(assetId, "employee_id", asset?.employee_id || null, null);
       await logEditHistory(assetId, "status", asset?.status || null, "Available");
       await logEditHistory(assetId, "return_date", asset?.return_date || null, new Date().toISOString());
       await logEditHistory(assetId, "received_by", asset?.received_by || null, receivedBy || currentUser);
-      if (location) {
+      if (location && location !== asset.location) {
         await logEditHistory(assetId, "location", asset?.location || null, location);
       }
-      if (remarks) {
+      if (remarks && remarks !== asset.remarks) {
         await logEditHistory(assetId, "remarks", asset?.remarks || null, remarks);
       }
       toast.success("Asset returned successfully");
@@ -265,7 +288,6 @@ export const Dashboard = () => {
       if (!asset) {
         throw new Error("Asset not found.");
       }
-      // Validate uniqueness
       const validationError = validateAssetUniqueness(updatedAsset.assetId, updatedAsset.serialNumber, assetId);
       if (validationError) {
         throw new Error(validationError);
@@ -276,50 +298,55 @@ export const Dashboard = () => {
           ? "In Warranty"
           : "Out of Warranty"
         : "Out of Warranty";
-      await updateAssetMutation.mutateAsync({
+
+      const updatePayload: any = {
         id: assetId,
-        asset_id: updatedAsset.assetId,
-        name: updatedAsset.name,
-        type: updatedAsset.type,
-        brand: updatedAsset.brand,
-        configuration: updatedAsset.configuration,
-        serial_number: updatedAsset.serialNumber,
-        warranty_start: updatedAsset.warrantyStart,
-        warranty_end: updatedAsset.warrantyEnd,
-        provider: updatedAsset.provider,
-        warranty_status: warrantyStatus,
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
-      });
-      if (asset?.asset_id !== updatedAsset.assetId) {
-        await logEditHistory(assetId, "asset_id", asset?.asset_id || null, updatedAsset.assetId);
+      };
+
+      if (updatedAsset.assetId !== asset.asset_id) updatePayload.asset_id = updatedAsset.assetId;
+      if (updatedAsset.name !== asset.name) updatePayload.name = updatedAsset.name;
+      if (updatedAsset.type !== asset.type) updatePayload.type = updatedAsset.type;
+      if (updatedAsset.brand !== asset.brand) updatePayload.brand = updatedAsset.brand;
+      if (updatedAsset.configuration !== asset.configuration) updatePayload.configuration = updatedAsset.configuration || null;
+      if (updatedAsset.serialNumber !== asset.serial_number) updatePayload.serial_number = updatedAsset.serialNumber;
+      if (updatedAsset.warrantyStart !== asset.warranty_start) updatePayload.warranty_start = updatedAsset.warrantyStart || null;
+      if (updatedAsset.warrantyEnd !== asset.warranty_end) updatePayload.warranty_end = updatedAsset.warrantyEnd || null;
+      if (updatedAsset.provider !== asset.provider) updatePayload.provider = updatedAsset.provider || null;
+      if (warrantyStatus !== asset.warranty_status) updatePayload.warranty_status = warrantyStatus;
+
+      await updateAssetMutation.mutateAsync(updatePayload);
+
+      if (asset.asset_id !== updatedAsset.assetId) {
+        await logEditHistory(assetId, "asset_id", asset.asset_id || null, updatedAsset.assetId);
       }
-      if (asset?.name !== updatedAsset.name) {
-        await logEditHistory(assetId, "name", asset?.name || null, updatedAsset.name);
+      if (asset.name !== updatedAsset.name) {
+        await logEditHistory(assetId, "name", asset.name || null, updatedAsset.name);
       }
-      if (asset?.type !== updatedAsset.type) {
-        await logEditHistory(assetId, "type", asset?.type || null, updatedAsset.type);
+      if (asset.type !== updatedAsset.type) {
+        await logEditHistory(assetId, "type", asset.type || null, updatedAsset.type);
       }
-      if (asset?.brand !== updatedAsset.brand) {
-        await logEditHistory(assetId, "brand", asset?.brand || null, updatedAsset.brand);
+      if (asset.brand !== updatedAsset.brand) {
+        await logEditHistory(assetId, "brand", asset.brand || null, updatedAsset.brand);
       }
-      if (asset?.configuration !== updatedAsset.configuration) {
-        await logEditHistory(assetId, "configuration", asset?.configuration || null, updatedAsset.configuration);
+      if (asset.configuration !== updatedAsset.configuration) {
+        await logEditHistory(assetId, "configuration", asset.configuration || null, updatedAsset.configuration);
       }
-      if (asset?.serial_number !== updatedAsset.serialNumber) {
-        await logEditHistory(assetId, "serial_number", asset?.serial_number || null, updatedAsset.serialNumber);
+      if (asset.serial_number !== updatedAsset.serialNumber) {
+        await logEditHistory(assetId, "serial_number", asset.serial_number || null, updatedAsset.serialNumber);
       }
-      if (asset?.warranty_start !== updatedAsset.warrantyStart) {
-        await logEditHistory(assetId, "warranty_start", asset?.warranty_start || null, updatedAsset.warrantyStart);
+      if (asset.warranty_start !== updatedAsset.warrantyStart) {
+        await logEditHistory(assetId, "warranty_start", asset.warranty_start || null, updatedAsset.warrantyStart);
       }
-      if (asset?.warranty_end !== updatedAsset.warrantyEnd) {
-        await logEditHistory(assetId, "warranty_end", asset?.warranty_end || null, updatedAsset.warrantyEnd);
+      if (asset.warranty_end !== updatedAsset.warrantyEnd) {
+        await logEditHistory(assetId, "warranty_end", asset.warranty_end || null, updatedAsset.warrantyEnd);
       }
-      if (asset?.provider !== updatedAsset.provider) {
-        await logEditHistory(assetId, "provider", asset?.provider || null, updatedAsset.provider);
+      if (asset.provider !== updatedAsset.provider) {
+        await logEditHistory(assetId, "provider", asset.provider || null, updatedAsset.provider);
       }
-      if (asset?.warranty_status !== warrantyStatus) {
-        await logEditHistory(assetId, "warranty_status", asset?.warranty_status || null, warrantyStatus);
+      if (asset.warranty_status !== warrantyStatus) {
+        await logEditHistory(assetId, "warranty_status", asset.warranty_status || null, warrantyStatus);
       }
       toast.success("Asset updated successfully");
     } catch (error: any) {
@@ -338,12 +365,13 @@ export const Dashboard = () => {
       if (!asset) {
         throw new Error("Asset not found.");
       }
-      await updateAssetMutation.mutateAsync({ 
-        id: assetId, 
+      const updatePayload: any = {
+        id: assetId,
         status,
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
-      });
+      };
+      await updateAssetMutation.mutateAsync(updatePayload);
       await logEditHistory(assetId, "status", asset?.status || null, status);
       toast.success("Status updated successfully");
     } catch (error: any) {
@@ -362,12 +390,13 @@ export const Dashboard = () => {
       if (!asset) {
         throw new Error("Asset not found.");
       }
-      await updateAssetMutation.mutateAsync({ 
-        id: assetId, 
+      const updatePayload: any = {
+        id: assetId,
         location,
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
-      });
+      };
+      await updateAssetMutation.mutateAsync(updatePayload);
       await logEditHistory(assetId, "location", asset?.location || null, location);
       toast.success("Location updated successfully");
     } catch (error: any) {
@@ -386,12 +415,13 @@ export const Dashboard = () => {
       if (!asset) {
         throw new Error("Asset not found.");
       }
-      await updateAssetMutation.mutateAsync({
+      const updatePayload: any = {
         id: assetId,
         asset_check: assetCheck,
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
-      });
+      };
+      await updateAssetMutation.mutateAsync(updatePayload);
       await logEditHistory(assetId, "asset_check", asset?.asset_check || null, assetCheck);
       toast.success("Asset check updated successfully");
     } catch (error: any) {
@@ -475,7 +505,7 @@ export const Dashboard = () => {
           name: asset.name,
           type: asset.type,
           brand: asset.brand,
-          configuration: asset.configuration || "",
+          configuration: asset.configuration || null,
           serial_number: asset.serialNumber,
           status: "Available",
           location: locations[0],
@@ -492,7 +522,7 @@ export const Dashboard = () => {
           warranty_start: asset.warrantyStart || null,
           warranty_end: asset.warrantyEnd || null,
           asset_check: "",
-          provider: asset.provider || "",
+          provider: asset.provider || null,
           warranty_status: asset.warrantyEnd
             ? new Date(asset.warrantyEnd) >= new Date()
               ? "In Warranty"
@@ -639,8 +669,7 @@ export const Dashboard = () => {
                   <h1 className="text-2xl font-semibold bg-gradient-primary bg-clip-text text-transparent">
                     Asset Management System
                   </h1>
-                  <p className="text-sm text-muted-foreground mt-1">
-                  </p>
+                  <p className="text-sm text-muted-foreground mt-1"></p>
                 </div>
               </div>
             </div>
@@ -689,7 +718,7 @@ export const Dashboard = () => {
         <AssetForm
           onSubmit={handleAddAsset}
           onCancel={() => setShowAddForm(false)}
-          assets={assets} // Pass assets for validation
+          assets={assets}
         />
       )}
       <BulkUpload

@@ -35,7 +35,7 @@ export const useAssets = () => {
     queryFn: async (): Promise<Asset[]> => {
       let allAssets: Asset[] = [];
       let start = 0;
-      const pageSize = 1000; // Supabase max rows per query
+      const pageSize = 1000;
 
       while (true) {
         console.log(`Fetching assets batch: rows ${start}-${start + pageSize - 1}`);
@@ -52,13 +52,12 @@ export const useAssets = () => {
 
         if (!data || data.length === 0) {
           console.log('No more assets to fetch');
-          break; // No more rows to fetch
+          break;
         }
 
         allAssets = [...allAssets, ...data];
         start += pageSize;
 
-        // Delay to avoid rate limits for very large datasets
         if (start % (pageSize * 5) === 0) {
           console.log(`Pausing for 200ms at ${start} rows`);
           await new Promise(resolve => setTimeout(resolve, 200));
@@ -68,9 +67,9 @@ export const useAssets = () => {
       console.log(`Fetched ${allAssets.length} assets in ${Math.ceil(start / pageSize)} batches`);
       return allAssets;
     },
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-    cacheTime: 10 * 60 * 1000, // Keep data in cache for 10 minutes
-    retry: 2, // Retry failed batches
+    staleTime: 5 * 60 * 1000,
+    cacheTime: 10 * 60 * 1000,
+    retry: 2,
   });
 };
 
@@ -125,20 +124,46 @@ export const useUnassignAsset = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, remarks, receivedBy }: { id: string; remarks?: string; receivedBy?: string }) => {
+    mutationFn: async ({ id, remarks, receivedBy, location, configuration }: { 
+      id: string; 
+      remarks?: string; 
+      receivedBy?: string; 
+      location?: string;
+      configuration?: string | null 
+    }) => {
+      const { data: currentAsset, error: fetchError } = await supabase
+        .from('assets')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (fetchError) {
+        console.error('Supabase fetch error:', fetchError.message);
+        throw new Error(`Failed to fetch asset: ${fetchError.message}`);
+      }
+
+      const updatePayload: Partial<Asset> = {
+        status: 'Available',
+        assigned_to: null,
+        employee_id: null,
+        assigned_date: null,
+        return_date: new Date().toISOString(),
+        received_by: receivedBy || currentAsset.updated_by || 'unknown_user',
+        updated_by: receivedBy || currentAsset.updated_by || 'unknown_user',
+        updated_at: new Date().toISOString(),
+        configuration: configuration !== undefined ? configuration : currentAsset.configuration,
+      };
+
+      if (remarks !== undefined && remarks !== currentAsset.remarks) {
+        updatePayload.remarks = remarks || null;
+      }
+      if (location !== undefined && location !== currentAsset.location) {
+        updatePayload.location = location;
+      }
+
       const { data, error } = await supabase
         .from('assets')
-        .update({
-          status: 'Available',
-          assigned_to: null,
-          employee_id: null,
-          assigned_date: null,
-          return_date: new Date().toISOString(),
-          received_by: receivedBy,
-          remarks: remarks || null,
-          updated_by: receivedBy || 'unknown_user',
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq('id', id)
         .select()
         .single();

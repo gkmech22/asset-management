@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 interface EditAssetDialogProps {
   asset: any;
-  assets: any[]; // Added to validate uniqueness
+  assets: any[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdate: (assetId: string, updatedAsset: any) => void;
@@ -41,7 +41,7 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
         warrantyStart: asset.warranty_start || "",
         warrantyEnd: asset.warranty_end || "",
       });
-      setError(null); // Reset error when asset changes
+      setError(null);
     }
   }, [asset]);
 
@@ -79,7 +79,22 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
         return;
       }
 
-      onUpdate(asset.id, formData);
+      // Pass only changed fields to onUpdate
+      const updatedFields: any = {};
+      if (formData.assetId !== asset.asset_id) updatedFields.assetId = formData.assetId;
+      if (formData.name !== asset.name) updatedFields.name = formData.name;
+      if (formData.type !== asset.type) updatedFields.type = formData.type;
+      if (formData.brand !== asset.brand) updatedFields.brand = formData.brand;
+      if (formData.configuration !== (asset.configuration || "")) updatedFields.configuration = formData.configuration || null;
+      if (formData.serialNumber !== asset.serial_number) updatedFields.serialNumber = formData.serialNumber;
+      if (formData.provider !== (asset.provider || "")) updatedFields.provider = formData.provider || null;
+      if (formData.warrantyStart !== (asset.warranty_start || "")) updatedFields.warrantyStart = formData.warrantyStart || null;
+      if (formData.warrantyEnd !== (asset.warranty_end || "")) updatedFields.warrantyEnd = formData.warrantyEnd || null;
+
+      // Only call onUpdate if there are changes
+      if (Object.keys(updatedFields).length > 0) {
+        onUpdate(asset.id, updatedFields);
+      }
       onOpenChange(false);
       setError(null);
     }
