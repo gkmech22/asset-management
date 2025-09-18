@@ -207,7 +207,7 @@ export const SimpleDashboard = () => {
 
     const csvContent = [
       headers.join(","),
-      ...assets.map((asset) =>
+      ...Array.isArray(assets) ? assets.map((asset) =>
         [
           escapeCsvField(asset.asset_id),
           escapeCsvField(asset.name),
@@ -233,7 +233,7 @@ export const SimpleDashboard = () => {
           escapeCsvField(asset.provider),
           escapeCsvField(asset.warranty_status),
         ].join(",")
-      ),
+      ) : [],
     ].join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv" });
@@ -256,7 +256,7 @@ export const SimpleDashboard = () => {
   }
 
   const commonProps = {
-    assets,
+    assets: assets || [],
     onAssign: handleAssignAsset,
     onUnassign: handleUnassignAsset,
     onUpdateAsset: handleUpdateAsset,
@@ -264,7 +264,7 @@ export const SimpleDashboard = () => {
     onUpdateLocation: handleUpdateLocation,
     onUpdateAssetCheck: handleUpdateAssetCheck,
     onDelete: handleDeleteAsset,
-    userRole,
+    userRole: userRole || "",
   };
 
   return (
@@ -304,7 +304,7 @@ export const SimpleDashboard = () => {
                     className="hover:bg-primary hover:text-primary-foreground transition-smooth text-sm h-8"
                   >
                     <Upload className="w-3 h-3 mr-1" />
-                    Bulk Operations
+                    Bulk Upload
                   </Button>
                   <Button
                     onClick={() => setShowAddForm(true)}

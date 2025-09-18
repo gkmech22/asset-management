@@ -8,7 +8,17 @@ import { AssetList } from "./AssetList";
 import { DatePickerWithRange } from "./DatePickerWithRange";
 import { DateRange } from "react-day-picker";
 
-const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus, onUpdateLocation, onUpdateAssetCheck, onDelete, userRole }) => {
+const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus, onUpdateLocation, onUpdateAssetCheck, onDelete, userRole }: {
+  assets: any[],
+  onAssign: any,
+  onUnassign: any,
+  onUpdateAsset: any,
+  onUpdateStatus: any,
+  onUpdateLocation: any,
+  onUpdateAssetCheck: any,
+  onDelete: any,
+  userRole: any
+}) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -17,13 +27,13 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
   const [locationFilter, setLocationFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("");
 
-  const assetTypes = [...new Set(assets.map((asset) => asset.type))];
-  const assetBrands = [...new Set(assets.map((asset) => asset.brand))];
-  const assetConfigurations = [...new Set(assets.map((asset) => asset.configuration).filter(Boolean))];
-  const assetLocations = [...new Set(assets.map((asset) => asset.location))];
-  const assetStatuses = [...new Set(assets.map((asset) => asset.status))];
+  const assetTypes = [...new Set((assets || []).map((asset) => asset.type))];
+  const assetBrands = [...new Set((assets || []).map((asset) => asset.brand))];
+  const assetConfigurations = [...new Set((assets || []).map((asset) => asset.configuration).filter(Boolean))];
+  const assetLocations = [...new Set((assets || []).map((asset) => asset.location))];
+  const assetStatuses = [...new Set((assets || []).map((asset) => asset.status))];
 
-  const filteredAssets = assets.filter((asset) => {
+  const filteredAssets = (assets || []).filter((asset) => {
     const typeMatch = typeFilter === "all" || asset.type === typeFilter;
     const brandMatch = brandFilter === "all" || asset.brand === brandFilter;
     const configMatch = configFilter === "all" || asset.configuration === configFilter;
@@ -62,7 +72,7 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
   const scrapDamageAssets = filteredAssets.filter((asset) => asset.status === "Scrap/Damage").length;
 
   const getAssetTypeCounts = (status: string) => {
-    return assetTypes.reduce((acc, type) => {
+    return assetTypes.reduce((acc: Record<string, number>, type: string) => {
       acc[type] = filteredAssets.filter((asset) => asset.type === type && (status === "all" || asset.status === status)).length;
       return acc;
     }, {} as Record<string, number>);
@@ -95,11 +105,11 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
               <div className="w-1/2 text-right">
                 <div className="h-24 overflow-y-auto pr-2">
                   {Object.entries(getAssetTypeCounts("all"))
-                    .filter(([_, count]) => count > 0)
+                    .filter(([_, count]) => (count as number) > 0)
                     .map(([type, count]) => (
                       <div key={type} className="flex justify-end mb-1 text-xs">
                         <span className="mr-2">{type}:</span>
-                        <span className="w-6 text-right">{count}</span>
+                        <span className="w-6 text-right">{count as number}</span>
                       </div>
                     ))}
                 </div>
@@ -121,11 +131,11 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
               <div className="w-1/2 text-right">
                 <div className="h-24 overflow-y-auto pr-2">
                   {Object.entries(getAssetTypeCounts("Assigned"))
-                    .filter(([_, count]) => count > 0)
+                    .filter(([_, count]) => (count as number) > 0)
                     .map(([type, count]) => (
                       <div key={type} className="flex justify-end mb-1 text-xs">
                         <span className="mr-2">{type}:</span>
-                        <span className="w-6 text-right">{count}</span>
+                        <span className="w-6 text-right">{count as number}</span>
                       </div>
                     ))}
                 </div>
@@ -147,11 +157,11 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
               <div className="w-1/2 text-right">
                 <div className="h-24 overflow-y-auto pr-2">
                   {Object.entries(getAssetTypeCounts("Available"))
-                    .filter(([_, count]) => count > 0)
+                    .filter(([_, count]) => (count as number) > 0)
                     .map(([type, count]) => (
                       <div key={type} className="flex justify-end mb-1 text-xs">
                         <span className="mr-2">{type}:</span>
-                        <span className="w-6 text-right">{count}</span>
+                        <span className="w-6 text-right">{count as number}</span>
                       </div>
                     ))}
                 </div>
@@ -173,11 +183,11 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
               <div className="w-1/2 text-right">
                 <div className="h-24 overflow-y-auto pr-2">
                   {Object.entries(getAssetTypeCounts("Scrap/Damage"))
-                    .filter(([_, count]) => count > 0)
+                    .filter(([_, count]) => (count as number) > 0)
                     .map(([type, count]) => (
                       <div key={type} className="flex justify-end mb-1 text-xs">
                         <span className="mr-2">{type}:</span>
-                        <span className="w-6 text-right">{count}</span>
+                        <span className="w-6 text-right">{count as number}</span>
                       </div>
                     ))}
                 </div>
@@ -226,7 +236,7 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
-                  {assetTypes.map((type) => (
+                  {assetTypes.map((type: string) => (
                     <SelectItem key={type} value={type} className="text-xs">
                       {type}
                     </SelectItem>
@@ -242,7 +252,7 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Brands</SelectItem>
-                  {assetBrands.map((brand) => (
+                  {assetBrands.map((brand: string) => (
                     <SelectItem key={brand} value={brand} className="text-xs">
                       {brand}
                     </SelectItem>
@@ -258,7 +268,7 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Configurations</SelectItem>
-                  {assetConfigurations.map((config) => (
+                  {assetConfigurations.map((config: string) => (
                     <SelectItem key={config} value={config} className="text-xs">
                       {config}
                     </SelectItem>
@@ -274,7 +284,7 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Locations</SelectItem>
-                  {assetLocations.map((location) => (
+                  {assetLocations.map((location: string) => (
                     <SelectItem key={location} value={location} className="text-xs">
                       {location}
                     </SelectItem>
@@ -290,7 +300,7 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
-                  {assetStatuses.map((status) => (
+                  {assetStatuses.map((status: string) => (
                     <SelectItem key={status} value={status} className="text-xs">
                       {status}
                     </SelectItem>

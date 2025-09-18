@@ -607,7 +607,7 @@ export const AssetList = ({
                         <th className="p-2 w-[15%] text-left">Specifications</th>
                         <th className="p-2 w-[10%] text-left">Serial Number</th>
                         <th className="p-2 w-[10%] text-left">Location</th>
-                        <th className="p-2 w-[10%] text-left">Employee ID</th>
+                        <th className="p-2 w-[10%] text-left">Assigned To</th>
                         <th className="p-2 w-[10%] text-left">Received By</th>
                         <th className="p-2 w-[10%] text-left">Date</th>
                         <th className="p-2 w-[10%] text-left">Status</th>
@@ -692,8 +692,13 @@ export const AssetList = ({
                                 }}
                                 className="text-primary hover:underline"
                               >
-                                {asset.employee_id || "-"}
+                                {asset.assigned_to || "-"}
                               </button>
+                              {asset.employee_id && (
+                                <div className="text-xs text-muted-foreground">
+                                  ID: {asset.employee_id}
+                                </div>
+                              )}
                             </div>
                           </td>
                           <td className="p-2 text-xs">
@@ -1032,9 +1037,10 @@ export const AssetList = ({
       {showEditDialog && selectedAsset && (
         <EditAssetDialog
           asset={selectedAsset}
-          onClose={() => setShowEditDialog(false)}
-          onSubmit={(updatedAsset) => {
-            onUpdateAsset(selectedAsset.id, updatedAsset);
+          open={showEditDialog}
+          onOpenChange={setShowEditDialog}
+          onUpdate={async (assetId, updatedAsset) => {
+            await onUpdateAsset(assetId, updatedAsset);
             setShowEditDialog(false);
           }}
           assets={assets}
@@ -1051,11 +1057,14 @@ export const AssetList = ({
       )}
 
       {showStickerDialog && selectedAsset && (
-        <AssetSticker
-          asset={selectedAsset}
-          open={showStickerDialog}
-          onOpenChange={() => setShowStickerDialog(false)}
-        />
+        <Dialog open={showStickerDialog} onOpenChange={setShowStickerDialog}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Asset Sticker - {selectedAsset.asset_id}</DialogTitle>
+            </DialogHeader>
+            <AssetSticker asset={selectedAsset} />
+          </DialogContent>
+        </Dialog>
       )}
 
       {showConfirmDialog && (
