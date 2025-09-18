@@ -42,7 +42,8 @@ export const EnhancedBarcodeScanner: React.FC<EnhancedBarcodeScannerProps> = ({
       setError(null);
 
       // Get available video devices
-      const videoInputDevices = await BrowserMultiFormatReader.listVideoInputDevices();
+      const videoInputDevices = await navigator.mediaDevices.enumerateDevices()
+        .then(devices => devices.filter(device => device.kind === 'videoinput'));
       
       if (videoInputDevices.length === 0) {
         throw new Error('No camera devices found');

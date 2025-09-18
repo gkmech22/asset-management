@@ -24,6 +24,7 @@ export const SimpleDashboard = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const { data: assets = [], isLoading, error } = useAssets();
+  const assetData = Array.isArray(assets) ? assets : [];
   const createAssetMutation = useCreateAsset();
   const updateAssetMutation = useUpdateAsset();
   const unassignAssetMutation = useUnassignAsset();
@@ -322,10 +323,10 @@ export const SimpleDashboard = () => {
       </div>
 
       <div className="flex-1 overflow-y-auto pt-[60px] pb-[40px] container mx-auto px-4">
-        {currentPage === 'dashboard' && <DashboardView {...commonProps} />}
-        {currentPage === 'audit' && <AuditView {...commonProps} />}
-        {currentPage === 'amcs' && <AmcsView {...commonProps} />}
-        {currentPage === 'summary' && <SummaryView {...commonProps} />}
+        {currentPage === 'dashboard' && <DashboardView {...commonProps} assets={assetData} />}
+        {currentPage === 'audit' && <AuditView {...commonProps} assets={assetData} />}
+        {currentPage === 'amcs' && <AmcsView {...commonProps} assets={assetData} />}
+        {currentPage === 'summary' && <SummaryView {...commonProps} assets={assetData} />}
       </div>
 
       <footer className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t shadow-card py-2">
@@ -340,7 +341,7 @@ export const SimpleDashboard = () => {
         <EnhancedAssetForm
           onSubmit={handleAddAsset}
           onCancel={() => setShowAddForm(false)}
-          assets={assets}
+          assets={assetData}
         />
       )}
       <BulkUpload

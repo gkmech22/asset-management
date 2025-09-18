@@ -6,14 +6,8 @@ export const useAssetHistory = (assetId: string | null) => {
     queryKey: ["asset_history", assetId],
     queryFn: async () => {
       if (!assetId) return [];
-      const { data, error } = await supabase
-        .from("asset_edit_history")
-        .select("*")
-        .eq("asset_id", assetId)
-        .order("changed_at", { ascending: false })
-        .limit(15); // Limit to recent 15 entries
-      if (error) throw error;
-      return data;
+      // Temporarily disabled due to schema issues
+      return [];
     },
     enabled: !!assetId,
   });

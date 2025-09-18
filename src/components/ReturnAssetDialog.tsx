@@ -5,6 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface ReturnAssetDialogProps {
@@ -17,6 +22,7 @@ interface ReturnAssetDialogProps {
     receivedBy?: string;
     location?: string;
     recoveryAmount?: string;
+    returnDate?: string;
   }) => Promise<void>;
   currentUser: string;
 }
@@ -45,6 +51,7 @@ export const ReturnAssetDialog = ({ asset, open, onOpenChange, onReturn, current
   const [receivedBy, setReceivedBy] = React.useState(currentUser || "");
   const [returnLocation, setReturnLocation] = React.useState("");
   const [recoveryAmount, setRecoveryAmount] = React.useState("");
+  const [returnDate, setReturnDate] = React.useState<Date>(new Date());
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -54,6 +61,7 @@ export const ReturnAssetDialog = ({ asset, open, onOpenChange, onReturn, current
       setReceivedBy(currentUser || "");
       setReturnLocation("");
       setRecoveryAmount("");
+      setReturnDate(new Date());
       setError(null);
     }
   }, [open, currentUser]);
@@ -68,14 +76,20 @@ export const ReturnAssetDialog = ({ asset, open, onOpenChange, onReturn, current
     }
 
     if (newStatus !== "Available" && !returnLocation) {
-      setError("Location is required for this status.");
-      toast.error("Location is required for this status.");
+      setError("Return Location is required for this status.");
+      toast.error("Return Location is required for this status.");
       return;
     }
 
     if (statusesNeedingRecovery.includes(newStatus) && !recoveryAmount) {
       setError("Recovery amount is required for this status.");
       toast.error("Recovery amount is required for this status.");
+      return;
+    }
+
+    if (!returnDate) {
+      setError("Return Date is required.");
+      toast.error("Return Date is required.");
       return;
     }
 
@@ -86,6 +100,7 @@ export const ReturnAssetDialog = ({ asset, open, onOpenChange, onReturn, current
         receivedBy: receivedBy.trim(),
         location: newStatus !== "Available" ? returnLocation : undefined,
         recoveryAmount: statusesNeedingRecovery.includes(newStatus) ? recoveryAmount : undefined,
+        returnDate: returnDate.toISOString(),
       });
       onOpenChange(false);
       setError(null);
@@ -137,6 +152,32 @@ export const ReturnAssetDialog = ({ asset, open, onOpenChange, onReturn, current
               placeholder="Enter receiver name"
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="returnDate">Return Date *</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !returnDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {returnDate ? format(returnDate, "PPP") : <span>Pick a date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={returnDate}
+                  onSelect={(date) => setReturnDate(date || new Date())}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
           </div>
 
           {newStatus !== "Available" && (
