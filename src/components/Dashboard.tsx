@@ -1,58 +1,75 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Plus, Download, Upload, Filter, Search, ScanBarcode } from 'lucide-react';
-import { DatePickerWithRange } from './DatePickerWithRange';
-import { AssetForm } from './AssetForm';
-import { BulkUpload } from './BulkUpload';
-import { AssetList } from './AssetList';
-import { useAssets, useCreateAsset, useUpdateAsset, useUnassignAsset, useDeleteAsset } from '@/hooks/useAssets';
-import { useToast } from '@/hooks/use-toast';
-import { DateRange } from 'react-day-picker';
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Package, Users, Plus, Filter, Upload, Download, Search, Menu } from "lucide-react";
+import { UserProfile } from "@/components/auth/UserProfile";
+import { AssetForm } from "./AssetForm";
+import { BulkUpload } from "./BulkUpload";
+import { useAssets, useCreateAsset, useUpdateAsset, useUnassignAsset, useDeleteAsset } from "@/hooks/useAssets";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import DashboardView from "./DashboardView";
+import AuditView from "./AuditView";
+import AmcsView from "./AmcsView";
+import SummaryView from "./SummaryView";
+
+const locations = [
+  "Mumbai Office",
+  "Hyderabad WH",
+  "Ghaziabad WH",
+  "Bhiwandi WH",
+  "Patiala WH",
+  "Bangalore Office",
+  "Kolkata WH",
+  "Trichy WH",
+  "Gurugram Office",
+  "Indore WH",
+  "Bangalore WH",
+  "Jaipur WH",
+];
 
 export const Dashboard = () => {
-  const [currentUser, setCurrentUser] = useState<string | null>(null);
-  const [isAuthorized, setIsAuthorized] = useState<boolean>(false);
-  const [userRole, setUserRole] = useState<string | null>(null);
-  const [assets, setAssets] = useState<any[]>([]);
-  const [showAssetForm, setShowAssetForm] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
-  const [showReturnDialog, setShowReturnDialog] = useState(false);
-  const [selectedAsset, setSelectedAsset] = useState<any>(null);
-  const [returnStatus, setReturnStatus] = useState('Available');
-  const [returnRemarks, setReturnRemarks] = useState('');
-  const [recoveryAmount, setRecoveryAmount] = useState('');
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [brandFilter, setBrandFilter] = useState<string>('all');
-  const [configFilter, setConfigFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-
-  const { data: assetsData = [], isLoading, refetch } = useAssets();
+  const { data: assets = [], isLoading, error } = useAssets();
   const createAssetMutation = useCreateAsset();
   const updateAssetMutation = useUpdateAsset();
   const unassignAssetMutation = useUnassignAsset();
   const deleteAssetMutation = useDeleteAsset();
-  const { toast } = useToast();
-
-  useEffect(() => {
-    setAssets(assetsData);
-  }, [assetsData]);
+  const [currentUser, setCurrentUser] = useState<string>("unknown_user");
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState<'dashboard' | 'audit' | 'amcs' | 'summary'>('dashboard');
 
   useEffect(() => {
     const fetchUserAndAuthorize = async () => {
       try {
-        setCurrentUser('admin@example.com');
-        setIsAuthorized(true);
-        setUserRole('Admin');
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.email) {
+          setCurrentUser(user.email);
+          const { data, error } = await supabase
+            .from('users')
+            .select('email, role')
+            .eq('email', user.email)
+            .single();
+          if (data && !error) {
+            setIsAuthorized(true);
+            setUserRole(data.role);
+          } else {
+            setIsAuthorized(false);
+            setUserRole(null);
+          }
+        } else {
+          toast.error("Failed to fetch user data. Access denied.");
+          setIsAuthorized(false);
+          setUserRole(null);
+        }
       } catch (error) {
-        console.error('Auth error:', error);
+        toast.error("Error fetching user data. Access denied.");
+        console.error("Supabase auth error:", error);
         setIsAuthorized(false);
         setUserRole(null);
       }
@@ -60,374 +77,627 @@ export const Dashboard = () => {
     fetchUserAndAuthorize();
   }, []);
 
-  const handleCreateAsset = async (assetData: any) => {
+  const logEditHistory = async (assetId: string, field: string, oldValue: string | null, newValue: string | null) => {
     try {
-      await createAssetMutation.mutateAsync(assetData);
-      toast({ title: "Success", description: "Asset created successfully" });
-      setShowAssetForm(false);
-      refetch();
+      await supabase.from("asset_edit_history").insert({
+        asset_id: assetId,
+        field_changed: field,
+        old_value: oldValue,
+        new_value: newValue,
+        changed_by: currentUser,
+        changed_at: new Date().toISOString(),
+      });
     } catch (error) {
-      console.error('Error creating asset:', error);
-      toast({ title: "Error", description: "Failed to create asset", variant: "destructive" });
+      console.error("Failed to log edit history:", error);
     }
   };
 
-  const handleUpdateAsset = async (assetId: string, updates: any) => {
+  const validateAssetUniqueness = (assetId: string, serialNumber: string, excludeAssetId?: string) => {
+    const existingAssetWithId = assets.find(
+      (a) => a.asset_id === assetId && (!excludeAssetId || a.id !== excludeAssetId)
+    );
+    const existingAssetWithSerial = assets.find(
+      (a) => a.serial_number === serialNumber && (!excludeAssetId || a.id !== excludeAssetId)
+    );
+    const assetWithDifferentSerial = assets.find(
+      (a) => a.asset_id === assetId && a.serial_number !== serialNumber && (!excludeAssetId || a.id !== excludeAssetId)
+    );
+    const assetWithDifferentId = assets.find(
+      (a) => a.serial_number === serialNumber && a.asset_id !== assetId && (!excludeAssetId || a.id !== excludeAssetId)
+    );
+
+    if (existingAssetWithId) {
+      return `Asset ID ${assetId} is already in use.`;
+    }
+    if (existingAssetWithSerial) {
+      return `Serial Number ${serialNumber} is already in use.`;
+    }
+    if (assetWithDifferentSerial) {
+      return `Asset ID ${assetId} is associated with a different Serial Number (${assetWithDifferentSerial.serial_number}).`;
+    }
+    if (assetWithDifferentId) {
+      return `Serial Number ${serialNumber} is associated with a different Asset ID (${assetWithDifferentId.asset_id}).`;
+    }
+    return null;
+  };
+
+  const handleAddAsset = async (newAsset: any) => {
+    if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
+      toast.error("Unauthorized: Insufficient permissions.");
+      return;
+    }
+
     try {
-      await updateAssetMutation.mutateAsync({ id: assetId, ...updates });
-      toast({ title: "Success", description: "Asset updated successfully" });
-      refetch();
-    } catch (error) {
-      console.error('Error updating asset:', error);
-      toast({ title: "Error", description: "Failed to update asset", variant: "destructive" });
+      // Validate uniqueness
+      const validationError = validateAssetUniqueness(newAsset.assetId, newAsset.serialNumber);
+      if (validationError) {
+        toast.error(validationError);
+        return;
+      }
+
+      const warrantyStatus = newAsset.warrantyEnd
+        ? new Date(newAsset.warrantyEnd) >= new Date()
+          ? "In Warranty"
+          : "Out of Warranty"
+        : "Out of Warranty";
+      const asset = {
+        asset_id: newAsset.assetId,
+        name: newAsset.name,
+        type: newAsset.type,
+        brand: newAsset.brand,
+        configuration: newAsset.configuration,
+        serial_number: newAsset.serialNumber,
+        status: "Available",
+        location: locations[0],
+        assigned_to: null,
+        employee_id: null,
+        assigned_date: null,
+        received_by: null,
+        return_date: null,
+        remarks: null,
+        created_by: currentUser,
+        created_at: new Date().toISOString(),
+        updated_by: currentUser,
+        updated_at: new Date().toISOString(),
+        warranty_start: newAsset.warrantyStart,
+        warranty_end: newAsset.warrantyEnd,
+        asset_check: "",
+        provider: newAsset.provider,
+        warranty_status: warrantyStatus,
+      };
+      const { data, error } = await createAssetMutation.mutateAsync(asset);
+      if (error) {
+        throw new Error(error.message || "Failed to create asset.");
+      }
+      await logEditHistory(data.id, "created", null, "Asset Created");
+      toast.success("Asset created successfully");
+      setShowAddForm(false);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to create asset.");
     }
   };
 
   const handleAssignAsset = async (assetId: string, userName: string, employeeId: string) => {
+    if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
+      toast.error("Unauthorized: Insufficient permissions.");
+      return;
+    }
+
     try {
-      const updates = {
-        status: 'Assigned',
+      const asset = assets.find((a) => a.id === assetId);
+      if (!asset) {
+        throw new Error("Asset not found.");
+      }
+      const existingAssetWithEmployeeId = assets.find(
+        (a) => a.employee_id === employeeId && a.id !== assetId
+      );
+      const existingAssetWithSerial = assets.find(
+        (a) => a.serial_number === asset.serial_number && a.employee_id !== employeeId && a.id !== assetId
+      );
+
+      if (existingAssetWithEmployeeId) {
+        throw new Error(`Employee ID ${employeeId} is already assigned to another asset (Serial: ${existingAssetWithEmployeeId.serial_number}).`);
+      }
+      if (existingAssetWithSerial) {
+        throw new Error(`Serial Number ${asset.serial_number} is already associated with another Employee ID (${existingAssetWithSerial.employee_id}).`);
+      }
+
+      await updateAssetMutation.mutateAsync({
+        id: assetId,
         assigned_to: userName,
         employee_id: employeeId,
+        status: "Assigned",
         assigned_date: new Date().toISOString(),
-        updated_by: currentUser || 'unknown_user',
+        updated_by: currentUser,
         updated_at: new Date().toISOString(),
-      };
-      await updateAssetMutation.mutateAsync({ id: assetId, ...updates });
-      toast({ title: "Success", description: "Asset assigned successfully" });
-      refetch();
-    } catch (error) {
-      console.error('Error assigning asset:', error);
-      toast({ title: "Error", description: "Failed to assign asset", variant: "destructive" });
+      });
+      await logEditHistory(assetId, "assigned_to", asset?.assigned_to || null, userName);
+      await logEditHistory(assetId, "employee_id", asset?.employee_id || null, employeeId);
+      await logEditHistory(assetId, "status", asset?.status || null, "Assigned");
+      toast.success("Asset assigned successfully");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to assign asset.");
     }
   };
 
-  const handleReturnAsset = async () => {
-    if (!selectedAsset) return;
+  const handleUnassignAsset = async (assetId: string, remarks?: string, receivedBy?: string, location?: string) => {
+    if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
+      toast.error("Unauthorized: Insufficient permissions.");
+      return;
+    }
 
     try {
-      const statusesNeedingRecovery = ['Sale', 'Lost', 'Emp Damage', 'Courier Damage'];
-      const updates: any = {
-        status: returnStatus,
-        assigned_to: null,
-        employee_id: null,
-        assigned_date: null,
-        return_date: new Date().toISOString(),
-        received_by: currentUser,
-        remarks: returnRemarks || null,
-        updated_by: currentUser || 'unknown_user',
-        updated_at: new Date().toISOString(),
-      };
+      const asset = assets.find((a) => a.id === assetId);
+      if (!asset) {
+        throw new Error("Asset not found.");
+      }
+      await unassignAssetMutation.mutateAsync({
+        id: assetId,
+        remarks,
+        receivedBy: receivedBy || currentUser,
+        location,
+      });
+      await logEditHistory(assetId, "assigned_to", asset?.assigned_to || null, null);
+      await logEditHistory(assetId, "employee_id", asset?.employee_id || null, null);
+      await logEditHistory(assetId, "status", asset?.status || null, "Available");
+      await logEditHistory(assetId, "return_date", asset?.return_date || null, new Date().toISOString());
+      await logEditHistory(assetId, "received_by", asset?.received_by || null, receivedBy || currentUser);
+      if (location) {
+        await logEditHistory(assetId, "location", asset?.location || null, location);
+      }
+      if (remarks) {
+        await logEditHistory(assetId, "remarks", asset?.remarks || null, remarks);
+      }
+      toast.success("Asset returned successfully");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to return asset.");
+    }
+  };
 
-      if (statusesNeedingRecovery.includes(returnStatus) && recoveryAmount) {
-        updates.recovery_amount = parseFloat(recoveryAmount);
+  const handleUpdateAsset = async (assetId: string, updatedAsset: any) => {
+    if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
+      toast.error("Unauthorized: Insufficient permissions.");
+      return;
+    }
+
+    try {
+      const asset = assets.find((a) => a.id === assetId);
+      if (!asset) {
+        throw new Error("Asset not found.");
+      }
+      // Validate uniqueness
+      const validationError = validateAssetUniqueness(updatedAsset.assetId, updatedAsset.serialNumber, assetId);
+      if (validationError) {
+        throw new Error(validationError);
       }
 
-      await updateAssetMutation.mutateAsync({ id: selectedAsset.id, ...updates });
-      toast({ title: "Success", description: "Asset returned successfully" });
-      setShowReturnDialog(false);
-      setSelectedAsset(null);
-      setReturnStatus('Available');
-      setReturnRemarks('');
-      setRecoveryAmount('');
-      refetch();
-    } catch (error) {
-      console.error('Error returning asset:', error);
-      toast({ title: "Error", description: "Failed to return asset", variant: "destructive" });
+      const warrantyStatus = updatedAsset.warrantyEnd
+        ? new Date(updatedAsset.warrantyEnd) >= new Date()
+          ? "In Warranty"
+          : "Out of Warranty"
+        : "Out of Warranty";
+      await updateAssetMutation.mutateAsync({
+        id: assetId,
+        asset_id: updatedAsset.assetId,
+        name: updatedAsset.name,
+        type: updatedAsset.type,
+        brand: updatedAsset.brand,
+        configuration: updatedAsset.configuration,
+        serial_number: updatedAsset.serialNumber,
+        warranty_start: updatedAsset.warrantyStart,
+        warranty_end: updatedAsset.warrantyEnd,
+        provider: updatedAsset.provider,
+        warranty_status: warrantyStatus,
+        updated_by: currentUser,
+        updated_at: new Date().toISOString(),
+      });
+      if (asset?.asset_id !== updatedAsset.assetId) {
+        await logEditHistory(assetId, "asset_id", asset?.asset_id || null, updatedAsset.assetId);
+      }
+      if (asset?.name !== updatedAsset.name) {
+        await logEditHistory(assetId, "name", asset?.name || null, updatedAsset.name);
+      }
+      if (asset?.type !== updatedAsset.type) {
+        await logEditHistory(assetId, "type", asset?.type || null, updatedAsset.type);
+      }
+      if (asset?.brand !== updatedAsset.brand) {
+        await logEditHistory(assetId, "brand", asset?.brand || null, updatedAsset.brand);
+      }
+      if (asset?.configuration !== updatedAsset.configuration) {
+        await logEditHistory(assetId, "configuration", asset?.configuration || null, updatedAsset.configuration);
+      }
+      if (asset?.serial_number !== updatedAsset.serialNumber) {
+        await logEditHistory(assetId, "serial_number", asset?.serial_number || null, updatedAsset.serialNumber);
+      }
+      if (asset?.warranty_start !== updatedAsset.warrantyStart) {
+        await logEditHistory(assetId, "warranty_start", asset?.warranty_start || null, updatedAsset.warrantyStart);
+      }
+      if (asset?.warranty_end !== updatedAsset.warrantyEnd) {
+        await logEditHistory(assetId, "warranty_end", asset?.warranty_end || null, updatedAsset.warrantyEnd);
+      }
+      if (asset?.provider !== updatedAsset.provider) {
+        await logEditHistory(assetId, "provider", asset?.provider || null, updatedAsset.provider);
+      }
+      if (asset?.warranty_status !== warrantyStatus) {
+        await logEditHistory(assetId, "warranty_status", asset?.warranty_status || null, warrantyStatus);
+      }
+      toast.success("Asset updated successfully");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update asset.");
+    }
+  };
+
+  const handleUpdateStatus = async (assetId: string, status: string) => {
+    if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
+      toast.error("Unauthorized: Insufficient permissions.");
+      return;
+    }
+
+    try {
+      const asset = assets.find((a) => a.id === assetId);
+      if (!asset) {
+        throw new Error("Asset not found.");
+      }
+      await updateAssetMutation.mutateAsync({ 
+        id: assetId, 
+        status,
+        updated_by: currentUser,
+        updated_at: new Date().toISOString(),
+      });
+      await logEditHistory(assetId, "status", asset?.status || null, status);
+      toast.success("Status updated successfully");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update status.");
+    }
+  };
+
+  const handleUpdateLocation = async (assetId: string, location: string) => {
+    if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
+      toast.error("Unauthorized: Insufficient permissions.");
+      return;
+    }
+
+    try {
+      const asset = assets.find((a) => a.id === assetId);
+      if (!asset) {
+        throw new Error("Asset not found.");
+      }
+      await updateAssetMutation.mutateAsync({ 
+        id: assetId, 
+        location,
+        updated_by: currentUser,
+        updated_at: new Date().toISOString(),
+      });
+      await logEditHistory(assetId, "location", asset?.location || null, location);
+      toast.success("Location updated successfully");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update location.");
+    }
+  };
+
+  const handleUpdateAssetCheck = async (assetId: string, assetCheck: string) => {
+    if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
+      toast.error("Unauthorized: Insufficient permissions.");
+      return;
+    }
+
+    try {
+      const asset = assets.find((a) => a.id === assetId);
+      if (!asset) {
+        throw new Error("Asset not found.");
+      }
+      await updateAssetMutation.mutateAsync({
+        id: assetId,
+        asset_check: assetCheck,
+        updated_by: currentUser,
+        updated_at: new Date().toISOString(),
+      });
+      await logEditHistory(assetId, "asset_check", asset?.asset_check || null, assetCheck);
+      toast.success("Asset check updated successfully");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update asset check.");
     }
   };
 
   const handleDeleteAsset = async (assetId: string) => {
+    if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
+      toast.error("Unauthorized: Insufficient permissions.");
+      return;
+    }
+
     try {
       await deleteAssetMutation.mutateAsync(assetId);
-      toast({ title: "Success", description: "Asset deleted successfully" });
-      refetch();
-    } catch (error) {
-      console.error('Error deleting asset:', error);
-      toast({ title: "Error", description: "Failed to delete asset", variant: "destructive" });
+      await logEditHistory(assetId, "deleted", null, "Asset Deleted");
+      toast.success("Asset deleted successfully");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete asset.");
     }
   };
 
   const handleBulkUpload = async (file: File) => {
+    if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
+      toast.error("Unauthorized: Insufficient permissions.");
+      return;
+    }
+
     try {
-      // Handle bulk upload logic here
-      toast({ title: "Success", description: "Bulk upload completed successfully" });
+      const text = await file.text();
+      const rows = text.split('\n').map(row => row.split(',').map(cell => cell.trim()));
+      const headers = rows[0];
+      const dataRows = rows.slice(1).filter(row => row.some(cell => cell));
+
+      const requiredHeaders = [
+        "Asset ID",
+        "Asset Name",
+        "Asset Type",
+        "Brand",
+        "Configuration",
+        "Serial Number",
+        "Provider",
+        "Warranty Start",
+        "Warranty End",
+      ];
+
+      if (!requiredHeaders.every(header => headers.includes(header))) {
+        throw new Error("Invalid CSV format: Missing required headers.");
+      }
+
+      const errors: string[] = [];
+      const validAssets: any[] = [];
+
+      for (let i = 0; i < dataRows.length; i++) {
+        const row = dataRows[i];
+        const asset = {
+          assetId: row[headers.indexOf("Asset ID")],
+          name: row[headers.indexOf("Asset Name")],
+          type: row[headers.indexOf("Asset Type")],
+          brand: row[headers.indexOf("Brand")],
+          configuration: row[headers.indexOf("Configuration")],
+          serialNumber: row[headers.indexOf("Serial Number")],
+          provider: row[headers.indexOf("Provider")],
+          warrantyStart: row[headers.indexOf("Warranty Start")],
+          warrantyEnd: row[headers.indexOf("Warranty End")],
+        };
+
+        if (!asset.assetId || !asset.name || !asset.type || !asset.brand || !asset.serialNumber) {
+          errors.push(`Row ${i + 2}: Missing required fields.`);
+          continue;
+        }
+
+        const validationError = validateAssetUniqueness(asset.assetId, asset.serialNumber);
+        if (validationError) {
+          errors.push(`Row ${i + 2}: ${validationError}`);
+          continue;
+        }
+
+        validAssets.push({
+          asset_id: asset.assetId,
+          name: asset.name,
+          type: asset.type,
+          brand: asset.brand,
+          configuration: asset.configuration || "",
+          serial_number: asset.serialNumber,
+          status: "Available",
+          location: locations[0],
+          assigned_to: null,
+          employee_id: null,
+          assigned_date: null,
+          received_by: null,
+          return_date: null,
+          remarks: null,
+          created_by: currentUser,
+          created_at: new Date().toISOString(),
+          updated_by: currentUser,
+          updated_at: new Date().toISOString(),
+          warranty_start: asset.warrantyStart || null,
+          warranty_end: asset.warrantyEnd || null,
+          asset_check: "",
+          provider: asset.provider || "",
+          warranty_status: asset.warrantyEnd
+            ? new Date(asset.warrantyEnd) >= new Date()
+              ? "In Warranty"
+              : "Out of Warranty"
+            : "Out of Warranty",
+        });
+      }
+
+      if (errors.length > 0) {
+        throw new Error(`Bulk upload failed:\n${errors.join('\n')}`);
+      }
+
+      for (const asset of validAssets) {
+        const { data, error } = await createAssetMutation.mutateAsync(asset);
+        if (error) {
+          throw new Error(`Failed to create asset ${asset.asset_id}: ${error.message}`);
+        }
+        await logEditHistory(data.id, "created", null, "Asset Created");
+      }
+
+      toast.success(`Successfully uploaded ${validAssets.length} assets.`);
       setShowBulkUpload(false);
-      refetch();
-    } catch (error) {
-      console.error('Error with bulk upload:', error);
-      toast({ title: "Error", description: "Failed to process bulk upload", variant: "destructive" });
+    } catch (error: any) {
+      toast.error(error.message || "Failed to process bulk upload.");
     }
   };
 
-  const downloadCurrentData = () => {
+  const handleDownloadData = () => {
     const headers = [
-      'Asset ID', 'Model', 'Asset Type', 'Brand', 'Configuration', 'Serial Number',
-      'Assigned To', 'Employee ID', 'Status', 'Location', 'Asset Check',
-      'Assigned Date', 'Return Date', 'Received By', 'Recovery Amount'
+      "Asset ID",
+      "Asset Name",
+      "Asset Type",
+      "Brand",
+      "Configuration",
+      "Serial Number",
+      "Employee ID",
+      "Employee Name",
+      "Status",
+      "Asset Location",
+      "Assigned Date",
+      "Return Date",
+      "Received By",
+      "Remarks",
+      "Warranty Start",
+      "Warranty End",
+      "Created By",
+      "Created At",
+      "Updated By",
+      "Updated At",
+      "Asset Check",
+      "Provider",
+      "Warranty Status",
     ];
 
-    const csvData = [
-      headers.join(','),
-      ...assets.map(asset => [
-        asset.asset_id || '',
-        asset.name || '',
-        asset.type || '',
-        asset.brand || '',
-        asset.configuration || '',
-        asset.serial_number || '',
-        asset.assigned_to || '',
-        asset.employee_id || '',
-        asset.status || '',
-        asset.location || '',
-        asset.asset_check || '',
-        asset.assigned_date || '',
-        asset.return_date || '',
-        asset.received_by || '',
-        asset.recovery_amount?.toString() || ''
-      ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
-    ].join('\n');
+    const escapeCsvField = (value: string | null | undefined): string => {
+      if (!value) return "";
+      return value.includes(",") ? `"${value.replace(/"/g, '""')}"` : value;
+    };
 
-    const blob = new Blob([csvData], { type: 'text/csv' });
+    const csvContent = [
+      headers.join(","),
+      ...assets.map((asset) =>
+        [
+          escapeCsvField(asset.asset_id),
+          escapeCsvField(asset.name),
+          escapeCsvField(asset.type),
+          escapeCsvField(asset.brand),
+          escapeCsvField(asset.configuration),
+          escapeCsvField(asset.serial_number),
+          escapeCsvField(asset.employee_id),
+          escapeCsvField(asset.assigned_to),
+          escapeCsvField(asset.status),
+          escapeCsvField(asset.location),
+          escapeCsvField(asset.assigned_date),
+          escapeCsvField(asset.return_date),
+          escapeCsvField(asset.received_by),
+          escapeCsvField(asset.remarks),
+          escapeCsvField(asset.warranty_start),
+          escapeCsvField(asset.warranty_end),
+          escapeCsvField(asset.created_by),
+          escapeCsvField(asset.created_at),
+          escapeCsvField(asset.updated_by),
+          escapeCsvField(asset.updated_at),
+          escapeCsvField(asset.asset_check),
+          escapeCsvField(asset.provider),
+          escapeCsvField(asset.warranty_status),
+        ].join(",")
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = `assets_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = "asset_inventory.csv";
     a.click();
     window.URL.revokeObjectURL(url);
   };
 
-  const openReturnDialog = (asset: any) => {
-    setSelectedAsset(asset);
-    setShowReturnDialog(true);
-  };
+  if (!isAuthorized) return <div>Access denied. You are not an authorized user.</div>;
 
-  const filteredAssets = assets.filter(asset => {
-    const matchesType = typeFilter === 'all' || asset.type === typeFilter;
-    const matchesBrand = brandFilter === 'all' || asset.brand === brandFilter;
-    const matchesConfig = configFilter === 'all' || asset.configuration === configFilter;
-    const matchesStatus = statusFilter === 'all' || asset.status === statusFilter;
-    
-    return matchesType && matchesBrand && matchesConfig && matchesStatus;
-  });
-
-  const statusesNeedingRecovery = ['Sale', 'Lost', 'Emp Damage', 'Courier Damage'];
-
-  if (!isAuthorized) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Card className="w-96">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <p className="text-muted-foreground">Access denied. Please contact administrator.</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
+  if (isLoading) {
+    return <div className="text-center py-12">Loading assets...</div>;
   }
 
+  if (error) {
+    return <div className="text-center py-12 text-destructive">Error loading assets: {error.message}</div>;
+  }
+
+  const commonProps = {
+    assets,
+    onAssign: handleAssignAsset,
+    onUnassign: handleUnassignAsset,
+    onUpdateAsset: handleUpdateAsset,
+    onUpdateStatus: handleUpdateStatus,
+    onUpdateLocation: handleUpdateLocation,
+    onUpdateAssetCheck: handleUpdateAssetCheck,
+    onDelete: handleDeleteAsset,
+    userRole,
+  };
+
   return (
-    <div className="space-y-6">
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            Asset Management Dashboard
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-4 mb-6">
-            <Button 
-              onClick={() => setShowAssetForm(true)}
-              className="bg-gradient-primary hover:shadow-glow transition-smooth"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Asset
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowBulkUpload(true)}
-              className="hover:bg-primary hover:text-primary-foreground"
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              Bulk Upload
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={downloadCurrentData}
-              className="hover:bg-primary hover:text-primary-foreground"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Download Data
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Date Range</label>
-              <DatePickerWithRange date={dateRange} setDate={setDateRange} />
+    <div className="flex flex-col min-h-screen">
+      <div className="fixed top-0 left-0 right-0 z-50 bg-card border-b shadow-card">
+        <div className="container mx-auto px-2 py-1">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <Menu className="h-6 w-6" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem onSelect={() => setCurrentPage('dashboard')}>Dashboard</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setCurrentPage('audit')}>Audit</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setCurrentPage('amcs')}>AMCs</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setCurrentPage('summary')}>Summary</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <div className="flex items-center gap-4">
+                <Package className="h-8 w-8 text-primary" />
+                <div>
+                  <h1 className="text-2xl font-semibold bg-gradient-primary bg-clip-text text-transparent">
+                    Asset Management System
+                  </h1>
+                  <p className="text-sm text-muted-foreground mt-1">
+                  </p>
+                </div>
+              </div>
             </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Asset Type</label>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All types" />
-                </SelectTrigger>
-                <SelectContent className="bg-card border border-border">
-                  <SelectItem value="all">All Types</SelectItem>
-                  {[...new Set(assets.map(a => a.type))].map(type => (
-                    <SelectItem key={String(type)} value={String(type)}>{String(type)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Brand</label>
-              <Select value={brandFilter} onValueChange={setBrandFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All brands" />
-                </SelectTrigger>
-                <SelectContent className="bg-card border border-border">
-                  <SelectItem value="all">All Brands</SelectItem>
-                  {[...new Set(assets.map(a => a.brand))].map(brand => (
-                    <SelectItem key={String(brand)} value={String(brand)}>{String(brand)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Configuration</label>
-              <Select value={configFilter} onValueChange={setConfigFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All configurations" />
-                </SelectTrigger>
-                <SelectContent className="bg-card border border-border">
-                  <SelectItem value="all">All Configurations</SelectItem>
-                  {[...new Set(assets.map(a => a.configuration))].filter(Boolean).map(config => (
-                    <SelectItem key={String(config)} value={String(config)}>{String(config)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Status</label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All statuses" />
-                </SelectTrigger>
-                <SelectContent className="bg-card border border-border">
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  {[...new Set(assets.map(a => a.status))].map(status => (
-                    <SelectItem key={String(status)} value={String(status)}>{String(status)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex items-center gap-2">
+              {(currentPage === 'dashboard' && (userRole === 'Super Admin' || userRole === 'Admin' || userRole === 'Operator')) && (
+                <>
+                  <Button
+                    onClick={() => setShowBulkUpload(true)}
+                    variant="outline"
+                    className="hover:bg-primary hover:text-primary-foreground transition-smooth text-sm h-8"
+                  >
+                    <Upload className="w-3 h-3 mr-1" />
+                    Bulk Operations
+                  </Button>
+                  <Button
+                    onClick={() => setShowAddForm(true)}
+                    className="bg-gradient-primary hover:shadow-glow transition-smooth text-sm h-8"
+                  >
+                    <Plus className="w-3 h-3 mr-1" />
+                    Add Asset
+                  </Button>
+                </>
+              )}
+              <UserProfile />
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <AssetList
-        assets={filteredAssets}
-        onAssign={handleAssignAsset}
-        onUnassign={async (assetId, remarks, receivedBy) => openReturnDialog(assets.find(a => a.id === assetId))}
-        onUpdateAsset={handleUpdateAsset}
-        onUpdateStatus={(assetId, status) => handleUpdateAsset(assetId, { status })}
-        onUpdateLocation={(assetId, location) => handleUpdateAsset(assetId, { location })}
-        onUpdateAssetCheck={(assetId, assetCheck) => handleUpdateAsset(assetId, { asset_check: assetCheck })}
-        onDelete={handleDeleteAsset}
-        dateRange={dateRange}
-        typeFilter={typeFilter}
-        brandFilter={brandFilter}
-        configFilter={configFilter}
-        statusFilter={statusFilter}
-      />
+      <div className="flex-1 overflow-y-auto pt-[60px] pb-[40px] container mx-auto px-4">
+        {currentPage === 'dashboard' && <DashboardView {...commonProps} />}
+        {currentPage === 'audit' && <AuditView {...commonProps} />}
+        {currentPage === 'amcs' && <AmcsView {...commonProps} />}
+        {currentPage === 'summary' && <SummaryView {...commonProps} />}
+      </div>
 
-      <AssetForm
-        onSubmit={handleCreateAsset}
-        onCancel={() => setShowAssetForm(false)}
-      />
+      <footer className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t shadow-card py-2">
+        <div className="container mx-auto px-4">
+          <p className="text-[14px] text-muted-foreground">
+            Crafted by 🤓 IT Infra minds, for IT Infra needs
+          </p>
+        </div>
+      </footer>
 
+      {showAddForm && (userRole === 'Super Admin' || userRole === 'Admin' || userRole === 'Operator') && (
+        <AssetForm
+          onSubmit={handleAddAsset}
+          onCancel={() => setShowAddForm(false)}
+          assets={assets} // Pass assets for validation
+        />
+      )}
       <BulkUpload
         open={showBulkUpload}
         onOpenChange={setShowBulkUpload}
         onUpload={handleBulkUpload}
-        onDownload={downloadCurrentData}
+        onDownload={handleDownloadData}
       />
-
-      <Dialog open={showReturnDialog} onOpenChange={setShowReturnDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Return Asset</DialogTitle>
-            <DialogDescription>
-              Update the status and provide return details for {selectedAsset?.asset_id}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="returnStatus">Status *</Label>
-              <Select value={returnStatus} onValueChange={setReturnStatus}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent className="bg-card border border-border">
-                  <SelectItem value="Available">Available</SelectItem>
-                  <SelectItem value="Scrap/Damage">Scrap/Damage</SelectItem>
-                  <SelectItem value="Sale">Sale</SelectItem>
-                  <SelectItem value="Lost">Lost</SelectItem>
-                  <SelectItem value="Emp Damage">Emp Damage</SelectItem>
-                  <SelectItem value="Courier Damage">Courier Damage</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {statusesNeedingRecovery.includes(returnStatus) && (
-              <div className="space-y-2">
-                <Label htmlFor="recoveryAmount">Recovery Amount</Label>
-                <Input
-                  id="recoveryAmount"
-                  type="number"
-                  value={recoveryAmount}
-                  onChange={(e) => setRecoveryAmount(e.target.value)}
-                  placeholder="Enter recovery amount"
-                />
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="remarks">Remarks</Label>
-              <Textarea
-                id="remarks"
-                value={returnRemarks}
-                onChange={(e) => setReturnRemarks(e.target.value)}
-                placeholder="Enter any remarks..."
-                rows={3}
-              />
-            </div>
-
-            <div className="flex gap-2 pt-4">
-              <Button 
-                variant="outline" 
-                onClick={() => setShowReturnDialog(false)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleReturnAsset}
-                className="flex-1 bg-gradient-primary hover:shadow-glow transition-smooth"
-              >
-                Return Asset
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

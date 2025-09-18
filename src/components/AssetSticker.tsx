@@ -7,12 +7,6 @@ interface AssetStickerProps {
   asset: Asset | null;
 }
 
-declare global {
-  interface Window {
-    JsBarcode: any;
-  }
-}
-
 export const AssetSticker: React.FC<AssetStickerProps> = ({ asset }) => {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -44,222 +38,233 @@ export const AssetSticker: React.FC<AssetStickerProps> = ({ asset }) => {
       };
       script.onerror = () => {
         console.error("AssetSticker: Failed to load JsBarcode");
-        setError("Failed to load barcode library.");
         setIsLoading(false);
+        setError("Failed to load barcode library. Please check your internet connection.");
       };
       document.head.appendChild(script);
+
+      return () => {
+        if (document.head.contains(script)) {
+          document.head.removeChild(script);
+        }
+      };
+    };
+
+    const renderSticker = () => {
+      if (!asset || !canvasRef.current) {
+        console.error("AssetSticker: Missing asset or canvas", { asset: !!asset, canvas: !!canvasRef.current });
+        return;
+      }
+
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext("2d", { alpha: false });
+      if (!ctx) {
+        console.error("AssetSticker: Failed to get 2D context");
+        setError("Failed to initialize canvas context.");
+        return;
+      }
+
+      console.log("AssetSticker: Rendering sticker with dimensions", { width: canvas.width, height: canvas.height });
+
+      // Label dimensions: 60 mm x 40 mm at 600 DPI
+      const dpi = 600;
+      const mmToInches = 25.4;
+      const widthPx = (60 / mmToInches) * dpi; // 60 mm to inches * 600 DPI ≈ 1417 px
+      const heightPx = (40 / mmToInches) * dpi; // 40 mm to inches * 600 DPI ≈ 945 px
+
+      // Set canvas size to full resolution (scaled by CSS transform)
+      canvas.width = Math.round(widthPx); // ~1417 px
+      canvas.height = Math.round(heightPx); // ~945 px
+
+      // Clear canvas with white background
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Adjust for high DPI
+      ctx.scale(dpi / 96, dpi / 96);
+
+      // Optimize for barcode printer
+      ctx.imageSmoothingEnabled = false;
+      ctx.textRendering = "optimizeLegibility";
+
+      // Content dimensions
+      const headerFontSize = 12;
+      const barcodeHeight = 25;
+      const serialFontSize = 10;
+      const assetIdFontSize = 10;
+      const spacing = 3;
+      const totalContentHeight = headerFontSize + barcodeHeight + serialFontSize + assetIdFontSize + 4 * spacing;
+
+      // Position content vertically
+      const centerX = (canvas.width / (dpi / 96)) / 2;
+      const availableHeight = canvas.height / (dpi / 96);
+      let currentY = (availableHeight - totalContentHeight) / 2;
+
+      if (currentY < 1) {
+        currentY = 1;
+        console.warn("AssetSticker: Content height exceeds canvas, adjusting to minimum offset");
+      }
+
+      // Header at top
+      ctx.font = `bold ${headerFontSize}px "Arial"`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#000000";
+      ctx.fillText("Asset Management", centerX, currentY);
+      currentY += headerFontSize + spacing;
+
+      // Barcode and serial number in middle
+      const barcodeCanvas = document.createElement("canvas");
+      const serialNumber = asset.serial_number || "NO-SERIAL";
+      try {
+        console.log("AssetSticker: Generating barcode with serial:", serialNumber);
+        window.JsBarcode(barcodeCanvas, serialNumber, {
+          format: "CODE128",
+          width: 1.5,
+          height: barcodeHeight,
+          displayValue: false,
+          margin: 0,
+          background: "#FFFFFF",
+          lineColor: "#000000",
+          quietZone: 10,
+        });
+        console.log("AssetSticker: Barcode canvas dimensions", {
+          width: barcodeCanvas.width,
+          height: barcodeCanvas.height,
+        });
+        const barcodeWidth = Math.min(barcodeCanvas.width, (canvas.width / (dpi / 96)) * 0.85);
+        const x = ((canvas.width / (dpi / 96)) - barcodeWidth) / 2;
+        ctx.drawImage(barcodeCanvas, x, currentY, barcodeWidth, barcodeHeight);
+        currentY += barcodeHeight + 5;
+        ctx.font = `bold ${serialFontSize}px "Arial"`;
+        ctx.fillStyle = "#000000";
+        ctx.fillText(serialNumber || "N/A", centerX, currentY);
+        currentY += serialFontSize + spacing;
+      } catch (e) {
+        console.error("AssetSticker: Barcode generation failed", e);
+        ctx.font = `${serialFontSize}px "Arial"`;
+        ctx.fillStyle = "#000000";
+        ctx.fillText("Barcode Error", centerX, currentY);
+        currentY += serialFontSize + spacing;
+      }
+
+      // Asset ID at bottom
+      ctx.font = `bold ${assetIdFontSize}px "Arial"`;
+      ctx.fillStyle = "#000000";
+      ctx.fillText(`${asset.asset_id || "N/A"}`, centerX, currentY);
+
+      // Reset scale
+      ctx.scale(96 / dpi, 96 / dpi);
     };
 
     loadJsBarcode();
-  }, [asset]);
-
-  const generateSticker = React.useCallback(() => {
-    if (!asset || !canvasRef.current || isLoading) return;
-
-    try {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-
-      // Set actual canvas size (60mm x 40mm at 300 DPI = 708 x 472 pixels)
-      const dpi = 300;
-      const widthInMM = 60;
-      const heightInMM = 40;
-      const widthPx = Math.round((widthInMM / 25.4) * dpi);
-      const heightPx = Math.round((heightInMM / 25.4) * dpi);
-      
-      canvas.width = widthPx;
-      canvas.height = heightPx;
-
-      // Set canvas display size
-      canvas.style.width = "240px";
-      canvas.style.height = "160px";
-
-      // Fill white background
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillRect(0, 0, widthPx, heightPx);
-
-      // Set black color for text and borders
-      ctx.fillStyle = "#000000";
-      ctx.strokeStyle = "#000000";
-      ctx.lineWidth = 2;
-
-      // Draw border
-      ctx.strokeRect(4, 4, widthPx - 8, heightPx - 8);
-
-      // Calculate layout
-      const padding = 20;
-      const barcodeHeight = 80;
-      const textAreaHeight = heightPx - barcodeHeight - padding * 3;
-
-      // Company name
-      ctx.font = "bold 24px Arial";
-      ctx.textAlign = "center";
-      ctx.fillText("Quick Heal", widthPx / 2, padding + 28);
-
-      // Asset details in smaller font
-      ctx.font = "16px Arial";
-      ctx.textAlign = "left";
-      
-      let yPos = padding + 60;
-      const lineHeight = 20;
-      
-      ctx.fillText(`ID: ${asset.asset_id}`, padding, yPos);
-      yPos += lineHeight;
-      ctx.fillText(`Model: ${asset.name}`, padding, yPos);
-      yPos += lineHeight;
-      ctx.fillText(`S/N: ${asset.serial_number}`, padding, yPos);
-
-      // Generate barcode in the bottom section
-      if (window.JsBarcode && canvasRef.current) {
-        try {
-          const barcodeCanvas = document.createElement("canvas");
-          window.JsBarcode(barcodeCanvas, asset.asset_id, {
-            format: "CODE128",
-            width: 2,
-            height: 60,
-            fontSize: 12,
-            textMargin: 5,
-            margin: 0,
-            background: "#FFFFFF",
-            lineColor: "#000000",
-          });
-
-          // Draw barcode onto main canvas
-          const barcodeY = heightPx - barcodeHeight - 10;
-          const barcodeX = (widthPx - barcodeCanvas.width) / 2;
-          ctx.drawImage(barcodeCanvas, barcodeX, barcodeY);
-        } catch (barcodeError) {
-          console.error("AssetSticker: Error generating barcode:", barcodeError);
-          // Fallback: draw text instead of barcode
-          ctx.font = "14px Arial";
-          ctx.textAlign = "center";
-          ctx.fillText(asset.asset_id, widthPx / 2, heightPx - 20);
-        }
-      }
-      
-      console.log("AssetSticker: Sticker generated successfully");
-    } catch (err) {
-      console.error("AssetSticker: Error generating sticker:", err);
-      setError("Failed to generate sticker.");
+    if (!isLoading && asset) {
+      console.log("AssetSticker: Triggering renderSticker");
+      renderSticker();
     }
   }, [asset, isLoading]);
 
-  React.useEffect(() => {
-    if (!isLoading && asset) {
-      // Small delay to ensure JsBarcode is fully loaded
-      const timer = setTimeout(generateSticker, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [isLoading, asset, generateSticker]);
-
-  const handlePrint = () => {
-    if (!canvasRef.current) return;
-
-    try {
-      const dataUrl = canvasRef.current.toDataURL("image/png");
+  const handlePrintSticker = () => {
+    if (canvasRef.current) {
+      const dataUrl = canvasRef.current.toDataURL("image/png", 1.0);
       const printWindow = window.open("", "_blank");
-      
       if (printWindow) {
         printWindow.document.write(`
-          <!DOCTYPE html>
           <html>
             <head>
-              <title>Asset Sticker - ${asset?.asset_id}</title>
+              <title>Print Asset Sticker</title>
               <style>
-                body { 
-                  margin: 0; 
-                  padding: 20px; 
-                  display: flex; 
-                  justify-content: center; 
-                  align-items: center; 
-                  min-height: 100vh;
+                body {
+                  margin: 0;
+                  display: flex;
+                  justify-content: center;
+                  align-items: center;
+                  width: 2.36in;
+                  height: 1.57in;
                   background: white;
                 }
-                img { 
-                  width: 60mm; 
-                  height: 40mm; 
-                  border: 1px solid #000;
+                img {
+                  width: 2.36in;
+                  height: 1.57in;
+                  image-rendering: pixelated;
                 }
                 @media print {
-                  body { padding: 0; margin: 0; }
-                  img { 
-                    width: 60mm; 
-                    height: 40mm; 
-                    page-break-inside: avoid;
+                  @page {
+                    size: 2.36in 1.57in;
+                    margin: 0;
+                  }
+                  body {
+                    margin: 0;
+                    padding: 0;
+                    width: 2.36in;
+                    height: 1.57in;
+                    display: block;
+                  }
+                  img {
+                    width: 2.36in !important;
+                    height: 1.57in !important;
+                    display: block;
+                    image-rendering: pixelated;
                   }
                 }
               </style>
             </head>
             <body>
-              <img src="${dataUrl}" alt="Asset Sticker" />
+              <img src="${dataUrl}" />
             </body>
           </html>
         `);
         printWindow.document.close();
-        printWindow.print();
+        printWindow.focus();
+        printWindow.onload = () => {
+          printWindow.print();
+          setTimeout(() => printWindow.close(), 1000);
+        };
+      } else {
+        console.error("AssetSticker: Failed to open print window");
+        setError("Unable to open print window.");
       }
-    } catch (err) {
-      console.error("AssetSticker: Error printing sticker:", err);
-      setError("Failed to print sticker.");
+    } else {
+      console.error("AssetSticker: Canvas ref is null");
+      setError("Canvas not available for printing.");
     }
   };
 
-  if (error) {
-    return (
-      <div className="p-4 text-center">
-        <p className="text-red-500 mb-4">{error}</p>
-        <Button variant="outline" onClick={() => window.location.reload()}>
-          Retry
-        </Button>
-      </div>
-    );
+  if (!asset) {
+    return <div className="text-center py-2 text-destructive">No asset selected</div>;
   }
 
   if (isLoading) {
-    return (
-      <div className="p-4 text-center">
-        <p className="text-muted-foreground">Loading barcode library...</p>
-      </div>
-    );
+    return <div className="text-center py-2">Loading...</div>;
   }
 
-  if (!asset) {
-    return (
-      <div className="p-4 text-center">
-        <p className="text-muted-foreground">No asset selected</p>
-      </div>
-    );
+  if (error) {
+    return <div className="text-center py-2 text-destructive">{error}</div>;
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-center">
-        <canvas
-          ref={canvasRef}
-          className="border border-gray-300 rounded"
-          style={{ 
-            width: "240px", 
-            height: "160px",
-            imageRendering: "pixelated"
-          }}
-        />
-      </div>
-      
-      <div className="flex justify-center gap-2">
-        <Button onClick={handlePrint} className="bg-gradient-primary hover:shadow-glow transition-smooth">
-          <Printer className="h-4 w-4 mr-2" />
-          Print Sticker
-        </Button>
-        <Button variant="outline" onClick={generateSticker}>
-          Regenerate
-        </Button>
-      </div>
-      
-      <div className="text-xs text-muted-foreground text-center">
-        <p>Sticker Size: 60mm × 40mm</p>
-        <p>Asset ID: {asset.asset_id}</p>
-      </div>
+    <div
+      className="flex flex-col items-center w-full max-w-[1000px] p-2"
+      style={{ transform: "scale(1.1)", transformOrigin: "center top" }}
+    >
+      <canvas
+        ref={canvasRef}
+        className="border-2 border-red-500 bg-gray-100"
+        style={{
+          width: "100%",
+          height: "auto",
+          maxWidth: "1000px",
+          maxHeight: "500px",
+          imageRendering: "pixelated",
+        }}
+      />
+      <Button
+        onClick={handlePrintSticker}
+        className="mt-2 bg-white border border-gray-300 hover:bg-gray-100 transition-smooth p-2"
+        aria-label="Print sticker"
+      >
+        <Printer className="h-6 w-6 text-black" />
+      </Button>
     </div>
   );
 };
