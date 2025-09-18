@@ -473,7 +473,7 @@ export const AssetList = ({
           escapeCsvField(asset.assigned_date),
           escapeCsvField(asset.return_date),
           escapeCsvField(asset.status === "Assigned" ? "" : asset.received_by),
-          escapeCsvField(asset.recovery_amount),
+          escapeCsvField(asset.recovery_amount?.toString() || ""),
         ].join(",")
       ),
     ].join("\n");
@@ -1632,11 +1632,11 @@ export const AssetList = ({
                     <tbody>
                       {history.map((entry) => (
                         <tr key={entry.id} className="border-b">
-                          <td className="p-2 text-xs">{entry.field_changed}</td>
-                          <td className="p-2 text-xs">{entry.old_value || "-"}</td>
-                          <td className="p-2 text-xs">{entry.new_value || "-"}</td>
-                          <td className="p-2 text-xs">{entry.changed_by}</td>
-                          <td className="p-2 text-xs">{formatDate(entry.changed_at)}</td>
+                          <td className="p-2 text-xs">{entry.status || 'Status Change'}</td>
+                          <td className="p-2 text-xs">-</td>
+                          <td className="p-2 text-xs">{entry.status || '-'}</td>
+                          <td className="p-2 text-xs">System</td>
+                          <td className="p-2 text-xs">{formatDate(entry.created_at)}</td>
                         </tr>
                       ))}
                     </tbody>

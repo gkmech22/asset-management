@@ -126,7 +126,7 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }: BulkUpl
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold bg-gradient-primary bg-clip-text text-transparent">
-            Bulk Asset Operations
+            Bulk Upload
           </DialogTitle>
         </DialogHeader>
         
