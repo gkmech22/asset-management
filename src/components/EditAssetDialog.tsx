@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 
 interface EditAssetDialogProps {
   asset: any;
@@ -13,6 +14,21 @@ interface EditAssetDialogProps {
   onOpenChange: (open: boolean) => void;
   onUpdate: (assetId: string, updatedAsset: any) => void;
 }
+
+const locations = [
+  "Mumbai Office",
+  "Hyderabad WH",
+  "Ghaziabad WH",
+  "Bhiwandi WH",
+  "Patiala WH",
+  "Bangalore Office",
+  "Kolkata WH",
+  "Trichy WH",
+  "Gurugram Office",
+  "Indore WH",
+  "Bangalore WH",
+  "Jaipur WH",
+];
 
 export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }: EditAssetDialogProps) => {
   const [formData, setFormData] = useState({
@@ -25,11 +41,24 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
     provider: "",
     warrantyStart: "",
     warrantyEnd: "",
+    location: "",
   });
   const [error, setError] = useState<string | null>(null);
+  const [customType, setCustomType] = useState("");
+  const [customBrand, setCustomBrand] = useState("");
+  const [customProvider, setCustomProvider] = useState("");
+  const [customName, setCustomName] = useState("");
+  const [customConfiguration, setCustomConfiguration] = useState("");
+
+  // Extract unique values for select options
+  const uniqueTypes = Array.from(new Set(assets.map((a) => a.type).filter(Boolean)));
+  const uniqueBrands = Array.from(new Set(assets.map((a) => a.brand).filter(Boolean)));
+  const uniqueProviders = Array.from(new Set(assets.map((a) => a.provider).filter(Boolean)));
+  const uniqueNames = Array.from(new Set(assets.map((a) => a.name).filter(Boolean)));
+  const uniqueConfigurations = Array.from(new Set(assets.map((a) => a.configuration).filter(Boolean)));
 
   useEffect(() => {
-    if (asset) {
+    if (asset && open) {
       setFormData({
         assetId: asset.asset_id || "",
         name: asset.name || "",
@@ -40,67 +69,85 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
         provider: asset.provider || "",
         warrantyStart: asset.warranty_start || "",
         warrantyEnd: asset.warranty_end || "",
+        location: asset.location || "",
       });
+      setCustomType(asset.type === "custom" ? asset.type : "");
+      setCustomBrand(asset.brand === "custom" ? asset.brand : "");
+      setCustomProvider(asset.provider === "custom" ? asset.provider : "");
+      setCustomName(asset.name === "custom" ? asset.name : "");
+      setCustomConfiguration(asset.configuration === "custom" ? asset.configuration : "");
       setError(null);
     }
-  }, [asset]);
+  }, [asset, open]);
+
+  const validateUniqueness = () => {
+    const existingAssetWithId = assets.find(
+      (a) => a.asset_id === formData.assetId && a.id !== asset.id
+    );
+    const existingAssetWithSerial = assets.find(
+      (a) => a.serial_number === formData.serialNumber && a.id !== asset.id
+    );
+    const assetWithDifferentSerial = assets.find(
+      (a) => a.asset_id === formData.assetId && a.serial_number !== formData.serialNumber && a.id !== asset.id
+    );
+    const assetWithDifferentId = assets.find(
+      (a) => a.serial_number === formData.serialNumber && a.asset_id !== formData.assetId && a.id !== asset.id
+    );
+
+    if (existingAssetWithId) {
+      return `Asset ID ${formData.assetId} is already in use by another asset.`;
+    }
+    if (existingAssetWithSerial) {
+      return `Serial Number ${formData.serialNumber} is already in use by another asset.`;
+    }
+    if (assetWithDifferentSerial) {
+      return `Asset ID ${formData.assetId} is associated with a different Serial Number (${assetWithDifferentSerial.serial_number}).`;
+    }
+    if (assetWithDifferentId) {
+      return `Serial Number ${formData.serialNumber} is associated with a different Asset ID (${assetWithDifferentId.asset_id}).`;
+    }
+    return null;
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (asset) {
-      // Validate Asset ID and Serial Number uniqueness
-      const existingAssetWithId = assets.find(
-        (a) => a.asset_id === formData.assetId && a.id !== asset.id
-      );
-      const existingAssetWithSerial = assets.find(
-        (a) => a.serial_number === formData.serialNumber && a.id !== asset.id
-      );
-      const assetWithDifferentSerial = assets.find(
-        (a) => a.asset_id === formData.assetId && a.serial_number !== formData.serialNumber && a.id !== asset.id
-      );
-      const assetWithDifferentId = assets.find(
-        (a) => a.serial_number === formData.serialNumber && a.asset_id !== formData.assetId && a.id !== asset.id
-      );
+    setError(null);
 
-      if (existingAssetWithId) {
-        setError(`Asset ID ${formData.assetId} is already in use by another asset.`);
-        return;
-      }
-      if (existingAssetWithSerial) {
-        setError(`Serial Number ${formData.serialNumber} is already in use by another asset.`);
-        return;
-      }
-      if (assetWithDifferentSerial) {
-        setError(`Asset ID ${formData.assetId} is associated with a different Serial Number (${assetWithDifferentSerial.serial_number}).`);
-        return;
-      }
-      if (assetWithDifferentId) {
-        setError(`Serial Number ${formData.serialNumber} is associated with a different Asset ID (${assetWithDifferentId.asset_id}).`);
-        return;
-      }
-
-      // Pass only changed fields to onUpdate
-      const updatedFields: any = {};
-      if (formData.assetId !== asset.asset_id) updatedFields.assetId = formData.assetId;
-      if (formData.name !== asset.name) updatedFields.name = formData.name;
-      if (formData.type !== asset.type) updatedFields.type = formData.type;
-      if (formData.brand !== asset.brand) updatedFields.brand = formData.brand;
-      if (formData.configuration !== (asset.configuration || "")) updatedFields.configuration = formData.configuration || null;
-      if (formData.serialNumber !== asset.serial_number) updatedFields.serialNumber = formData.serialNumber;
-      if (formData.provider !== (asset.provider || "")) updatedFields.provider = formData.provider || null;
-      if (formData.warrantyStart !== (asset.warranty_start || "")) updatedFields.warrantyStart = formData.warrantyStart || null;
-      if (formData.warrantyEnd !== (asset.warranty_end || "")) updatedFields.warrantyEnd = formData.warrantyEnd || null;
-
-      // Only call onUpdate if there are changes
-      if (Object.keys(updatedFields).length > 0) {
-        onUpdate(asset.id, updatedFields);
-      }
-      onOpenChange(false);
-      setError(null);
+    const validationError = validateUniqueness();
+    if (validationError) {
+      setError(validationError);
+      toast.error(validationError);
+      return;
     }
+
+    if (!formData.assetId || !formData.name || !formData.type || !formData.brand || !formData.serialNumber || !formData.location) {
+      setError("Please fill in all required fields.");
+      toast.error("Please fill in all required fields.");
+      return;
+    }
+
+    // Pass only changed fields to onUpdate
+    const updatedFields: any = {};
+    if (formData.assetId !== asset.asset_id) updatedFields.assetId = formData.assetId;
+    if (formData.name !== asset.name) updatedFields.name = formData.name === "custom" ? customName : formData.name;
+    if (formData.type !== asset.type) updatedFields.type = formData.type === "custom" ? customType : formData.type;
+    if (formData.brand !== asset.brand) updatedFields.brand = formData.brand === "custom" ? customBrand : formData.brand;
+    if (formData.configuration !== (asset.configuration || "")) updatedFields.configuration = formData.configuration === "custom" ? customConfiguration : (formData.configuration || null);
+    if (formData.serialNumber !== asset.serial_number) updatedFields.serialNumber = formData.serialNumber;
+    if (formData.provider !== (asset.provider || "")) updatedFields.provider = formData.provider === "custom" ? customProvider : (formData.provider || null);
+    if (formData.warrantyStart !== (asset.warranty_start || "")) updatedFields.warrantyStart = formData.warrantyStart || null;
+    if (formData.warrantyEnd !== (asset.warranty_end || "")) updatedFields.warrantyEnd = formData.warrantyEnd || null;
+    if (formData.location !== asset.location) updatedFields.location = formData.location;
+
+    // Only call onUpdate if there are changes
+    if (Object.keys(updatedFields).length > 0) {
+      onUpdate(asset.id, updatedFields);
+    }
+    onOpenChange(false);
+    setError(null);
   };
 
-  if (!asset) return null;
+  if (!asset || !open) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -129,13 +176,29 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
 
           <div className="space-y-2">
             <Label htmlFor="name">Asset Name *</Label>
-            <Input
-              id="name"
+            <Select
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="e.g., MacBook Pro 16 inch"
-              required
-            />
+              onValueChange={(value) => setFormData({ ...formData, name: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select asset name" />
+              </SelectTrigger>
+              <SelectContent>
+                {uniqueNames.map((name) => (
+                  <SelectItem key={name} value={name}>{name}</SelectItem>
+                ))}
+                <SelectItem value="custom">Custom</SelectItem>
+              </SelectContent>
+            </Select>
+            {formData.name === "custom" && (
+              <Input
+                value={customName}
+                onChange={(e) => setCustomName(e.target.value)}
+                placeholder="Enter custom asset name"
+                className="mt-2"
+                required
+              />
+            )}
           </div>
 
           <div className="space-y-2">
@@ -148,36 +211,75 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
                 <SelectValue placeholder="Select asset type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Laptop">Laptop</SelectItem>
-                <SelectItem value="Tablet">Tablet</SelectItem>
-                <SelectItem value="Desktop">Desktop</SelectItem>
-                <SelectItem value="Monitor">Monitor</SelectItem>
-                <SelectItem value="Phone">Phone</SelectItem>
-                <SelectItem value="Accessories">Accessories</SelectItem>
+                {uniqueTypes.map((type) => (
+                  <SelectItem key={type} value={type}>{type}</SelectItem>
+                ))}
+                <SelectItem value="custom">Custom</SelectItem>
               </SelectContent>
             </Select>
+            {formData.type === "custom" && (
+              <Input
+                value={customType}
+                onChange={(e) => setCustomType(e.target.value)}
+                placeholder="Enter custom type"
+                className="mt-2"
+                required
+              />
+            )}
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="brand">Brand *</Label>
-            <Input
-              id="brand"
+            <Select
               value={formData.brand}
-              onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-              placeholder="e.g., Apple, Dell, HP"
-              required
-            />
+              onValueChange={(value) => setFormData({ ...formData, brand: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select brand" />
+              </SelectTrigger>
+              <SelectContent>
+                {uniqueBrands.map((brand) => (
+                  <SelectItem key={brand} value={brand}>{brand}</SelectItem>
+                ))}
+                <SelectItem value="custom">Custom</SelectItem>
+              </SelectContent>
+            </Select>
+            {formData.brand === "custom" && (
+              <Input
+                value={customBrand}
+                onChange={(e) => setCustomBrand(e.target.value)}
+                placeholder="Enter custom brand"
+                className="mt-2"
+                required
+              />
+            )}
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="configuration">Configuration</Label>
-            <Textarea
-              id="configuration"
-              value={formData.configuration}
-              onChange={(e) => setFormData({ ...formData, configuration: e.target.value })}
-              placeholder="e.g., 16GB RAM, 512GB SSD"
-              rows={2}
-            />
+            <Select
+              value={formData.configuration || ""}
+              onValueChange={(value) => setFormData({ ...formData, configuration: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select configuration" />
+              </SelectTrigger>
+              <SelectContent>
+                {uniqueConfigurations.map((config) => (
+                  <SelectItem key={config} value={config}>{config}</SelectItem>
+                ))}
+                <SelectItem value="custom">Custom</SelectItem>
+              </SelectContent>
+            </Select>
+            {formData.configuration === "custom" && (
+              <Textarea
+                value={customConfiguration}
+                onChange={(e) => setCustomConfiguration(e.target.value)}
+                placeholder="e.g., 16GB RAM, 512GB SSD"
+                rows={2}
+                className="mt-2"
+              />
+            )}
           </div>
 
           <div className="space-y-2">
@@ -193,12 +295,45 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
 
           <div className="space-y-2">
             <Label htmlFor="provider">Provider</Label>
-            <Input
-              id="provider"
-              value={formData.provider}
-              onChange={(e) => setFormData({ ...formData, provider: e.target.value })}
-              placeholder="e.g., Amazon, Dell Direct"
-            />
+            <Select
+              value={formData.provider || ""}
+              onValueChange={(value) => setFormData({ ...formData, provider: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select provider" />
+              </SelectTrigger>
+              <SelectContent>
+                {uniqueProviders.map((provider) => (
+                  <SelectItem key={provider} value={provider}>{provider}</SelectItem>
+                ))}
+                <SelectItem value="custom">Custom</SelectItem>
+              </SelectContent>
+            </Select>
+            {formData.provider === "custom" && (
+              <Input
+                value={customProvider}
+                onChange={(e) => setCustomProvider(e.target.value)}
+                placeholder="e.g., Amazon, Dell Direct"
+                className="mt-2"
+              />
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="location">Location *</Label>
+            <Select
+              value={formData.location}
+              onValueChange={(value) => setFormData({ ...formData, location: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select location" />
+              </SelectTrigger>
+              <SelectContent>
+                {locations.map((location) => (
+                  <SelectItem key={location} value={location}>{location}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
@@ -275,7 +410,7 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
             <Button 
               type="submit" 
               className="flex-1 bg-gradient-primary hover:shadow-glow transition-smooth"
-              disabled={!formData.assetId || !formData.name || !formData.type || !formData.brand || !formData.serialNumber}
+              disabled={!formData.assetId || !formData.name || (formData.name === "custom" && !customName) || !formData.type || (formData.type === "custom" && !customType) || !formData.brand || (formData.brand === "custom" && !customBrand) || !formData.serialNumber || !formData.location}
             >
               Update Asset
             </Button>
