@@ -121,6 +121,61 @@ export const Dashboard = () => {
     return null;
   };
 
+  const parseDate = (dateStr: string | null | undefined): string | null => {
+    if (!dateStr || dateStr.trim() === "") return null;
+
+    const monthNames = {
+      jan: 0, january: 0,
+      feb: 1, february: 1,
+      mar: 2, march: 2,
+      apr: 3, april: 3,
+      may: 4,
+      jun: 5, june: 5,
+      jul: 6, july: 6,
+      aug: 7, august: 7,
+      sep: 8, september: 8,
+      oct: 9, october: 9,
+      nov: 10, november: 10,
+      dec: 11, december: 11,
+    };
+
+    const formats = [
+      { pattern: /^(\d{4})-(\d{2})-(\d{2})$/, order: [1, 2, 3] }, // YYYY-MM-DD
+      { pattern: /^(\d{2})[-/](\d{2})[-/](\d{4})$/, order: [3, 1, 2] }, // DD-MM-YYYY or DD/MM/YYYY
+      { pattern: /^(\d{2})[-/](\d{2})[-/](\d{2})$/, order: [3, 1, 2], adjustYear: true }, // DD-MM-YY or DD/MM/YY
+      { pattern: /^(\d{2})-([A-Za-z]+)-(\d{4})$/, order: [3, 2, 1] }, // DD-MMM-YYYY
+      { pattern: /^([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4})$/, order: [3, 1, 2] }, // MMM DD, YYYY
+      { pattern: /^(\d{4})\.(\d{2})\.(\d{2})$/, order: [1, 2, 3] }, // YYYY.MM.DD
+    ];
+
+    for (const format of formats) {
+      const match = dateStr.trim().match(format.pattern);
+      if (match) {
+        let [year, month, day] = format.order.map(i => match[i]);
+        year = parseInt(year, 10);
+        month = format.order[1] === 2 ? monthNames[month.toLowerCase()] : parseInt(month, 10) - 1;
+        day = parseInt(day, 10);
+
+        if (format.adjustYear && year < 100) year += year < 50 ? 2000 : 1900;
+        if (isNaN(year) || isNaN(month) || isNaN(day) || month < 0 || month > 11 || day < 1 || day > 31) {
+          console.warn(`Invalid date components for "${dateStr}": year=${year}, month=${month}, day=${day}`);
+          return null;
+        }
+
+        const date = new Date(year, month, day);
+        if (isNaN(date.getTime())) {
+          console.warn(`Invalid date for "${dateStr}" after construction.`);
+          return null;
+        }
+        console.log(`Parsed "${dateStr}" to ${date.toISOString().split("T")[0]}`);
+        return date.toISOString().split("T")[0];
+      }
+    }
+
+    console.warn(`No valid format found for "${dateStr}". Returning null.`);
+    return null;
+  };
+
   const handleAddAsset = async (newAsset: any) => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
       toast.error("Unauthorized: Insufficient permissions.");
@@ -128,14 +183,12 @@ export const Dashboard = () => {
     }
 
     try {
-      // Validate uniqueness
       const validationError = validateAssetUniqueness(newAsset.assetId, newAsset.serialNumber);
       if (validationError) {
         toast.error(validationError);
         return;
       }
 
-      // Determine if asset should be assigned
       const isAssigned = newAsset.employeeId && newAsset.employeeName;
       const assignedDate = isAssigned ? new Date().toISOString() : null;
       const warrantyStatus = newAsset.warrantyEnd
@@ -167,6 +220,7 @@ export const Dashboard = () => {
         asset_check: "",
         provider: newAsset.provider,
         warranty_status: warrantyStatus,
+        recovery_amount: newAsset.recoveryAmount || null,
       };
       const { data, error } = await createAssetMutation.mutateAsync(asset);
       if (error) {
@@ -268,7 +322,6 @@ export const Dashboard = () => {
       if (!asset) {
         throw new Error("Asset not found.");
       }
-      // Validate uniqueness
       const validationError = validateAssetUniqueness(updatedAsset.assetId, updatedAsset.serialNumber, assetId);
       if (validationError) {
         throw new Error(validationError);
@@ -291,6 +344,7 @@ export const Dashboard = () => {
         warranty_end: updatedAsset.warrantyEnd,
         provider: updatedAsset.provider,
         warranty_status: warrantyStatus,
+        recovery_amount: updatedAsset.recoveryAmount || null,
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
       });
@@ -323,6 +377,9 @@ export const Dashboard = () => {
       }
       if (asset?.warranty_status !== warrantyStatus) {
         await logEditHistory(assetId, "warranty_status", asset?.warranty_status || null, warrantyStatus);
+      }
+      if (asset?.recovery_amount !== updatedAsset.recoveryAmount) {
+        await logEditHistory(assetId, "recovery_amount", asset?.recovery_amount?.toString() || null, updatedAsset.recoveryAmount?.toString() || null);
       }
       toast.success("Asset updated successfully");
     } catch (error: any) {
@@ -417,45 +474,27 @@ export const Dashboard = () => {
     }
   };
 
-  const handleBulkUpload = async (file: File) => {
+  const handleBulkUpload = async (data: { headers: string[]; dataRows: string[][] }) => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
       toast.error("Unauthorized: Insufficient permissions.");
       return;
     }
 
     try {
-      const text = await file.text();
-      const rows = text.split('\n').map(row => row.split(',').map(cell => cell.trim()));
-      const headers = rows[0];
-      const dataRows = rows.slice(1).filter(row => row.some(cell => cell));
-
-      const requiredHeaders = [
-        "Asset ID",
-        "Asset Name",
-        "Asset Type",
-        "Brand",
-        "Serial Number",
-        "Location",
-      ];
-
-      const optionalHeaders = [
-        "Configuration",
-        "Provider",
-        "Warranty Start",
-        "Warranty End",
-        "Employee ID",
-        "Employee Name",
-      ];
-
-      if (!requiredHeaders.every(header => headers.includes(header))) {
-        throw new Error("Invalid CSV format: Missing required headers.");
-      }
+      const { headers, dataRows } = data;
 
       const errors: string[] = [];
       const validAssets: any[] = [];
+      const addedAssets: string[] = [];
+      const unaddedAssets: string[] = [];
+      const duplicatedAssets: string[] = [];
+
+      console.log("Total rows to process:", dataRows.length);
+      console.log("Headers received:", headers);
 
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
+
         const assetIndex = headers.indexOf("Asset ID");
         const nameIndex = headers.indexOf("Asset Name");
         const typeIndex = headers.indexOf("Asset Type");
@@ -468,50 +507,68 @@ export const Dashboard = () => {
         const warrantyEndIndex = headers.indexOf("Warranty End");
         const employeeIdIndex = headers.indexOf("Employee ID");
         const employeeNameIndex = headers.indexOf("Employee Name");
+        const recoveryAmountIndex = headers.indexOf("Recovery Amount");
+
+        console.log(`Row ${i + 2} indices:`, {
+          assetIndex, nameIndex, typeIndex, brandIndex, serialIndex, locationIndex,
+          configIndex, providerIndex, warrantyStartIndex, warrantyEndIndex,
+          employeeIdIndex, employeeNameIndex, recoveryAmountIndex
+        });
 
         const asset = {
-          assetId: row[assetIndex] || "",
-          name: row[nameIndex] || "",
-          type: row[typeIndex] || "",
-          brand: row[brandIndex] || "",
-          configuration: configIndex !== -1 ? row[configIndex] || "" : "",
-          serialNumber: row[serialIndex] || "",
-          provider: providerIndex !== -1 ? row[providerIndex] || "" : "",
-          warrantyStart: warrantyStartIndex !== -1 ? row[warrantyStartIndex] || null : null,
-          warrantyEnd: warrantyEndIndex !== -1 ? row[warrantyEndIndex] || null : null,
-          location: row[locationIndex] || "",
-          employeeId: employeeIdIndex !== -1 ? row[employeeIdIndex] || null : null,
-          employeeName: employeeNameIndex !== -1 ? row[employeeNameIndex] || null : null,
+          assetId: row[assetIndex]?.toString().trim() || "",
+          name: row[nameIndex]?.toString().trim() || "",
+          type: row[typeIndex]?.toString().trim() || "",
+          brand: row[brandIndex]?.toString().trim() || "",
+          serialNumber: row[serialIndex]?.toString().trim() || "",
+          location: row[locationIndex]?.toString().trim() || locations[0],
+          configuration: configIndex !== -1 ? row[configIndex]?.toString().trim() || "" : "",
+          provider: providerIndex !== -1 ? row[providerIndex]?.toString().trim() || null : null,
+          warrantyStart: warrantyStartIndex !== -1 ? row[warrantyStartIndex]?.toString().trim() || null : null,
+          warrantyEnd: warrantyEndIndex !== -1 ? row[warrantyEndIndex]?.toString().trim() || null : null,
+          employeeId: employeeIdIndex !== -1 ? row[employeeIdIndex]?.toString().trim() || null : null,
+          employeeName: employeeNameIndex !== -1 ? row[employeeNameIndex]?.toString().trim() || null : null,
+          recoveryAmount: recoveryAmountIndex !== -1 ? parseFloat(row[recoveryAmountIndex]?.toString().trim()) || null : null,
         };
 
-        if (!asset.assetId || !asset.name || !asset.type || !asset.brand || !asset.serialNumber || !asset.location) {
-          errors.push(`Row ${i + 2}: Missing required fields.`);
-          continue;
-        }
+        console.log(`Row ${i + 2} raw data:`, row);
+        console.log(`Row ${i + 2} parsed data:`, asset);
 
-        // Validate employee fields consistency
-        const isAssigned = asset.employeeId && asset.employeeName;
-        if (asset.employeeId && !asset.employeeName) {
-          errors.push(`Row ${i + 2}: Employee Name is required if Employee ID is provided.`);
-          continue;
-        }
-        if (asset.employeeName && !asset.employeeId) {
-          errors.push(`Row ${i + 2}: Employee ID is required if Employee Name is provided.`);
+        if (!asset.assetId || !asset.name || !asset.type || !asset.brand || !asset.serialNumber || !asset.location) {
+          errors.push(
+            `Row ${i + 2}: Missing required fields: ${[
+              !asset.assetId ? "Asset ID" : "",
+              !asset.name ? "Asset Name" : "",
+              !asset.type ? "Asset Type" : "",
+              !asset.brand ? "Brand" : "",
+              !asset.serialNumber ? "Serial Number" : "",
+              !asset.location ? "Location" : "",
+            ]
+              .filter(Boolean)
+              .join(", ")}.`
+          );
+          unaddedAssets.push(asset.assetId || `Row ${i + 2}`);
           continue;
         }
 
         const validationError = validateAssetUniqueness(asset.assetId, asset.serialNumber);
         if (validationError) {
           errors.push(`Row ${i + 2}: ${validationError}`);
+          duplicatedAssets.push(asset.assetId);
           continue;
         }
 
-        // Auto-set assigned status
+        const isAssigned = asset.employeeId && asset.employeeName;
         const assignedDate = isAssigned ? new Date().toISOString() : null;
         const warrantyStatus = asset.warrantyEnd
-          ? new Date(asset.warrantyEnd) >= new Date()
-            ? "In Warranty"
-            : "Out of Warranty"
+          ? (() => {
+              const date = new Date(asset.warrantyEnd);
+              if (isNaN(date.getTime())) {
+                console.warn(`Invalid warranty end date for asset ${asset.assetId}: ${asset.warrantyEnd}`);
+                return "Out of Warranty";
+              }
+              return date >= new Date() ? "In Warranty" : "Out of Warranty";
+            })()
           : "Out of Warranty";
 
         validAssets.push({
@@ -538,22 +595,48 @@ export const Dashboard = () => {
           asset_check: "",
           provider: asset.provider,
           warranty_status: warrantyStatus,
+          recovery_amount: asset.recoveryAmount,
         });
+
+        console.log(`Processed asset for row ${i + 2}:`, validAssets[validAssets.length - 1]);
       }
 
-      if (errors.length > 0) {
+      if (errors.length > 0 && validAssets.length === 0) {
         throw new Error(`Bulk upload failed:\n${errors.join('\n')}`);
       }
 
       for (const asset of validAssets) {
-        const { data, error } = await createAssetMutation.mutateAsync(asset);
-        if (error) {
-          throw new Error(`Failed to create asset ${asset.asset_id}: ${error.message}`);
+        try {
+          console.log("Creating asset payload:", asset);
+          const result = await createAssetMutation.mutateAsync(asset);
+          if (result.error || !result) {
+            errors.push(`Failed to create asset ${asset.asset_id}: ${result.error?.message || "No data returned"}`);
+            unaddedAssets.push(asset.asset_id);
+            continue;
+          }
+          addedAssets.push(asset.asset_id);
+          await logEditHistory(result.id || asset.asset_id, "created", null, "Asset Created");
+        } catch (error: any) {
+          errors.push(`Error creating asset ${asset.asset_id}: ${error.message}`);
+          unaddedAssets.push(asset.asset_id);
+          continue;
         }
-        await logEditHistory(data.id, "created", null, "Asset Created");
       }
 
-      toast.success(`Successfully uploaded ${validAssets.length} assets.`);
+      let summaryMessage = `Successfully uploaded ${addedAssets.length} assets.`;
+      if (unaddedAssets.length > 0) {
+        summaryMessage += `\nUnadded assets: ${unaddedAssets.join(", ")}.`;
+      }
+      if (duplicatedAssets.length > 0) {
+        summaryMessage += `\nDuplicated assets: ${duplicatedAssets.join(", ")}.`;
+      }
+      if (errors.length > 0) {
+        summaryMessage += `\nErrors encountered:\n${errors.join("\n")}`;
+      } else if (addedAssets.length > 0) {
+        summaryMessage = `Assets added successfully.\n${summaryMessage}`;
+      }
+
+      toast.success(summaryMessage);
       setShowBulkUpload(false);
     } catch (error: any) {
       toast.error(error.message || "Failed to process bulk upload.");
@@ -585,6 +668,7 @@ export const Dashboard = () => {
       "Asset Check",
       "Provider",
       "Warranty Status",
+      "Recovery Amount",
     ];
 
     const escapeCsvField = (value: string | null | undefined): string => {
@@ -619,6 +703,7 @@ export const Dashboard = () => {
           escapeCsvField(asset.asset_check),
           escapeCsvField(asset.provider),
           escapeCsvField(asset.warranty_status),
+          escapeCsvField(asset.recovery_amount?.toString()),
         ].join(",")
       ),
     ].join("\n");
@@ -693,7 +778,7 @@ export const Dashboard = () => {
                     className="hover:bg-primary hover:text-primary-foreground transition-smooth text-sm h-8"
                   >
                     <Upload className="w-3 h-3 mr-1" />
-                    Bulk Operations
+                    Bulk Upload
                   </Button>
                   <Button
                     onClick={() => setShowAddForm(true)}
@@ -729,7 +814,7 @@ export const Dashboard = () => {
         <AssetForm
           onSubmit={handleAddAsset}
           onCancel={() => setShowAddForm(false)}
-          assets={assets} // Pass assets for validation
+          assets={assets}
         />
       )}
       <BulkUpload
