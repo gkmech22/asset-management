@@ -100,11 +100,9 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }: BulkUpl
       "Provider",
       "Warranty Start",
       "Warranty End",
-      "Assigned To (Employee Name)",
-      "Employee ID",
       "Location*",
-      "Status",
-      "Assigned Date",
+      "Employee ID",
+      "Employee Name",
     ];
     
     const sampleRows = [
@@ -118,11 +116,9 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }: BulkUpl
         "Amazon",
         "2023-01-01",
         "2025-01-01",
-        "John Doe",
-        "EMP001",
         "Mumbai Office",
-        "Assigned",
-        new Date().toISOString().split('T')[0],
+        "EMP001",
+        "John Doe",
       ],
       [
         "AST-002",
@@ -134,10 +130,8 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }: BulkUpl
         "Dell Direct",
         "",
         "",
-        "",
-        "",
         "Hyderabad WH",
-        "Available",
+        "",
         "",
       ],
       [
@@ -150,11 +144,9 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }: BulkUpl
         "",
         "",
         "",
-        "Jane Smith",
-        "EMP002",
         "Bangalore Office",
-        "Assigned",
-        new Date().toISOString().split('T')[0],
+        "EMP002",
+        "Jane Smith",
       ],
     ];
     
@@ -290,8 +282,8 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }: BulkUpl
                 <AlertDescription className="text-blue-800">
                   <div className="space-y-1">
                     <p><strong>Required columns:</strong> Asset ID*, Asset Name*, Asset Type*, Brand*, Serial Number*, Location*</p>
-                    <p><strong>Optional columns:</strong> Configuration, Provider, Warranty Start, Warranty End, Assigned To (Employee Name), Employee ID, Status, Assigned Date</p>
-                    <p className="text-sm"><em>* Required fields. Status is automatically set to "Assigned" if both Employee Name and Employee ID are provided, otherwise "Available".</em></p>
+                    <p><strong>Optional columns:</strong> Configuration, Provider, Warranty Start, Warranty End, Employee ID, Employee Name</p>
+                    <p className="text-sm"><em>* Required fields. Status and Assigned Date are set automatically: "Assigned" if both Employee Name and Employee ID are provided, otherwise "Available".</em></p>
                   </div>
                 </AlertDescription>
               </Alert>

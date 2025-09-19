@@ -128,12 +128,16 @@ export const Dashboard = () => {
     }
 
     try {
+      // Validate uniqueness
       const validationError = validateAssetUniqueness(newAsset.assetId, newAsset.serialNumber);
       if (validationError) {
         toast.error(validationError);
         return;
       }
 
+      // Determine if asset should be assigned
+      const isAssigned = newAsset.employeeId && newAsset.employeeName;
+      const assignedDate = isAssigned ? new Date().toISOString() : null;
       const warrantyStatus = newAsset.warrantyEnd
         ? new Date(newAsset.warrantyEnd) >= new Date()
           ? "In Warranty"
@@ -144,13 +148,13 @@ export const Dashboard = () => {
         name: newAsset.name,
         type: newAsset.type,
         brand: newAsset.brand,
-        configuration: newAsset.configuration || null,
+        configuration: newAsset.configuration,
         serial_number: newAsset.serialNumber,
-        status: newAsset.employeeId && newAsset.employeeName ? "Assigned" : "Available",
+        status: isAssigned ? "Assigned" : "Available",
         location: newAsset.location || locations[0],
-        assigned_to: newAsset.employeeName || null,
-        employee_id: newAsset.employeeId || null,
-        assigned_date: newAsset.employeeId && newAsset.employeeName ? new Date().toISOString() : null,
+        assigned_to: isAssigned ? newAsset.employeeName : null,
+        employee_id: isAssigned ? newAsset.employeeId : null,
+        assigned_date: assignedDate,
         received_by: null,
         return_date: null,
         remarks: null,
@@ -158,10 +162,10 @@ export const Dashboard = () => {
         created_at: new Date().toISOString(),
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
-        warranty_start: newAsset.warrantyStart || null,
-        warranty_end: newAsset.warrantyEnd || null,
+        warranty_start: newAsset.warrantyStart,
+        warranty_end: newAsset.warrantyEnd,
         asset_check: "",
-        provider: newAsset.provider || null,
+        provider: newAsset.provider,
         warranty_status: warrantyStatus,
       };
       const { data, error } = await createAssetMutation.mutateAsync(asset);
@@ -176,7 +180,7 @@ export const Dashboard = () => {
     }
   };
 
-  const handleAssignAsset = async (assetId: string, userName: string, employeeId: string, location?: string) => {
+  const handleAssignAsset = async (assetId: string, userName: string, employeeId: string) => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
       toast.error("Unauthorized: Insufficient permissions.");
       return;
@@ -201,7 +205,7 @@ export const Dashboard = () => {
         throw new Error(`Serial Number ${asset.serial_number} is already associated with another Employee ID (${existingAssetWithSerial.employee_id}).`);
       }
 
-      const updatePayload: any = {
+      await updateAssetMutation.mutateAsync({
         id: assetId,
         assigned_to: userName,
         employee_id: employeeId,
@@ -209,19 +213,10 @@ export const Dashboard = () => {
         assigned_date: new Date().toISOString(),
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
-      };
-
-      if (location && location !== asset.location) {
-        updatePayload.location = location;
-      }
-
-      await updateAssetMutation.mutateAsync(updatePayload);
+      });
       await logEditHistory(assetId, "assigned_to", asset?.assigned_to || null, userName);
       await logEditHistory(assetId, "employee_id", asset?.employee_id || null, employeeId);
       await logEditHistory(assetId, "status", asset?.status || null, "Assigned");
-      if (location && location !== asset.location) {
-        await logEditHistory(assetId, "location", asset?.location || null, location);
-      }
       toast.success("Asset assigned successfully");
     } catch (error: any) {
       toast.error(error.message || "Failed to assign asset.");
@@ -239,36 +234,21 @@ export const Dashboard = () => {
       if (!asset) {
         throw new Error("Asset not found.");
       }
-
-      const updatePayload: any = {
+      await unassignAssetMutation.mutateAsync({
         id: assetId,
-        assigned_to: null,
-        employee_id: null,
-        status: "Available",
-        return_date: new Date().toISOString(),
-        received_by: receivedBy || currentUser,
-        updated_by: currentUser,
-        updated_at: new Date().toISOString(),
-        configuration: asset.configuration, // Preserve existing configuration
-      };
-
-      if (remarks && remarks !== asset.remarks) {
-        updatePayload.remarks = remarks;
-      }
-      if (location && location !== asset.location) {
-        updatePayload.location = location;
-      }
-
-      await unassignAssetMutation.mutateAsync(updatePayload);
+        remarks,
+        receivedBy: receivedBy || currentUser,
+        location,
+      });
       await logEditHistory(assetId, "assigned_to", asset?.assigned_to || null, null);
       await logEditHistory(assetId, "employee_id", asset?.employee_id || null, null);
       await logEditHistory(assetId, "status", asset?.status || null, "Available");
       await logEditHistory(assetId, "return_date", asset?.return_date || null, new Date().toISOString());
       await logEditHistory(assetId, "received_by", asset?.received_by || null, receivedBy || currentUser);
-      if (location && location !== asset.location) {
+      if (location) {
         await logEditHistory(assetId, "location", asset?.location || null, location);
       }
-      if (remarks && remarks !== asset.remarks) {
+      if (remarks) {
         await logEditHistory(assetId, "remarks", asset?.remarks || null, remarks);
       }
       toast.success("Asset returned successfully");
@@ -288,6 +268,7 @@ export const Dashboard = () => {
       if (!asset) {
         throw new Error("Asset not found.");
       }
+      // Validate uniqueness
       const validationError = validateAssetUniqueness(updatedAsset.assetId, updatedAsset.serialNumber, assetId);
       if (validationError) {
         throw new Error(validationError);
@@ -298,55 +279,50 @@ export const Dashboard = () => {
           ? "In Warranty"
           : "Out of Warranty"
         : "Out of Warranty";
-
-      const updatePayload: any = {
+      await updateAssetMutation.mutateAsync({
         id: assetId,
+        asset_id: updatedAsset.assetId,
+        name: updatedAsset.name,
+        type: updatedAsset.type,
+        brand: updatedAsset.brand,
+        configuration: updatedAsset.configuration,
+        serial_number: updatedAsset.serialNumber,
+        warranty_start: updatedAsset.warrantyStart,
+        warranty_end: updatedAsset.warrantyEnd,
+        provider: updatedAsset.provider,
+        warranty_status: warrantyStatus,
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
-      };
-
-      if (updatedAsset.assetId !== asset.asset_id) updatePayload.asset_id = updatedAsset.assetId;
-      if (updatedAsset.name !== asset.name) updatePayload.name = updatedAsset.name;
-      if (updatedAsset.type !== asset.type) updatePayload.type = updatedAsset.type;
-      if (updatedAsset.brand !== asset.brand) updatePayload.brand = updatedAsset.brand;
-      if (updatedAsset.configuration !== asset.configuration) updatePayload.configuration = updatedAsset.configuration || null;
-      if (updatedAsset.serialNumber !== asset.serial_number) updatePayload.serial_number = updatedAsset.serialNumber;
-      if (updatedAsset.warrantyStart !== asset.warranty_start) updatePayload.warranty_start = updatedAsset.warrantyStart || null;
-      if (updatedAsset.warrantyEnd !== asset.warranty_end) updatePayload.warranty_end = updatedAsset.warrantyEnd || null;
-      if (updatedAsset.provider !== asset.provider) updatePayload.provider = updatedAsset.provider || null;
-      if (warrantyStatus !== asset.warranty_status) updatePayload.warranty_status = warrantyStatus;
-
-      await updateAssetMutation.mutateAsync(updatePayload);
-
-      if (asset.asset_id !== updatedAsset.assetId) {
-        await logEditHistory(assetId, "asset_id", asset.asset_id || null, updatedAsset.assetId);
+      });
+      if (asset?.asset_id !== updatedAsset.assetId) {
+        await logEditHistory(assetId, "asset_id", asset?.asset_id || null, updatedAsset.assetId);
       }
-      if (asset.name !== updatedAsset.name) {
-        await logEditHistory(assetId, "name", asset.name || null, updatedAsset.name);
+      if (asset?.name !== updatedAsset.name) {
+        await logEditHistory(assetId, "name", asset?.name || null, updatedAsset.name);
       }
-      if (asset.type !== updatedAsset.type) {
-        await logEditHistory(assetId, "type", asset.type || null, updatedAsset.type);
+      if (asset?.type !== updatedAsset.type) {
+        await logEditHistory(assetId, "type", asset?.type || null, updatedAsset.type);
       }
-      if (asset.brand !== updatedAsset.brand) {
-        await logEditHistory(assetId, "brand", asset.brand || null, updatedAsset.brand);
+      if (asset?.brand !== updatedAsset.brand) {
+        await logEditHistory(assetId, "brand", asset?.brand || null, updatedAsset.brand);
       }
-      if (asset.configuration !== updatedAsset.configuration) {
-        await logEditHistory(assetId, "configuration", asset.configuration || null, updatedAsset.configuration);
+      if (asset?.configuration !== updatedAsset.configuration) {
+        await logEditHistory(assetId, "configuration", asset?.configuration || null, updatedAsset.configuration);
       }
-      if (asset.serial_number !== updatedAsset.serialNumber) {
-        await logEditHistory(assetId, "serial_number", asset.serial_number || null, updatedAsset.serialNumber);
+      if (asset?.serial_number !== updatedAsset.serialNumber) {
+        await logEditHistory(assetId, "serial_number", asset?.serial_number || null, updatedAsset.serialNumber);
       }
-      if (asset.warranty_start !== updatedAsset.warrantyStart) {
-        await logEditHistory(assetId, "warranty_start", asset.warranty_start || null, updatedAsset.warrantyStart);
+      if (asset?.warranty_start !== updatedAsset.warrantyStart) {
+        await logEditHistory(assetId, "warranty_start", asset?.warranty_start || null, updatedAsset.warrantyStart);
       }
-      if (asset.warranty_end !== updatedAsset.warrantyEnd) {
-        await logEditHistory(assetId, "warranty_end", asset.warranty_end || null, updatedAsset.warrantyEnd);
+      if (asset?.warranty_end !== updatedAsset.warrantyEnd) {
+        await logEditHistory(assetId, "warranty_end", asset?.warranty_end || null, updatedAsset.warrantyEnd);
       }
-      if (asset.provider !== updatedAsset.provider) {
-        await logEditHistory(assetId, "provider", asset.provider || null, updatedAsset.provider);
+      if (asset?.provider !== updatedAsset.provider) {
+        await logEditHistory(assetId, "provider", asset?.provider || null, updatedAsset.provider);
       }
-      if (asset.warranty_status !== warrantyStatus) {
-        await logEditHistory(assetId, "warranty_status", asset.warranty_status || null, warrantyStatus);
+      if (asset?.warranty_status !== warrantyStatus) {
+        await logEditHistory(assetId, "warranty_status", asset?.warranty_status || null, warrantyStatus);
       }
       toast.success("Asset updated successfully");
     } catch (error: any) {
@@ -365,13 +341,12 @@ export const Dashboard = () => {
       if (!asset) {
         throw new Error("Asset not found.");
       }
-      const updatePayload: any = {
-        id: assetId,
+      await updateAssetMutation.mutateAsync({ 
+        id: assetId, 
         status,
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
-      };
-      await updateAssetMutation.mutateAsync(updatePayload);
+      });
       await logEditHistory(assetId, "status", asset?.status || null, status);
       toast.success("Status updated successfully");
     } catch (error: any) {
@@ -390,13 +365,12 @@ export const Dashboard = () => {
       if (!asset) {
         throw new Error("Asset not found.");
       }
-      const updatePayload: any = {
-        id: assetId,
+      await updateAssetMutation.mutateAsync({ 
+        id: assetId, 
         location,
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
-      };
-      await updateAssetMutation.mutateAsync(updatePayload);
+      });
       await logEditHistory(assetId, "location", asset?.location || null, location);
       toast.success("Location updated successfully");
     } catch (error: any) {
@@ -415,13 +389,12 @@ export const Dashboard = () => {
       if (!asset) {
         throw new Error("Asset not found.");
       }
-      const updatePayload: any = {
+      await updateAssetMutation.mutateAsync({
         id: assetId,
         asset_check: assetCheck,
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
-      };
-      await updateAssetMutation.mutateAsync(updatePayload);
+      });
       await logEditHistory(assetId, "asset_check", asset?.asset_check || null, assetCheck);
       toast.success("Asset check updated successfully");
     } catch (error: any) {
@@ -461,11 +434,17 @@ export const Dashboard = () => {
         "Asset Name",
         "Asset Type",
         "Brand",
-        "Configuration",
         "Serial Number",
+        "Location",
+      ];
+
+      const optionalHeaders = [
+        "Configuration",
         "Provider",
         "Warranty Start",
         "Warranty End",
+        "Employee ID",
+        "Employee Name",
       ];
 
       if (!requiredHeaders.every(header => headers.includes(header))) {
@@ -477,20 +456,47 @@ export const Dashboard = () => {
 
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
+        const assetIndex = headers.indexOf("Asset ID");
+        const nameIndex = headers.indexOf("Asset Name");
+        const typeIndex = headers.indexOf("Asset Type");
+        const brandIndex = headers.indexOf("Brand");
+        const serialIndex = headers.indexOf("Serial Number");
+        const locationIndex = headers.indexOf("Location");
+        const configIndex = headers.indexOf("Configuration");
+        const providerIndex = headers.indexOf("Provider");
+        const warrantyStartIndex = headers.indexOf("Warranty Start");
+        const warrantyEndIndex = headers.indexOf("Warranty End");
+        const employeeIdIndex = headers.indexOf("Employee ID");
+        const employeeNameIndex = headers.indexOf("Employee Name");
+
         const asset = {
-          assetId: row[headers.indexOf("Asset ID")],
-          name: row[headers.indexOf("Asset Name")],
-          type: row[headers.indexOf("Asset Type")],
-          brand: row[headers.indexOf("Brand")],
-          configuration: row[headers.indexOf("Configuration")],
-          serialNumber: row[headers.indexOf("Serial Number")],
-          provider: row[headers.indexOf("Provider")],
-          warrantyStart: row[headers.indexOf("Warranty Start")],
-          warrantyEnd: row[headers.indexOf("Warranty End")],
+          assetId: row[assetIndex] || "",
+          name: row[nameIndex] || "",
+          type: row[typeIndex] || "",
+          brand: row[brandIndex] || "",
+          configuration: configIndex !== -1 ? row[configIndex] || "" : "",
+          serialNumber: row[serialIndex] || "",
+          provider: providerIndex !== -1 ? row[providerIndex] || "" : "",
+          warrantyStart: warrantyStartIndex !== -1 ? row[warrantyStartIndex] || null : null,
+          warrantyEnd: warrantyEndIndex !== -1 ? row[warrantyEndIndex] || null : null,
+          location: row[locationIndex] || "",
+          employeeId: employeeIdIndex !== -1 ? row[employeeIdIndex] || null : null,
+          employeeName: employeeNameIndex !== -1 ? row[employeeNameIndex] || null : null,
         };
 
-        if (!asset.assetId || !asset.name || !asset.type || !asset.brand || !asset.serialNumber) {
+        if (!asset.assetId || !asset.name || !asset.type || !asset.brand || !asset.serialNumber || !asset.location) {
           errors.push(`Row ${i + 2}: Missing required fields.`);
+          continue;
+        }
+
+        // Validate employee fields consistency
+        const isAssigned = asset.employeeId && asset.employeeName;
+        if (asset.employeeId && !asset.employeeName) {
+          errors.push(`Row ${i + 2}: Employee Name is required if Employee ID is provided.`);
+          continue;
+        }
+        if (asset.employeeName && !asset.employeeId) {
+          errors.push(`Row ${i + 2}: Employee ID is required if Employee Name is provided.`);
           continue;
         }
 
@@ -500,18 +506,26 @@ export const Dashboard = () => {
           continue;
         }
 
+        // Auto-set assigned status
+        const assignedDate = isAssigned ? new Date().toISOString() : null;
+        const warrantyStatus = asset.warrantyEnd
+          ? new Date(asset.warrantyEnd) >= new Date()
+            ? "In Warranty"
+            : "Out of Warranty"
+          : "Out of Warranty";
+
         validAssets.push({
           asset_id: asset.assetId,
           name: asset.name,
           type: asset.type,
           brand: asset.brand,
-          configuration: asset.configuration || null,
+          configuration: asset.configuration,
           serial_number: asset.serialNumber,
-          status: "Available",
-          location: locations[0],
-          assigned_to: null,
-          employee_id: null,
-          assigned_date: null,
+          status: isAssigned ? "Assigned" : "Available",
+          location: asset.location,
+          assigned_to: isAssigned ? asset.employeeName : null,
+          employee_id: isAssigned ? asset.employeeId : null,
+          assigned_date: assignedDate,
           received_by: null,
           return_date: null,
           remarks: null,
@@ -519,15 +533,11 @@ export const Dashboard = () => {
           created_at: new Date().toISOString(),
           updated_by: currentUser,
           updated_at: new Date().toISOString(),
-          warranty_start: asset.warrantyStart || null,
-          warranty_end: asset.warrantyEnd || null,
+          warranty_start: asset.warrantyStart,
+          warranty_end: asset.warrantyEnd,
           asset_check: "",
-          provider: asset.provider || null,
-          warranty_status: asset.warrantyEnd
-            ? new Date(asset.warrantyEnd) >= new Date()
-              ? "In Warranty"
-              : "Out of Warranty"
-            : "Out of Warranty",
+          provider: asset.provider,
+          warranty_status: warrantyStatus,
         });
       }
 
@@ -669,7 +679,8 @@ export const Dashboard = () => {
                   <h1 className="text-2xl font-semibold bg-gradient-primary bg-clip-text text-transparent">
                     Asset Management System
                   </h1>
-                  <p className="text-sm text-muted-foreground mt-1"></p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                  </p>
                 </div>
               </div>
             </div>
@@ -718,7 +729,7 @@ export const Dashboard = () => {
         <AssetForm
           onSubmit={handleAddAsset}
           onCancel={() => setShowAddForm(false)}
-          assets={assets}
+          assets={assets} // Pass assets for validation
         />
       )}
       <BulkUpload
