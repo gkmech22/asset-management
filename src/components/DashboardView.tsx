@@ -32,16 +32,16 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
 
     const searchMatch = searchQuery.trim() === "" || 
       [
-        asset.asset_id,
-        asset.name,
-        asset.type,
-        asset.brand,
+        asset.asset_id || "",
+        asset.name || "",
+        asset.type || "",
+        asset.brand || "",
         asset.configuration || "",
-        asset.serial_number,
+        asset.serial_number || "",
         asset.employee_id || "",
         asset.assigned_to || "",
-        asset.status,
-        asset.location,
+        asset.status || "",
+        asset.location || "",
         asset.created_by || "",
         asset.updated_by || "",
         asset.received_by || "",

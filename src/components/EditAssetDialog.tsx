@@ -15,21 +15,6 @@ interface EditAssetDialogProps {
   onUpdate: (assetId: string, updatedAsset: any) => void;
 }
 
-const locations = [
-  "Mumbai Office",
-  "Hyderabad WH",
-  "Ghaziabad WH",
-  "Bhiwandi WH",
-  "Patiala WH",
-  "Bangalore Office",
-  "Kolkata WH",
-  "Trichy WH",
-  "Gurugram Office",
-  "Indore WH",
-  "Bangalore WH",
-  "Jaipur WH",
-];
-
 export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }: EditAssetDialogProps) => {
   const [formData, setFormData] = useState({
     assetId: "",
@@ -41,7 +26,8 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
     provider: "",
     warrantyStart: "",
     warrantyEnd: "",
-    location: "",
+    employeeId: "",
+    employeeName: "",
   });
   const [error, setError] = useState<string | null>(null);
   const [customType, setCustomType] = useState("");
@@ -69,7 +55,8 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
         provider: asset.provider || "",
         warrantyStart: asset.warranty_start || "",
         warrantyEnd: asset.warranty_end || "",
-        location: asset.location || "",
+        employeeId: asset.employee_id || "",
+        employeeName: asset.assigned_to || "",
       });
       setCustomType(asset.type === "custom" ? asset.type : "");
       setCustomBrand(asset.brand === "custom" ? asset.brand : "");
@@ -79,6 +66,8 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
       setError(null);
     }
   }, [asset, open]);
+
+  const isAssigned = asset?.status === "Assigned";
 
   const validateUniqueness = () => {
     const existingAssetWithId = assets.find(
@@ -120,9 +109,16 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
       return;
     }
 
-    if (!formData.assetId || !formData.name || !formData.type || !formData.brand || !formData.serialNumber || !formData.location) {
+    if (!formData.assetId || !formData.name || !formData.type || !formData.brand || !formData.serialNumber) {
       setError("Please fill in all required fields.");
       toast.error("Please fill in all required fields.");
+      return;
+    }
+
+    // Validate employee fields if status is Assigned
+    if (isAssigned && (!formData.employeeId || !formData.employeeName)) {
+      setError("Employee ID and Employee Name are required for Assigned status.");
+      toast.error("Employee ID and Employee Name are required for Assigned status.");
       return;
     }
 
@@ -137,7 +133,6 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
     if (formData.provider !== (asset.provider || "")) updatedFields.provider = formData.provider === "custom" ? customProvider : (formData.provider || null);
     if (formData.warrantyStart !== (asset.warranty_start || "")) updatedFields.warrantyStart = formData.warrantyStart || null;
     if (formData.warrantyEnd !== (asset.warranty_end || "")) updatedFields.warrantyEnd = formData.warrantyEnd || null;
-    if (formData.location !== asset.location) updatedFields.location = formData.location;
 
     // Only call onUpdate if there are changes
     if (Object.keys(updatedFields).length > 0) {
@@ -293,6 +288,31 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
             />
           </div>
 
+          {isAssigned && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="employeeId">Employee ID *</Label>
+                <Input
+                  id="employeeId"
+                  value={formData.employeeId}
+                  disabled
+                  placeholder="Enter employee ID"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="employeeName">Employee Name *</Label>
+                <Input
+                  id="employeeName"
+                  value={formData.employeeName}
+                  disabled
+                  placeholder="Enter employee name"
+                  required
+                />
+              </div>
+            </>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="provider">Provider</Label>
             <Select
@@ -317,23 +337,6 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
                 className="mt-2"
               />
             )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="location">Location *</Label>
-            <Select
-              value={formData.location}
-              onValueChange={(value) => setFormData({ ...formData, location: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select location" />
-              </SelectTrigger>
-              <SelectContent>
-                {locations.map((location) => (
-                  <SelectItem key={location} value={location}>{location}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           <div className="space-y-2">
@@ -410,7 +413,7 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
             <Button 
               type="submit" 
               className="flex-1 bg-gradient-primary hover:shadow-glow transition-smooth"
-              disabled={!formData.assetId || !formData.name || (formData.name === "custom" && !customName) || !formData.type || (formData.type === "custom" && !customType) || !formData.brand || (formData.brand === "custom" && !customBrand) || !formData.serialNumber || !formData.location}
+              disabled={!formData.assetId || !formData.name || (formData.name === "custom" && !customName) || !formData.type || (formData.type === "custom" && !customType) || !formData.brand || (formData.brand === "custom" && !customBrand) || !formData.serialNumber || (isAssigned && (!formData.employeeId || !formData.employeeName))}
             >
               Update Asset
             </Button>
