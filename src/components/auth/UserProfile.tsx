@@ -391,40 +391,33 @@ export const UserProfile = () => {
         <div className="text-red-500 text-sm mb-4">{errorMessage}</div>
       )}
       
-      {/* Table Container */}
+      {/* Single Table Container */}
       <div className="border rounded-md overflow-hidden bg-background">
-        {/* Fixed Header Container */}
-        <div className="bg-background border-b sticky top-0 z-30">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-card text-card-foreground hover:bg-card">
-                <th className="w-[150px] font-semibold text-sm py-3 px-4 text-left border-r last:border-r-0 align-top">
+        <div className="max-h-[50vh] overflow-y-auto custom-scrollbar">
+          <table className="w-full text-sm table-fixed border-collapse">
+            <thead className="sticky top-0 z-20 bg-card text-card-foreground border-b">
+              <tr>
+                <th className="w-[150px] py-3 px-4 text-left font-semibold text-sm border-r last:border-r-0 bg-card">
                   Name
                 </th>
-                <th className="w-[150px] font-semibold text-sm py-3 px-4 text-left border-r last:border-r-0 align-top">
+                <th className="w-[150px] py-3 px-4 text-left font-semibold text-sm border-r last:border-r-0 bg-card">
                   Department
                 </th>
-                <th className="w-[200px] font-semibold text-sm py-3 px-4 text-left border-r last:border-r-0 align-top">
+                <th className="w-[200px] py-3 px-4 text-left font-semibold text-sm border-r last:border-r-0 bg-card">
                   Email
                 </th>
-                <th className="w-[120px] font-semibold text-sm py-3 px-4 text-left border-r last:border-r-0 align-top">
+                <th className="w-[120px] py-3 px-4 text-left font-semibold text-sm border-r last:border-r-0 bg-card">
                   Role
                 </th>
-                <th className="w-[120px] font-semibold text-sm py-3 px-4 text-left border-r last:border-r-0 align-top">
+                <th className="w-[120px] py-3 px-4 text-left font-semibold text-sm border-r last:border-r-0 bg-card">
                   Account Type
                 </th>
-                <th className="w-[100px] font-semibold text-sm py-3 px-4 text-left align-top">
+                <th className="w-[100px] py-3 px-4 text-left font-semibold text-sm bg-card">
                   Actions
                 </th>
               </tr>
             </thead>
-          </table>
-        </div>
-        
-        {/* Scrollable Body Container */}
-        <div className="max-h-[40vh] overflow-y-auto custom-scrollbar">
-          <table className="w-full text-sm min-w-[800px]">
-            <tbody>
+            <tbody className="bg-background">
               {filteredUsers.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="h-24 text-center text-muted-foreground py-8">
@@ -443,26 +436,26 @@ export const UserProfile = () => {
                 filteredUsers.map((user, index) => (
                   <tr 
                     key={user.id} 
-                    className={`border-b ${
+                    className={`border-b transition-colors ${
                       index % 2 === 0 ? 'bg-background' : 'bg-muted/30'
-                    } hover:bg-muted/50 transition-colors`}
+                    } hover:bg-muted/50`}
                   >
-                    <td className="w-[150px] py-3 px-4 text-sm font-medium text-foreground align-top">
+                    <td className="w-[150px] py-3 px-4 text-sm font-medium text-foreground align-top border-r last:border-r-0">
                       <div className="truncate max-w-[150px]">
                         {user.email.split('@')[0]}
                       </div>
                     </td>
-                    <td className="w-[150px] py-3 px-4 text-sm text-muted-foreground align-top">
+                    <td className="w-[150px] py-3 px-4 text-sm text-muted-foreground align-top border-r last:border-r-0">
                       <div className="truncate max-w-[150px]">
                         {user.department || '—'}
                       </div>
                     </td>
-                    <td className="w-[200px] py-3 px-4 text-sm text-foreground align-top">
+                    <td className="w-[200px] py-3 px-4 text-sm text-foreground align-top border-r last:border-r-0">
                       <div className="truncate max-w-[200px]">
                         {user.email}
                       </div>
                     </td>
-                    <td className="w-[120px] py-3 px-4 text-sm align-top">
+                    <td className="w-[120px] py-3 px-4 text-sm align-top border-r last:border-r-0">
                       <div className="truncate max-w-[120px]">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                           user.role === 'Super Admin' 
@@ -477,7 +470,7 @@ export const UserProfile = () => {
                         </span>
                       </div>
                     </td>
-                    <td className="w-[120px] py-3 px-4 text-sm text-muted-foreground align-top">
+                    <td className="w-[120px] py-3 px-4 text-sm text-muted-foreground align-top border-r last:border-r-0">
                       <div className="truncate max-w-[120px]">
                         {user.account_type || 'Standard'}
                       </div>
