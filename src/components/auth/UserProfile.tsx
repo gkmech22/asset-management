@@ -359,87 +359,167 @@ export const UserProfile = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={openSettings} onOpenChange={setOpenSettings}>
-        <DialogContent className="max-w-[90vw] w-[900px] text-sm">
-          <DialogHeader className="flex justify-between items-center">
-            <div>
-              <DialogTitle>User Management</DialogTitle>
-              <DialogDescription>Manage user details.</DialogDescription>
-            </div>
-            {(userRole === 'Super Admin' || userRole === 'Admin') && (
-              <Button 
-                onClick={() => setOpenCreateUser(true)}
-                className="ml-auto text-sm"
-              >
-                Add new users
-              </Button>
-            )}
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="flex items-center gap-2">
-              <Input
-                placeholder="Search users..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full max-w-md text-sm"
-              />
-              <Button variant="outline" size="icon" onClick={() => setSearchQuery('')}>
-                <Search className="h-4 w-4" />
-              </Button>
-            </div>
-            {errorMessage && (
-              <div className="text-red-500 text-sm mb-4">{errorMessage}</div>
-            )}
-            <div className="relative">
-              <div className="max-h-[40vh] overflow-y-auto">
-                <Table className="w-full table-fixed text-sm">
-                  <TableHeader className="sticky top-0 bg-gray-100 z-10">
-                    <TableRow>
-                      <TableHead className="w-[150px] font-medium">Name</TableHead>
-                      <TableHead className="w-[150px] font-medium">Department</TableHead>
-                      <TableHead className="w-[200px] font-medium">Email</TableHead>
-                      <TableHead className="w-[120px] font-medium">Role</TableHead>
-                      <TableHead className="w-[120px] font-medium">Account Type</TableHead>
-                      <TableHead className="w-[100px] font-medium">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredUsers.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell className="truncate text-sm">{user.email.split('@')[0]}</TableCell>
-                        <TableCell className="truncate text-sm">{user.department}</TableCell>
-                        <TableCell className="truncate text-sm">{user.email}</TableCell>
-                        <TableCell className="truncate text-sm">{user.role}</TableCell>
-                        <TableCell className="truncate text-sm">{user.account_type}</TableCell>
-                        <TableCell className="flex space-x-2">
-                          {(userRole === 'Super Admin' || (userRole === 'Admin' && user.role !== 'Super Admin' && user.role !== 'Admin')) ? (
-                            <>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                onClick={() => handleEditUser(user)}
-                                disabled={userRole === 'Admin' && (user.role === 'Super Admin' || user.role === 'Admin')}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" onClick={() => handleDeleteUser(user.id)}>
-                                <Trash className="h-4 w-4 text-red-500" />
-                              </Button>
-                            </>
-                          ) : (
-                            <span className="text-muted-foreground text-xs">Read-only</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
+<Dialog open={openSettings} onOpenChange={setOpenSettings}>
+  <DialogContent className="max-w-[90vw] w-[900px] text-sm">
+    <DialogHeader className="flex justify-between items-center">
+      <div>
+        <DialogTitle>User Management</DialogTitle>
+        <DialogDescription>Manage user details.</DialogDescription>
+      </div>
+      {(userRole === 'Super Admin' || userRole === 'Admin') && (
+        <Button 
+          onClick={() => setOpenCreateUser(true)}
+          className="ml-auto text-sm"
+        >
+          Add new users
+        </Button>
+      )}
+    </DialogHeader>
+    <div className="space-y-4 py-4">
+      <div className="flex items-center gap-2">
+        <Input
+          placeholder="Search users..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full max-w-md text-sm"
+        />
+        <Button variant="outline" size="icon" onClick={() => setSearchQuery('')}>
+          <Search className="h-4 w-4" />
+        </Button>
+      </div>
+      {errorMessage && (
+        <div className="text-red-500 text-sm mb-4">{errorMessage}</div>
+      )}
+      
+      {/* Table Container */}
+      <div className="border rounded-md overflow-hidden bg-background">
+        {/* Fixed Header Container */}
+        <div className="bg-background border-b sticky top-0 z-30">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-card text-card-foreground hover:bg-card">
+                <th className="w-[150px] font-semibold text-sm py-3 px-4 text-left border-r last:border-r-0 align-top">
+                  Name
+                </th>
+                <th className="w-[150px] font-semibold text-sm py-3 px-4 text-left border-r last:border-r-0 align-top">
+                  Department
+                </th>
+                <th className="w-[200px] font-semibold text-sm py-3 px-4 text-left border-r last:border-r-0 align-top">
+                  Email
+                </th>
+                <th className="w-[120px] font-semibold text-sm py-3 px-4 text-left border-r last:border-r-0 align-top">
+                  Role
+                </th>
+                <th className="w-[120px] font-semibold text-sm py-3 px-4 text-left border-r last:border-r-0 align-top">
+                  Account Type
+                </th>
+                <th className="w-[100px] font-semibold text-sm py-3 px-4 text-left align-top">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+          </table>
+        </div>
+        
+        {/* Scrollable Body Container */}
+        <div className="max-h-[40vh] overflow-y-auto custom-scrollbar">
+          <table className="w-full text-sm min-w-[800px]">
+            <tbody>
+              {filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="h-24 text-center text-muted-foreground py-8">
+                    <div className="flex flex-col items-center justify-center space-y-1">
+                      <Search className="h-8 w-8 text-muted-foreground" />
+                      <p className="text-sm">No users found</p>
+                      {searchQuery && (
+                        <p className="text-xs text-muted-foreground">
+                          Try adjusting your search terms
+                        </p>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredUsers.map((user, index) => (
+                  <tr 
+                    key={user.id} 
+                    className={`border-b ${
+                      index % 2 === 0 ? 'bg-background' : 'bg-muted/30'
+                    } hover:bg-muted/50 transition-colors`}
+                  >
+                    <td className="w-[150px] py-3 px-4 text-sm font-medium text-foreground align-top">
+                      <div className="truncate max-w-[150px]">
+                        {user.email.split('@')[0]}
+                      </div>
+                    </td>
+                    <td className="w-[150px] py-3 px-4 text-sm text-muted-foreground align-top">
+                      <div className="truncate max-w-[150px]">
+                        {user.department || '—'}
+                      </div>
+                    </td>
+                    <td className="w-[200px] py-3 px-4 text-sm text-foreground align-top">
+                      <div className="truncate max-w-[200px]">
+                        {user.email}
+                      </div>
+                    </td>
+                    <td className="w-[120px] py-3 px-4 text-sm align-top">
+                      <div className="truncate max-w-[120px]">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          user.role === 'Super Admin' 
+                            ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400' 
+                            : user.role === 'Admin' 
+                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400' 
+                            : user.role === 'Operator' 
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' 
+                            : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+                        }`}>
+                          {user.role}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="w-[120px] py-3 px-4 text-sm text-muted-foreground align-top">
+                      <div className="truncate max-w-[120px]">
+                        {user.account_type || 'Standard'}
+                      </div>
+                    </td>
+                    <td className="w-[100px] py-3 px-4 align-top">
+                      <div className="flex items-center space-x-1">
+                        {(userRole === 'Super Admin' || (userRole === 'Admin' && user.role !== 'Super Admin' && user.role !== 'Admin')) ? (
+                          <>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleEditUser(user)}
+                              className="h-7 w-7 p-0 text-foreground hover:bg-muted hover:text-primary transition-colors"
+                              title="Edit user"
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleDeleteUser(user.id)}
+                              className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive transition-colors"
+                              title="Delete user"
+                            >
+                              <Trash className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        ) : (
+                          <span className="text-xs text-muted-foreground px-2 py-1 bg-muted/50 rounded">Read-only</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
       <Dialog open={openCreateUser} onOpenChange={setOpenCreateUser}>
         <DialogContent className="max-w-[400px] max-h-[70vh] text-sm">
           <DialogHeader>
