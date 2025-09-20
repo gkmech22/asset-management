@@ -759,7 +759,7 @@ export const Dashboard = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
               <div className="flex items-center gap-4">
-                <Package className="h-8 w-8 text-primary" />
+                <img src="/logo.png" alt="LEAD Group Logo" className="h-12 w-auto text-primary" />
                 <div>
                   <h1 className="text-2xl font-semibold bg-gradient-primary bg-clip-text text-transparent">
                     Asset Management System
