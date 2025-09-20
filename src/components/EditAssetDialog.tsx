@@ -170,13 +170,13 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="name">Asset Name *</Label>
+            <Label htmlFor="name">Model *</Label>
             <Select
               value={formData.name}
               onValueChange={(value) => setFormData({ ...formData, name: value })}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select asset name" />
+                <SelectValue placeholder="Select Model" />
               </SelectTrigger>
               <SelectContent>
                 {uniqueNames.map((name) => (

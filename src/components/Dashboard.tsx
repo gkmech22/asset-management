@@ -460,7 +460,7 @@ export const Dashboard = () => {
   };
 
   const handleDeleteAsset = async (assetId: string) => {
-    if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
+    if (userRole !== 'Super Admin' && userRole !== 'Admin') {
       toast.error("Unauthorized: Insufficient permissions.");
       return;
     }

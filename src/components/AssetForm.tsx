@@ -8,26 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
 interface AssetFormProps {
-  onSubmit: (asset: any) => Promise<void>; // Assume onSubmit returns a Promise
+  onSubmit: (asset: any) => Promise<void>;
   onCancel: () => void;
   initialData?: any;
   assets?: any[];
 }
-
-const locations = [
-  "Mumbai Office",
-  "Hyderabad WH",
-  "Ghaziabad WH",
-  "Bhiwandi WH",
-  "Patiala WH",
-  "Bangalore Office",
-  "Kolkata WH",
-  "Trichy WH",
-  "Gurugram Office",
-  "Indore WH",
-  "Bangalore WH",
-  "Jaipur WH",
-];
 
 export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: AssetFormProps) => {
   const [formData, setFormData] = React.useState({
@@ -50,7 +35,8 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
   const [customProvider, setCustomProvider] = React.useState("");
   const [customName, setCustomName] = React.useState("");
   const [customConfiguration, setCustomConfiguration] = React.useState("");
-  const [isSubmitting, setIsSubmitting] = React.useState(false); // Track submission state
+  const [customLocation, setCustomLocation] = React.useState("");
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   // Extract unique values for select options
   const uniqueTypes = Array.from(new Set(assets.map((a) => a.type).filter(Boolean)));
@@ -58,6 +44,7 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
   const uniqueProviders = Array.from(new Set(assets.map((a) => a.provider).filter(Boolean)));
   const uniqueNames = Array.from(new Set(assets.map((a) => a.name).filter(Boolean)));
   const uniqueConfigurations = Array.from(new Set(assets.map((a) => a.configuration).filter(Boolean)));
+  const uniqueLocations = Array.from(new Set(assets.map((a) => a.location).filter(Boolean)));
 
   const validateUniqueness = () => {
     const existingAssetWithId = assets.find(
@@ -95,7 +82,14 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
   };
 
   const validateForm = () => {
-    if (!formData.assetId || !formData.name || !formData.type || !formData.brand || !formData.serialNumber || !formData.location) {
+    if (
+      !formData.assetId ||
+      !formData.name ||
+      !formData.type ||
+      !formData.brand ||
+      !formData.serialNumber ||
+      !formData.location
+    ) {
       return "Please fill in all required fields: Asset ID, Name, Type, Brand, Serial Number, and Location.";
     }
     if (formData.employeeId && !formData.employeeName) {
@@ -119,13 +113,16 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
     if (formData.configuration === "custom" && !customConfiguration) {
       return "Please provide a custom configuration.";
     }
+    if (formData.location === "custom" && !customLocation) {
+      return "Please provide a custom location.";
+    }
     return validateUniqueness();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setIsSubmitting(true); // Disable submit button during submission
+    setIsSubmitting(true);
 
     const validationError = validateForm();
     if (validationError) {
@@ -145,15 +142,15 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
       provider: formData.provider === "custom" ? customProvider : formData.provider || null,
       warrantyStart: formData.warrantyStart || null,
       warrantyEnd: formData.warrantyEnd || null,
-      location: formData.location,
+      location: formData.location === "custom" ? customLocation : formData.location,
       employeeId: formData.employeeId || null,
       employeeName: formData.employeeName || null,
     };
 
     try {
-      await onSubmit(submitData); // Wait for backend response
+      await onSubmit(submitData);
       toast.success("Asset added successfully!");
-      onCancel(); // Close the dialog on success
+      onCancel();
     } catch (error: any) {
       const errorMessage =
         error.message?.includes("duplicate key value violates unique constraint")
@@ -162,7 +159,7 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
-      setIsSubmitting(false); // Re-enable submit button
+      setIsSubmitting(false);
     }
   };
 
@@ -192,13 +189,13 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="name">Asset Name *</Label>
+            <Label htmlFor="name">Model *</Label>
             <Select
               value={formData.name}
               onValueChange={(value) => setFormData({ ...formData, name: value })}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select asset name" />
+                <SelectValue placeholder="Select Model" />
               </SelectTrigger>
               <SelectContent>
                 {uniqueNames.map((name) => (
@@ -347,11 +344,21 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
                 <SelectValue placeholder="Select location" />
               </SelectTrigger>
               <SelectContent>
-                {locations.map((location) => (
+                {uniqueLocations.map((location) => (
                   <SelectItem key={location} value={location}>{location}</SelectItem>
                 ))}
+                <SelectItem value="custom">Custom</SelectItem>
               </SelectContent>
             </Select>
+            {formData.location === "custom" && (
+              <Input
+                value={customLocation}
+                onChange={(e) => setCustomLocation(e.target.value)}
+                placeholder="Enter custom location"
+                className="mt-2"
+                required
+              />
+            )}
           </div>
 
           <div className="space-y-2">
@@ -461,6 +468,7 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
                 (formData.brand === "custom" && !customBrand) ||
                 !formData.serialNumber ||
                 !formData.location ||
+                (formData.location === "custom" && !customLocation) ||
                 (formData.employeeId && !formData.employeeName) ||
                 (formData.employeeName && !formData.employeeId)
               }
