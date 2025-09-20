@@ -9,18 +9,21 @@ interface EnhancedBarcodeScannerProps {
   isOpen: boolean;
   onClose: () => void;
   onScan: (result: string) => void;
+  totalIFPQty?: string;
+  existingSerials?: string[];
 }
 
 export const EnhancedBarcodeScanner = ({
   isOpen,
   onClose,
   onScan,
+  totalIFPQty = '0',
+  existingSerials = [],
 }: EnhancedBarcodeScannerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [zoom, setZoom] = useState(1);
-  const codeReader = useRef<BrowserMultiFormatReader>();
+  const codeReader = useRef<BrowserMultiFormatReader | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const { toast } = useToast();
 
@@ -40,25 +43,30 @@ export const EnhancedBarcodeScanner = ({
     try {
       setIsScanning(true);
 
+      // Initialize code reader if not already created
       if (!codeReader.current) {
         codeReader.current = new BrowserMultiFormatReader();
-        codeReader.current.timeBetweenDecodingAttempts = 50;
+        codeReader.current.timeBetweenDecodingAttempts = 100; // Adjust for performance
       }
 
       const videoElement = videoRef.current;
-      if (!videoElement) return;
+      if (!videoElement) {
+        throw new Error('Video element not found');
+      }
 
+      // Request camera access with optimal constraints
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: 'environment',
-          width: { ideal: 2560, min: 1280 },
-          height: { ideal: 1440, min: 720 },
-          frameRate: { ideal: 30, min: 10 },
+          width: { ideal: 1280, min: 640 },
+          height: { ideal: 720, min: 480 },
+          frameRate: { ideal: 30, min: 15 },
         },
       }).catch(async (err) => {
-        console.error('Initial camera access failed:', err);
+        console.error('Primary camera access failed:', err);
+        // Fallback to lower resolution
         return await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: 1280, height: 720 },
+          video: { facingMode: 'environment', width: 640, height: 480 },
         });
       });
 
@@ -68,53 +76,93 @@ export const EnhancedBarcodeScanner = ({
       videoElement.setAttribute('playsinline', 'true');
       videoElement.setAttribute('webkit-playsinline', 'true');
 
+      // Wait for video to be ready
       await videoElement.play();
 
-      // Ensure video is playing before starting decode
+      // Ensure video is ready before decoding
       const checkVideo = () => {
         if (videoElement.readyState >= 3) { // HAVE_FUTURE_DATA or higher
           if (codeReader.current) {
             codeReader.current.decodeFromVideoDevice(undefined, videoElement, (result, err) => {
               if (result) {
                 const scannedText = result.getText().trim();
-                onScan(scannedText);
-                stopScanning();
-                onClose();
-                toast({
-                  title: 'Serial Number Scanned',
-                  description: `Serial number ${scannedText} scanned successfully`,
-                });
+                validateAndHandleScan(scannedText);
               }
-              if (err && !(err.name === 'NotFoundException')) {
+              // Log errors except NotFoundException
+              if (err && err.name !== 'NotFoundException') {
                 console.error('Decoding error:', err);
               }
             });
           }
         } else {
-          setTimeout(checkVideo, 100); // Retry if not ready
+          setTimeout(checkVideo, 100);
         }
       };
       checkVideo();
     } catch (err) {
       console.error('Scanner initialization error:', err);
-      setTimeout(startScanning, 1000);
+      toast({
+        title: 'Camera Error',
+        description: 'Failed to access camera. Please ensure permissions are granted and try again.',
+        variant: 'destructive',
+      });
+      setIsScanning(false);
     }
   };
 
   const stopScanning = () => {
     if (codeReader.current) {
       codeReader.current.reset();
+      codeReader.current = null; // Clean up reader
     }
 
-    const videoElement = videoRef.current;
-    if (videoElement && videoElement.srcObject) {
-      const stream = videoElement.srcObject as MediaStream;
-      stream.getTracks().forEach((track) => track.stop());
-      videoElement.srcObject = null;
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
     }
 
     setIsScanning(false);
-    streamRef.current = null;
+  };
+
+  const validateAndHandleScan = (scannedText: string) => {
+    if (!scannedText) {
+      toast({
+        title: 'Invalid Scan',
+        description: 'No valid barcode detected.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const isDuplicate = existingSerials.some((item) => item === scannedText);
+    const ifpQty = parseInt(totalIFPQty, 10) || 0;
+    const isWithinLimit = ifpQty === 0 || existingSerials.length < ifpQty;
+
+    if (isDuplicate) {
+      toast({
+        title: 'Duplicate Serial Number',
+        description: `Serial number ${scannedText} has already been added.`,
+        variant: 'destructive',
+      });
+    } else if (!isWithinLimit) {
+      toast({
+        title: 'Quantity Limit Reached',
+        description: `Cannot add more than ${ifpQty} serial numbers.`,
+        variant: 'destructive',
+      });
+    } else {
+      onScan(scannedText);
+      toast({
+        title: 'Serial Number Scanned',
+        description: `Serial number ${scannedText} scanned successfully`,
+      });
+      stopScanning();
+      onClose();
+    }
   };
 
   const handleZoomIn = () => {
@@ -142,15 +190,15 @@ export const EnhancedBarcodeScanner = ({
           </div>
 
           <div className="space-y-4">
-            <div ref={containerRef} className="relative bg-black rounded-lg overflow-hidden">
+            <div className="relative bg-black rounded-lg overflow-hidden">
               <video
                 ref={videoRef}
-                className="w-full h-64 object-contain"
+                className="w-full h-48 object-cover"
                 autoPlay
                 playsInline
                 muted
                 style={{
-                  imageRendering: 'pixelated',
+                  imageRendering: 'crisp-edges',
                   filter: 'contrast(1.2) brightness(1.2)',
                   transform: `scale(${zoom})`,
                   transformOrigin: 'center center',
