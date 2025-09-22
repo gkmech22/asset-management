@@ -319,7 +319,7 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
         typeFilter={typeFilter}
         brandFilter={brandFilter}
         configFilter={configFilter}
-        defaultRowsPerPage={100}
+        defaultRowsPerPage={10}
         viewType="dashboard"
       />
     </>

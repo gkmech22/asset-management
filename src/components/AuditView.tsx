@@ -219,7 +219,7 @@ const AuditView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus
         typeFilter={typeFilter}
         brandFilter={brandFilter}
         configFilter={configFilter}
-        defaultRowsPerPage={100}
+        defaultRowsPerPage={10}
         viewType="audit"
       />
     </>
