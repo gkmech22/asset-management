@@ -58,6 +58,7 @@ export const AssetList = ({
   const [selectedAsset, setSelectedAsset] = React.useState<Asset | null>(null);
   const [userName, setUserName] = React.useState("");
   const [employeeId, setEmployeeId] = React.useState("");
+  const [employeeEmail, setEmployeeEmail] = React.useState("");
   const [showAssignDialog, setShowAssignDialog] = React.useState(false);
   const [showStatusDialog, setShowStatusDialog] = React.useState(false);
   const [showLocationDialog, setShowLocationDialog] = React.useState(false);
@@ -65,6 +66,7 @@ export const AssetList = ({
   const [showDetailsDialog, setShowDetailsDialog] = React.useState(false);
   const [showHistoryDialog, setShowHistoryDialog] = React.useState(false);
   const [showReturnDialog, setShowReturnDialog] = React.useState(false);
+  const [showRevokeDialog, setShowRevokeDialog] = React.useState(false);
   const [showStickerDialog, setShowStickerDialog] = React.useState(false);
   const [returnRemarks, setReturnRemarks] = React.useState("");
   const [returnLocation, setReturnLocation] = React.useState("");
@@ -129,6 +131,41 @@ export const AssetList = ({
     setCheckedAssets(initialChecked);
   }, [assets]);
 
+  // Fetch employee details from Supabase
+  const fetchEmployee = async (id: string) => {
+    if (!id || id.length < 3) {
+      setUserName('');
+      setEmployeeEmail('');
+      return;
+    }
+
+    try {
+      setIsFetchingEmployee(true);
+      const { data, error } = await supabase
+        .from('employees')
+        .select('employee_name, email')
+        .eq('employee_id', id)
+        .single();
+
+      if (data && !error) {
+        setUserName(data.employee_name || '');
+        setEmployeeEmail(data.email || '');
+        toast.success('Employee details loaded successfully');
+      } else {
+        setUserName('');
+        setEmployeeEmail('');
+        toast.error('Employee not found');
+      }
+    } catch (error) {
+      console.error('Error fetching employee:', error);
+      setUserName('');
+      setEmployeeEmail('');
+      toast.error('Failed to fetch employee details');
+    } finally {
+      setIsFetchingEmployee(false);
+    }
+  };
+
   const filteredAssets = React.useMemo(() => {
     return assets.filter((asset) => {
       if (!asset) return false;
@@ -192,133 +229,145 @@ export const AssetList = ({
     currentPage * rowsPerPage
   );
 
-  // Fetch employee details only on Enter or button click
-  const fetchEmployee = async (id: string) => {
-    if (!id || id.length < 3) {
-      setUserName('');
-      return;
-    }
-
+const handleAssignAsset = async () => {
+  if (selectedAsset && userName.trim() && employeeId.trim() && employeeEmail.trim()) {
     try {
-      setIsFetchingEmployee(true);
-      const { data, error } = await supabase
-        .from('employees')
-        .select('employee_name, email')
-        .eq('employee_id', id)
-        .single();
-      
-      if (data && !error) {
-        setUserName(data.employee_name);
-        toast.success('Employee details loaded successfully');
-      } else {
-        setUserName('');
-        toast.error('Employee not found');
+      // Remove the check for existing asset with employee ID since multiple assets can be assigned to same employee
+      // const existingAssetWithEmployeeId = assets.find(
+      //   (asset) => asset.employee_id === employeeId && asset.id !== selectedAsset.id
+      // );
+
+      const selectedAssetSerial = assets.find((asset) => asset.id === selectedAsset.id)?.serial_number;
+      const existingAssetWithSerial = assets.find(
+        (asset) => asset.serial_number === selectedAssetSerial && asset.id !== selectedAsset.id
+      );
+
+      // if (existingAssetWithEmployeeId) {
+      //   setError(`Employee ID ${employeeId} is already assigned to another asset (Serial: ${existingAssetWithEmployeeId.serial_number}).`);
+      //   return;
+      // }
+
+      if (existingAssetWithSerial) {
+        setError(`Serial Number ${selectedAssetSerial} is already associated with another asset.`);
+        return;
       }
+
+      // Additional check to ensure asset is available for assignment
+      if (selectedAsset.status !== "Available") {
+        setError("This asset is not available for assignment. Please update the status to 'Available' first.");
+        return;
+      }
+
+      await onAssign(selectedAsset.id, userName.trim(), employeeId.trim());
+      await onUpdateAsset(selectedAsset.id, { status: "Assigned", received_by: "", return_date: "" });
+      setShowAssignDialog(false);
+      setUserName("");
+      setEmployeeId("");
+      setEmployeeEmail("");
+      setSelectedAsset(null);
+      setError(null);
+      toast.success("Asset assigned successfully");
     } catch (error) {
-      console.error('Error fetching employee:', error);
-      setUserName('');
-      toast.error('Failed to fetch employee details');
-    } finally {
-      setIsFetchingEmployee(false);
+      console.error("AssetList: Assign failed:", error);
+      setError("Failed to assign asset. Please try again.");
     }
-  };
-
-  const handleAssignAsset = async () => {
-    if (selectedAsset && userName.trim() && employeeId.trim()) {
+  } else {
+    setError("Please enter Employee ID, Name, and Email");
+  }
+};
+  const handleUpdateStatus = async () => {
+    if (selectedAsset && newStatus) {
       try {
-        
-
-        await onAssign(selectedAsset.id, userName.trim(), employeeId.trim());
-        setShowAssignDialog(false);
-        setUserName("");
-        setEmployeeId("");
+        if (selectedAsset.status === "Assigned" && newStatus !== "Assigned") {
+          setShowStatusDialog(false);
+          setShowReturnDialog(true);
+          return;
+        }
+        await onUpdateStatus(selectedAsset.id, newStatus);
+        if (newStatus === "Assigned") {
+          await onUpdateAsset(selectedAsset.id, { received_by: "", return_date: "" });
+        }
+        setShowStatusDialog(false);
+        setNewStatus("");
         setSelectedAsset(null);
         setError(null);
+        toast.success("Status updated successfully");
       } catch (error) {
-        console.error("AssetList: Assign failed:", error);
-        setError("Failed to assign asset. Please try again.");
+        console.error("AssetList: Update status failed:", error);
+        setError("Failed to update status. Please try again.");
       }
-    } else {
-      setError("Please enter both Employee ID and Name");
     }
   };
 
-const handleUpdateStatus = async () => {
-  if (!selectedAsset || !newStatus) {
-    setError("Please select an asset and a status.");
-    return;
-  }
-
-  try {
-    // Handle transition from "Assigned" to another status
-    if (selectedAsset.status === "Assigned" && newStatus !== "Assigned") {
-      setShowStatusDialog(false);
-      setShowReturnDialog(true);
-      return; // Defer the status update to the return process
+  const handleReturnAsset = async () => {
+    if (selectedAsset) {
+      try {
+        if (newStatus !== "Assigned" && !returnLocation) {
+          setError("Location is required for this status.");
+          return;
+        }
+        
+        const finalReceivedBy = receivedByInput.trim() || receivedBy;
+        
+        await onUnassign(selectedAsset.id, returnRemarks, finalReceivedBy, newStatus !== "Assigned" ? returnLocation : undefined);
+        
+        if (newStatus && newStatus !== "Assigned") {
+          await onUpdateStatus(selectedAsset.id, newStatus);
+          await onUpdateAsset(selectedAsset.id, { 
+            received_by: finalReceivedBy,
+            return_date: new Date().toISOString()
+          });
+        } else {
+          await onUpdateStatus(selectedAsset.id, "Available");
+          await onUpdateAsset(selectedAsset.id, { 
+            received_by: finalReceivedBy,
+            return_date: new Date().toISOString()
+          });
+        }
+        
+        setShowReturnDialog(false);
+        setReturnRemarks("");
+        setReturnLocation("");
+        setNewStatus("");
+        setReceivedByInput("");
+        setSelectedAsset(null);
+        setError(null);
+        toast.success("Asset returned successfully");
+      } catch (error) {
+        console.error("AssetList: Return failed:", error);
+        setError("Failed to return asset. Please try again.");
+      }
     }
+  };
 
-    // Perform the status update
-    await onUpdateStatus(selectedAsset.id, newStatus);
+  const handleRevokeAsset = async () => {
+    if (selectedAsset) {
+      try {
+        const lastAssignment = history
+          .filter(entry => entry.field_changed === "assigned_to" || entry.field_changed === "employee_id")
+          .sort((a, b) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime())[0];
 
-    // Update related fields based on the new status
-    if (newStatus === "Assigned") {
-      await onUpdateAsset(selectedAsset.id, { received_by: "", return_date: "" });
-    } else if (newStatus !== selectedAsset.status) {
-      await onUpdateAsset(selectedAsset.id, {
-        received_by: receivedBy, // Use current user as received_by for non-assigned statuses
-        return_date: new Date().toISOString(),
-      });
+        const userName = lastAssignment?.field_changed === "assigned_to" ? lastAssignment.new_value : selectedAsset.assigned_to || "";
+        const employeeId = lastAssignment?.field_changed === "employee_id" ? lastAssignment.new_value : selectedAsset.employee_id || "";
+
+        if (!userName || !employeeId) {
+          setError("Cannot revoke: No previous assignment details found.");
+          return;
+        }
+
+        await onAssign(selectedAsset.id, userName, employeeId);
+        await onUpdateAsset(selectedAsset.id, { status: "Assigned", received_by: "", return_date: "" });
+        setShowRevokeDialog(false);
+        setSelectedAsset(null);
+        setError(null);
+        toast.success("Asset return revoked successfully");
+      } catch (error) {
+        console.error("AssetList: Revoke failed:", error);
+        setError("Failed to revoke asset assignment. Please try again.");
+      }
     }
+  };
 
-    // Success feedback
-    toast.success(`Status updated to ${newStatus}`);
-    setShowStatusDialog(false);
-    setNewStatus("");
-    setSelectedAsset(null);
-    setError(null);
-  } catch (error) {
-    console.error("AssetList: Update status failed:", error);
-    setError(`Failed to update status to ${newStatus}. Please try again.`);
-  }
-};
-
-const handleReturnAsset = async () => {
-  if (!selectedAsset) {
-    setError("No asset selected for return.");
-    return;
-  }
-
-  try {
-    if (newStatus !== "Assigned" && !returnLocation) {
-      setError("Location is required for this status.");
-      return;
-    }
-
-    const finalReceivedBy = receivedByInput.trim() || receivedBy;
-
-    // Perform unassign and status update
-    await onUnassign(selectedAsset.id, returnRemarks, finalReceivedBy, newStatus !== "Assigned" ? returnLocation : undefined);
-    await onUpdateStatus(selectedAsset.id, newStatus); // Explicitly update status here
-
-    // Update asset fields
-    await onUpdateAsset(selectedAsset.id, {
-      received_by: finalReceivedBy,
-      return_date: new Date().toISOString(),
-    });
-
-    toast.success(`Asset returned with status ${newStatus}`);
-    setShowReturnDialog(false);
-    setReturnRemarks("");
-    setReturnLocation("");
-    setNewStatus("");
-    setReceivedByInput("");
-    setSelectedAsset(null);
-    setError(null);
-  } catch (error) {
-    console.error("AssetList: Return failed:", error);
-    setError("Failed to return asset. Please try again.");
-  }
-};
   const handleUpdateLocation = async () => {
     if (selectedAsset && newLocation) {
       try {
@@ -327,6 +376,7 @@ const handleReturnAsset = async () => {
         setNewLocation("");
         setSelectedAsset(null);
         setError(null);
+        toast.success("Location updated successfully");
       } catch (error) {
         console.error("AssetList: Location update failed:", error);
         setError("Failed to update location. Please try again.");
@@ -345,6 +395,7 @@ const handleReturnAsset = async () => {
           setCheckedAssets(prev => new Set([...prev, assetCheckId]));
           setAssetCheckId("");
           setError(null);
+          toast.success("Asset check updated successfully");
         } catch (error) {
           console.error("AssetList: Asset check update failed:", error);
           setError("Failed to update asset check status. Please try again.");
@@ -364,6 +415,7 @@ const handleReturnAsset = async () => {
         return newSet;
       });
       setError(null);
+      toast.success("Asset unchecked successfully");
     } catch (error) {
       console.error("AssetList: Asset uncheck failed:", error);
       setError("Failed to uncheck asset. Please try again.");
@@ -381,6 +433,7 @@ const handleReturnAsset = async () => {
       setAssetCheckId("");
       setShowConfirmDialog(false);
       setError(null);
+      toast.success("All asset checks cleared successfully");
     } catch (error) {
       console.error("AssetList: Clear asset checks failed:", error);
       setError("Failed to clear asset checks. Please try again.");
@@ -792,6 +845,7 @@ const handleReturnAsset = async () => {
                                     setSelectedAsset(asset);
                                     setUserName("");
                                     setEmployeeId("");
+                                    setEmployeeEmail("");
                                     setShowAssignDialog(true);
                                   }}
                                   className="bg-blue-500 hover:bg-blue-600 text-white text-xs h-6"
@@ -868,12 +922,23 @@ const handleReturnAsset = async () => {
                                   >
                                     History
                                   </DropdownMenuItem>
+                                  {asset.received_by && asset.status !== "Assigned" && (
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setSelectedAsset(asset);
+                                        setShowRevokeDialog(true);
+                                      }}
+                                    >
+                                      Revoke
+                                    </DropdownMenuItem>
+                                  )}
                                   <DropdownMenuItem
                                     onClick={async () => {
                                       if (confirm("Are you sure you want to delete this asset?")) {
                                         try {
                                           await onDelete(asset.id);
                                           setError(null);
+                                          toast.success("Asset deleted successfully");
                                         } catch (error) {
                                           setError("Failed to delete asset. Please try again.");
                                         }
@@ -1103,32 +1168,33 @@ const handleReturnAsset = async () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="employeeId">Employee ID *</Label>
-              <div className="relative">
+              <div className="flex gap-2">
                 <Input
                   id="employeeId"
                   value={employeeId}
-                  onChange={(e) => setEmployeeId(e.target.value)}
-                  placeholder="Type Employee ID"
-                  className="pr-10 text-sm"
+                  onChange={(e) => {
+                    setEmployeeId(e.target.value);
+                    setUserName("");
+                    setEmployeeEmail("");
+                  }}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && employeeId.trim()) {
+                      fetchEmployee(employeeId.trim());
+                    }
+                  }}
+                  placeholder="Enter employee ID"
+                  className="text-sm flex-1"
                   disabled={isFetchingEmployee}
                 />
                 <Button
-                  type="button"
-                  variant="ghost"
                   size="sm"
-                  className="absolute right-1 top-1 h-8 w-8 p-0"
-                  onClick={() => fetchEmployee(employeeId)}
-                  disabled={!employeeId || isFetchingEmployee}
-                  title="Fetch Employee Details"
+                  onClick={() => fetchEmployee(employeeId.trim())}
+                  disabled={!employeeId.trim() || isFetchingEmployee}
+                  className="h-9"
                 >
-                  {isFetchingEmployee ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                  ) : (
-                    <Search className="h-4 w-4" />
-                  )}
+                  {isFetchingEmployee ? "Fetching..." : "Fetch"}
                 </Button>
               </div>
-              
             </div>
             <div className="space-y-2">
               <Label htmlFor="userName">Employee Name *</Label>
@@ -1136,11 +1202,22 @@ const handleReturnAsset = async () => {
                 id="userName"
                 value={userName}
                 onChange={(e) => setUserName(e.target.value)}
-                placeholder="Employee name will appear here or enter manually"
+                placeholder="Enter employee name"
                 className="text-sm"
                 disabled={isFetchingEmployee}
               />
-              
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="employeeEmail">Employee Email *</Label>
+              <Input
+                id="employeeEmail"
+                type="email"
+                value={employeeEmail}
+                onChange={(e) => setEmployeeEmail(e.target.value)}
+                placeholder="Enter employee email"
+                className="text-sm"
+                disabled={isFetchingEmployee}
+              />
             </div>
             <div className="flex gap-2">
               <Button
@@ -1149,24 +1226,20 @@ const handleReturnAsset = async () => {
                   setShowAssignDialog(false);
                   setUserName("");
                   setEmployeeId("");
+                  setEmployeeEmail("");
                   setSelectedAsset(null);
-                  setIsFetchingEmployee(false);
                 }}
                 className="flex-1"
-                disabled={isFetchingEmployee}
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleAssignAsset}
-                disabled={!userName.trim() || !employeeId.trim() || !selectedAsset || isFetchingEmployee}
+                disabled={!userName.trim() || !employeeId.trim() || !employeeEmail.trim() || !selectedAsset || isFetchingEmployee}
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
               >
-                {isFetchingEmployee ? 'Fetching...' : 'Assign'}
+                Assign
               </Button>
-            </div>
-            <div className="pt-2">
-              
             </div>
           </div>
         </DialogContent>
@@ -1213,7 +1286,7 @@ const handleReturnAsset = async () => {
                 disabled={!newStatus || !selectedAsset}
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
               >
-                Update
+                {selectedAsset?.status === "Assigned" && newStatus !== "Assigned" ? "Proceed to Return" : "Update"}
               </Button>
             </div>
           </div>
@@ -1350,6 +1423,41 @@ const handleReturnAsset = async () => {
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
               >
                 Return
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Revoke Dialog */}
+      <Dialog open={showRevokeDialog} onOpenChange={setShowRevokeDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Revoke Asset Return</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Asset: {selectedAsset?.name || "N/A"}</Label>
+              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id || "N/A"}</p>
+            </div>
+            <p className="text-sm">Are you sure you want to revoke the return of this asset? This will reassign it to the previous user and set the status to "Assigned".</p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowRevokeDialog(false);
+                  setSelectedAsset(null);
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleRevokeAsset}
+                disabled={!selectedAsset}
+                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
+              >
+                Revoke
               </Button>
             </div>
           </div>
