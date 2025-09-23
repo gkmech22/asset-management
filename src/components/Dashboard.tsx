@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Menu, Upload, Plus } from "lucide-react";
+import { Package, Users, Plus, Filter, Upload, Download, Search, Menu } from "lucide-react";
 import { UserProfile } from "@/components/auth/UserProfile";
 import { AssetForm } from "./AssetForm";
 import { BulkUpload } from "./BulkUpload";
@@ -15,15 +15,20 @@ import DashboardView from "./DashboardView";
 import AuditView from "./AuditView";
 import AmcsView from "./AmcsView";
 import SummaryView from "./SummaryView";
-import EmployeeDetails from "./EmployeeDetails";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 
 const locations = [
-  "Mumbai Office", "Hyderabad WH", "Ghaziabad WH", "Bhiwandi WH", "Patiala WH",
-  "Bangalore Office", "Kolkata WH", "Trichy WH", "Gurugram Office", "Indore WH",
-  "Bangalore WH", "Jaipur WH"
+  "Mumbai Office",
+  "Hyderabad WH",
+  "Ghaziabad WH",
+  "Bhiwandi WH",
+  "Patiala WH",
+  "Bangalore Office",
+  "Kolkata WH",
+  "Trichy WH",
+  "Gurugram Office",
+  "Indore WH",
+  "Bangalore WH",
+  "Jaipur WH",
 ];
 
 export const Dashboard = () => {
@@ -37,12 +42,7 @@ export const Dashboard = () => {
   const [currentUser, setCurrentUser] = useState<string>("unknown_user");
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState<'dashboard' | 'audit' | 'amcs' | 'summary' | 'employees'>('dashboard');
-  const [showEmailPreview, setShowEmailPreview] = useState(false);
-  const [emailData, setEmailData] = useState<{ type: 'assign' | 'return'; asset: any; employeeId: string; userName: string; employeeEmail: string } | null>(null);
-  const [emailSubject, setEmailSubject] = useState('');
-  const [emailBody, setEmailBody] = useState('');
-  const [emailCc, setEmailCc] = useState('');
+  const [currentPage, setCurrentPage] = useState<'dashboard' | 'audit' | 'amcs' | 'summary'>('dashboard');
 
   useEffect(() => {
     const fetchUserAndAuthorize = async () => {
@@ -77,65 +77,6 @@ export const Dashboard = () => {
     fetchUserAndAuthorize();
   }, []);
 
-  useEffect(() => {
-    if (emailData) {
-      const { type, asset, employeeId, userName } = emailData;
-      setEmailSubject(`${type === 'assign' ? 'Asset Assigned' : 'Asset Returned'} - Employee ID: ${employeeId}`);
-      setEmailBody(`Dear ${userName},
-
-The following asset has been ${type === 'assign' ? 'assigned to you' : 'returned from you'}:
-
-<table border="1" style="border-collapse: collapse; width: 100%;">
-<thead>
-<tr>
-<th style="padding: 8px; border: 1px solid #ddd;">Asset ID</th>
-<th style="padding: 8px; border: 1px solid #ddd;">Name</th>
-<th style="padding: 8px; border: 1px solid #ddd;">Type</th>
-<th style="padding: 8px; border: 1px solid #ddd;">Brand</th>
-<th style="padding: 8px; border: 1px solid #ddd;">Configuration</th>
-<th style="padding: 8px; border: 1px solid #ddd;">Serial Number</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="padding: 8px; border: 1px solid #ddd;">${asset.asset_id}</td>
-<td style="padding: 8px; border: 1px solid #ddd;">${asset.name}</td>
-<td style="padding: 8px; border: 1px solid #ddd;">${asset.type}</td>
-<td style="padding: 8px; border: 1px solid #ddd;">${asset.brand}</td>
-<td style="padding: 8px; border: 1px solid #ddd;">${asset.configuration || '-'}</td>
-<td style="padding: 8px; border: 1px solid #ddd;">${asset.serial_number}</td>
-</tr>
-</tbody>
-</table>
-
-${type === 'assign' ? 'Assigned' : 'Returned'} on: ${new Date().toLocaleString()}
-
-Regards,
-Asset Management Team`);
-      setEmailCc(currentUser);
-    }
-  }, [emailData, currentUser]);
-
-  const handleSendEmail = async () => {
-    if (!emailData) return;
-    try {
-      const { error } = await supabase.functions.invoke('send-email', {
-        body: {
-          to: emailData.employeeEmail,
-          cc: emailCc.split(',').map(e => e.trim()).filter(e => e),
-          subject: emailSubject,
-          html: emailBody,
-        },
-      });
-      if (error) throw error;
-      toast.success('Email sent successfully');
-      setShowEmailPreview(false);
-    } catch (err) {
-      toast.error('Failed to send email');
-      console.error('Email send error:', err);
-    }
-  };
-
   const logEditHistory = async (assetId: string, field: string, oldValue: string | null, newValue: string | null) => {
     try {
       await supabase.from("asset_edit_history").insert({
@@ -158,12 +99,24 @@ Asset Management Team`);
     const existingAssetWithSerial = assets.find(
       (a) => a.serial_number === serialNumber && (!excludeAssetId || a.id !== excludeAssetId)
     );
+    const assetWithDifferentSerial = assets.find(
+      (a) => a.asset_id === assetId && a.serial_number !== serialNumber && (!excludeAssetId || a.id !== excludeAssetId)
+    );
+    const assetWithDifferentId = assets.find(
+      (a) => a.serial_number === serialNumber && a.asset_id !== assetId && (!excludeAssetId || a.id !== excludeAssetId)
+    );
 
     if (existingAssetWithId) {
       return `Asset ID ${assetId} is already in use.`;
     }
     if (existingAssetWithSerial) {
       return `Serial Number ${serialNumber} is already in use.`;
+    }
+    if (assetWithDifferentSerial) {
+      return `Asset ID ${assetId} is associated with a different Serial Number (${assetWithDifferentSerial.serial_number}).`;
+    }
+    if (assetWithDifferentId) {
+      return `Serial Number ${serialNumber} is associated with a different Asset ID (${assetWithDifferentId.asset_id}).`;
     }
     return null;
   };
@@ -172,16 +125,27 @@ Asset Management Team`);
     if (!dateStr || dateStr.trim() === "") return null;
 
     const monthNames = {
-      jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2,
-      apr: 3, april: 3, may: 4, jun: 5, june: 5, jul: 6, july: 6,
-      aug: 7, august: 7, sep: 8, september: 8, oct: 9, october: 9,
-      nov: 10, november: 10, dec: 11, december: 11,
+      jan: 0, january: 0,
+      feb: 1, february: 1,
+      mar: 2, march: 2,
+      apr: 3, april: 3,
+      may: 4,
+      jun: 5, june: 5,
+      jul: 6, july: 6,
+      aug: 7, august: 7,
+      sep: 8, september: 8,
+      oct: 9, october: 9,
+      nov: 10, november: 10,
+      dec: 11, december: 11,
     };
 
     const formats = [
-      { pattern: /^(\d{4})-(\d{2})-(\d{2})$/, order: [1, 2, 3] },
-      { pattern: /^(\d{2})[-/](\d{2})[-/](\d{4})$/, order: [3, 1, 2] },
-      { pattern: /^(\d{2})[-/](\d{2})[-/](\d{2})$/, order: [3, 1, 2], adjustYear: true },
+      { pattern: /^(\d{4})-(\d{2})-(\d{2})$/, order: [1, 2, 3] }, // YYYY-MM-DD
+      { pattern: /^(\d{2})[-/](\d{2})[-/](\d{4})$/, order: [3, 1, 2] }, // DD-MM-YYYY or DD/MM/YYYY
+      { pattern: /^(\d{2})[-/](\d{2})[-/](\d{2})$/, order: [3, 1, 2], adjustYear: true }, // DD-MM-YY or DD/MM/YY
+      { pattern: /^(\d{2})-([A-Za-z]+)-(\d{4})$/, order: [3, 2, 1] }, // DD-MMM-YYYY
+      { pattern: /^([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4})$/, order: [3, 1, 2] }, // MMM DD, YYYY
+      { pattern: /^(\d{4})\.(\d{2})\.(\d{2})$/, order: [1, 2, 3] }, // YYYY.MM.DD
     ];
 
     for (const format of formats) {
@@ -194,16 +158,21 @@ Asset Management Team`);
 
         if (format.adjustYear && year < 100) year += year < 50 ? 2000 : 1900;
         if (isNaN(year) || isNaN(month) || isNaN(day) || month < 0 || month > 11 || day < 1 || day > 31) {
+          console.warn(`Invalid date components for "${dateStr}": year=${year}, month=${month}, day=${day}`);
           return null;
         }
 
         const date = new Date(year, month, day);
         if (isNaN(date.getTime())) {
+          console.warn(`Invalid date for "${dateStr}" after construction.`);
           return null;
         }
+        console.log(`Parsed "${dateStr}" to ${date.toISOString().split("T")[0]}`);
         return date.toISOString().split("T")[0];
       }
     }
+
+    console.warn(`No valid format found for "${dateStr}". Returning null.`);
     return null;
   };
 
@@ -227,7 +196,6 @@ Asset Management Team`);
           ? "In Warranty"
           : "Out of Warranty"
         : "Out of Warranty";
-      
       const asset = {
         asset_id: newAsset.assetId,
         name: newAsset.name,
@@ -254,7 +222,6 @@ Asset Management Team`);
         warranty_status: warrantyStatus,
         recovery_amount: newAsset.recoveryAmount || null,
       };
-      
       const { data, error } = await createAssetMutation.mutateAsync(asset);
       if (error) {
         throw new Error(error.message || "Failed to create asset.");
@@ -278,7 +245,19 @@ Asset Management Team`);
       if (!asset) {
         throw new Error("Asset not found.");
       }
-      
+      const existingAssetWithEmployeeId = assets.find(
+        (a) => a.employee_id === employeeId && a.id !== assetId
+      );
+      const existingAssetWithSerial = assets.find(
+        (a) => a.serial_number === asset.serial_number && a.employee_id !== employeeId && a.id !== assetId
+      );
+
+      if (existingAssetWithEmployeeId) {
+        throw new Error(`Employee ID ${employeeId} is already assigned to another asset (Serial: ${existingAssetWithEmployeeId.serial_number}).`);
+      }
+      if (existingAssetWithSerial) {
+        throw new Error(`Serial Number ${asset.serial_number} is already associated with another Employee ID (${existingAssetWithSerial.employee_id}).`);
+      }
 
       await updateAssetMutation.mutateAsync({
         id: assetId,
@@ -289,19 +268,10 @@ Asset Management Team`);
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
       });
-      
       await logEditHistory(assetId, "assigned_to", asset?.assigned_to || null, userName);
       await logEditHistory(assetId, "employee_id", asset?.employee_id || null, employeeId);
       await logEditHistory(assetId, "status", asset?.status || null, "Assigned");
-      
       toast.success("Asset assigned successfully");
-
-      // Fetch employee email for email notification
-      const { data: emp } = await supabase.from('employees').select('email').eq('employee_id', employeeId).single();
-      if (emp?.email) {
-        setEmailData({ type: 'assign', asset, employeeId, userName, employeeEmail: emp.email });
-        setShowEmailPreview(true);
-      }
     } catch (error: any) {
       toast.error(error.message || "Failed to assign asset.");
     }
@@ -318,39 +288,24 @@ Asset Management Team`);
       if (!asset) {
         throw new Error("Asset not found.");
       }
-      
       await unassignAssetMutation.mutateAsync({
         id: assetId,
         remarks,
         receivedBy: receivedBy || currentUser,
         location,
       });
-      
       await logEditHistory(assetId, "assigned_to", asset?.assigned_to || null, null);
       await logEditHistory(assetId, "employee_id", asset?.employee_id || null, null);
       await logEditHistory(assetId, "status", asset?.status || null, "Available");
       await logEditHistory(assetId, "return_date", asset?.return_date || null, new Date().toISOString());
       await logEditHistory(assetId, "received_by", asset?.received_by || null, receivedBy || currentUser);
-      
       if (location) {
         await logEditHistory(assetId, "location", asset?.location || null, location);
       }
       if (remarks) {
         await logEditHistory(assetId, "remarks", asset?.remarks || null, remarks);
       }
-      
       toast.success("Asset returned successfully");
-
-      // Fetch employee email for email notification
-      const previousEmployeeId = asset.employee_id;
-      const previousUserName = asset.assigned_to;
-      if (previousEmployeeId) {
-        const { data: emp } = await supabase.from('employees').select('email').eq('employee_id', previousEmployeeId).single();
-        if (emp?.email) {
-          setEmailData({ type: 'return', asset, employeeId: previousEmployeeId, userName: previousUserName!, employeeEmail: emp.email });
-          setShowEmailPreview(true);
-        }
-      }
     } catch (error: any) {
       toast.error(error.message || "Failed to return asset.");
     }
@@ -367,7 +322,6 @@ Asset Management Team`);
       if (!asset) {
         throw new Error("Asset not found.");
       }
-      
       const validationError = validateAssetUniqueness(updatedAsset.assetId, updatedAsset.serialNumber, assetId);
       if (validationError) {
         throw new Error(validationError);
@@ -378,7 +332,6 @@ Asset Management Team`);
           ? "In Warranty"
           : "Out of Warranty"
         : "Out of Warranty";
-        
       await updateAssetMutation.mutateAsync({
         id: assetId,
         asset_id: updatedAsset.assetId,
@@ -395,8 +348,6 @@ Asset Management Team`);
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
       });
-
-      // Log changes
       if (asset?.asset_id !== updatedAsset.assetId) {
         await logEditHistory(assetId, "asset_id", asset?.asset_id || null, updatedAsset.assetId);
       }
@@ -427,7 +378,9 @@ Asset Management Team`);
       if (asset?.warranty_status !== warrantyStatus) {
         await logEditHistory(assetId, "warranty_status", asset?.warranty_status || null, warrantyStatus);
       }
-      
+      if (asset?.recovery_amount !== updatedAsset.recoveryAmount) {
+        await logEditHistory(assetId, "recovery_amount", asset?.recovery_amount?.toString() || null, updatedAsset.recoveryAmount?.toString() || null);
+      }
       toast.success("Asset updated successfully");
     } catch (error: any) {
       toast.error(error.message || "Failed to update asset.");
@@ -529,13 +482,19 @@ Asset Management Team`);
 
     try {
       const { headers, dataRows } = data;
+
       const errors: string[] = [];
       const validAssets: any[] = [];
       const addedAssets: string[] = [];
       const unaddedAssets: string[] = [];
+      const duplicatedAssets: string[] = [];
+
+      console.log("Total rows to process:", dataRows.length);
+      console.log("Headers received:", headers);
 
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
+
         const assetIndex = headers.indexOf("Asset ID");
         const nameIndex = headers.indexOf("Asset Name");
         const typeIndex = headers.indexOf("Asset Type");
@@ -548,6 +507,13 @@ Asset Management Team`);
         const warrantyEndIndex = headers.indexOf("Warranty End");
         const employeeIdIndex = headers.indexOf("Employee ID");
         const employeeNameIndex = headers.indexOf("Employee Name");
+        const recoveryAmountIndex = headers.indexOf("Recovery Amount");
+
+        console.log(`Row ${i + 2} indices:`, {
+          assetIndex, nameIndex, typeIndex, brandIndex, serialIndex, locationIndex,
+          configIndex, providerIndex, warrantyStartIndex, warrantyEndIndex,
+          employeeIdIndex, employeeNameIndex, recoveryAmountIndex
+        });
 
         const asset = {
           assetId: row[assetIndex]?.toString().trim() || "",
@@ -562,10 +528,25 @@ Asset Management Team`);
           warrantyEnd: warrantyEndIndex !== -1 ? row[warrantyEndIndex]?.toString().trim() || null : null,
           employeeId: employeeIdIndex !== -1 ? row[employeeIdIndex]?.toString().trim() || null : null,
           employeeName: employeeNameIndex !== -1 ? row[employeeNameIndex]?.toString().trim() || null : null,
+          recoveryAmount: recoveryAmountIndex !== -1 ? parseFloat(row[recoveryAmountIndex]?.toString().trim()) || null : null,
         };
 
-        if (!asset.assetId || !asset.name || !asset.type || !asset.brand || !asset.serialNumber) {
-          errors.push(`Row ${i + 2}: Missing required fields`);
+        console.log(`Row ${i + 2} raw data:`, row);
+        console.log(`Row ${i + 2} parsed data:`, asset);
+
+        if (!asset.assetId || !asset.name || !asset.type || !asset.brand || !asset.serialNumber || !asset.location) {
+          errors.push(
+            `Row ${i + 2}: Missing required fields: ${[
+              !asset.assetId ? "Asset ID" : "",
+              !asset.name ? "Asset Name" : "",
+              !asset.type ? "Asset Type" : "",
+              !asset.brand ? "Brand" : "",
+              !asset.serialNumber ? "Serial Number" : "",
+              !asset.location ? "Location" : "",
+            ]
+              .filter(Boolean)
+              .join(", ")}.`
+          );
           unaddedAssets.push(asset.assetId || `Row ${i + 2}`);
           continue;
         }
@@ -573,16 +554,21 @@ Asset Management Team`);
         const validationError = validateAssetUniqueness(asset.assetId, asset.serialNumber);
         if (validationError) {
           errors.push(`Row ${i + 2}: ${validationError}`);
-          unaddedAssets.push(asset.assetId);
+          duplicatedAssets.push(asset.assetId);
           continue;
         }
 
         const isAssigned = asset.employeeId && asset.employeeName;
         const assignedDate = isAssigned ? new Date().toISOString() : null;
         const warrantyStatus = asset.warrantyEnd
-          ? new Date(asset.warrantyEnd) >= new Date()
-            ? "In Warranty"
-            : "Out of Warranty"
+          ? (() => {
+              const date = new Date(asset.warrantyEnd);
+              if (isNaN(date.getTime())) {
+                console.warn(`Invalid warranty end date for asset ${asset.assetId}: ${asset.warrantyEnd}`);
+                return "Out of Warranty";
+              }
+              return date >= new Date() ? "In Warranty" : "Out of Warranty";
+            })()
           : "Out of Warranty";
 
         validAssets.push({
@@ -609,7 +595,10 @@ Asset Management Team`);
           asset_check: "",
           provider: asset.provider,
           warranty_status: warrantyStatus,
+          recovery_amount: asset.recoveryAmount,
         });
+
+        console.log(`Processed asset for row ${i + 2}:`, validAssets[validAssets.length - 1]);
       }
 
       if (errors.length > 0 && validAssets.length === 0) {
@@ -618,9 +607,10 @@ Asset Management Team`);
 
       for (const asset of validAssets) {
         try {
+          console.log("Creating asset payload:", asset);
           const result = await createAssetMutation.mutateAsync(asset);
           if (result.error || !result) {
-            errors.push(`Failed to create asset ${asset.asset_id}`);
+            errors.push(`Failed to create asset ${asset.asset_id}: ${result.error?.message || "No data returned"}`);
             unaddedAssets.push(asset.asset_id);
             continue;
           }
@@ -629,15 +619,21 @@ Asset Management Team`);
         } catch (error: any) {
           errors.push(`Error creating asset ${asset.asset_id}: ${error.message}`);
           unaddedAssets.push(asset.asset_id);
+          continue;
         }
       }
 
       let summaryMessage = `Successfully uploaded ${addedAssets.length} assets.`;
       if (unaddedAssets.length > 0) {
-        summaryMessage += `\nUnadded assets: ${unaddedAssets.join(", ")}`;
+        summaryMessage += `\nUnadded assets: ${unaddedAssets.join(", ")}.`;
+      }
+      if (duplicatedAssets.length > 0) {
+        summaryMessage += `\nDuplicated assets: ${duplicatedAssets.join(", ")}.`;
       }
       if (errors.length > 0) {
-        summaryMessage += `\nErrors: ${errors.length}`;
+        summaryMessage += `\nErrors encountered:\n${errors.join("\n")}`;
+      } else if (addedAssets.length > 0) {
+        summaryMessage = `Assets added successfully.\n${summaryMessage}`;
       }
 
       toast.success(summaryMessage);
@@ -649,11 +645,30 @@ Asset Management Team`);
 
   const handleDownloadData = () => {
     const headers = [
-      "Asset ID", "Asset Name", "Asset Type", "Brand", "Configuration", "Serial Number",
-      "Employee ID", "Employee Name", "Status", "Asset Location", "Assigned Date",
-      "Return Date", "Received By", "Remarks", "Warranty Start", "Warranty End",
-      "Created By", "Created At", "Updated By", "Updated At", "Asset Check", "Provider",
-      "Warranty Status", "Recovery Amount"
+      "Asset ID",
+      "Asset Name",
+      "Asset Type",
+      "Brand",
+      "Configuration",
+      "Serial Number",
+      "Employee ID",
+      "Employee Name",
+      "Status",
+      "Asset Location",
+      "Assigned Date",
+      "Return Date",
+      "Received By",
+      "Remarks",
+      "Warranty Start",
+      "Warranty End",
+      "Created By",
+      "Created At",
+      "Updated By",
+      "Updated At",
+      "Asset Check",
+      "Provider",
+      "Warranty Status",
+      "Recovery Amount",
     ];
 
     const escapeCsvField = (value: string | null | undefined): string => {
@@ -726,7 +741,6 @@ Asset Management Team`);
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Header */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-card border-b shadow-card">
         <div className="container mx-auto px-2 py-1">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -742,7 +756,6 @@ Asset Management Team`);
                   <DropdownMenuItem onSelect={() => setCurrentPage('audit')}>Audit</DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => setCurrentPage('amcs')}>AMCs</DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => setCurrentPage('summary')}>Summary</DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => setCurrentPage('employees')}>Employees</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
               <div className="flex items-center gap-4">
@@ -751,6 +764,8 @@ Asset Management Team`);
                   <h1 className="text-2xl font-semibold bg-gradient-primary bg-clip-text text-transparent">
                     Asset Management System
                   </h1>
+                  <p className="text-sm text-muted-foreground mt-1">
+                  </p>
                 </div>
               </div>
             </div>
@@ -780,16 +795,13 @@ Asset Management Team`);
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 overflow-y-auto pt-[60px] pb-[40px] container mx-auto px-4">
         {currentPage === 'dashboard' && <DashboardView {...commonProps} />}
         {currentPage === 'audit' && <AuditView {...commonProps} />}
         {currentPage === 'amcs' && <AmcsView {...commonProps} />}
         {currentPage === 'summary' && <SummaryView {...commonProps} />}
-        {currentPage === 'employees' && <EmployeeDetails />}
       </div>
 
-      {/* Footer */}
       <footer className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t shadow-card py-2">
         <div className="container mx-auto px-4">
           <p className="text-[14px] text-muted-foreground">
@@ -798,7 +810,6 @@ Asset Management Team`);
         </div>
       </footer>
 
-      {/* Modals */}
       {showAddForm && (userRole === 'Super Admin' || userRole === 'Admin' || userRole === 'Operator') && (
         <AssetForm
           onSubmit={handleAddAsset}
@@ -806,54 +817,12 @@ Asset Management Team`);
           assets={assets}
         />
       )}
-      
       <BulkUpload
         open={showBulkUpload}
         onOpenChange={setShowBulkUpload}
         onUpload={handleBulkUpload}
         onDownload={handleDownloadData}
       />
-
-      {/* Email Preview Dialog */}
-      <Dialog open={showEmailPreview} onOpenChange={setShowEmailPreview}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Preview and Send Email</DialogTitle>
-          </DialogHeader>
-          {emailData && (
-            <div className="space-y-4">
-              <div>
-                <Label>To</Label>
-                <Input value={emailData.employeeEmail} disabled />
-              </div>
-              <div>
-                <Label>CC (comma separated)</Label>
-                <Input 
-                  value={emailCc} 
-                  onChange={(e) => setEmailCc(e.target.value)} 
-                  placeholder="email1@example.com, email2@example.com" 
-                />
-              </div>
-              <div>
-                <Label>Subject</Label>
-                <Input value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} />
-              </div>
-              <div>
-                <Label>Body</Label>
-                <Textarea 
-                  className="w-full h-64" 
-                  value={emailBody} 
-                  onChange={(e) => setEmailBody(e.target.value)} 
-                />
-              </div>
-              <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => setShowEmailPreview(false)}>Skip</Button>
-                <Button onClick={handleSendEmail}>Send</Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
-}
+};
