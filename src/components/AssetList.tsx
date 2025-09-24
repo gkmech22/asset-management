@@ -427,26 +427,43 @@ export const AssetList = ({
     }
   };
 
-  const handleAssetCheckClear = async () => {
-    try {
+const handleAssetCheckClear = async () => {
+  try {
+    // Check if any filters are active
+    const isFiltered = searchTerm || typeFilter !== "all" || brandFilter !== "all" || configFilter !== "all" || statusFilter !== "all" || filterCheckStatus;
+
+    if (isFiltered) {
+      // Clear only the filtered assets
+      for (const asset of filteredAssets) {
+        if (asset.asset_check === "Matched") {
+          await onUpdateAssetCheck(asset.id, "");
+          await onUpdateAsset(asset.id, {
+            updated_at: new Date().toISOString(),
+          });
+        }
+      }
+    } else {
+      // Clear all assets when no filters are applied
       for (const asset of assets) {
         if (asset.asset_check === "Matched") {
           await onUpdateAssetCheck(asset.id, "");
           await onUpdateAsset(asset.id, {
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
           });
         }
       }
-      setCheckedAssets(new Set());
-      setAssetCheckId("");
-      setShowConfirmDialog(false);
-      setError(null);
-      toast.success("All asset checks cleared successfully");
-    } catch (error) {
-      console.error("AssetList: Clear asset checks failed:", error);
-      setError("Failed to clear asset checks. Please try again.");
     }
-  };
+
+    setCheckedAssets(new Set());
+    setAssetCheckId("");
+    setShowConfirmDialog(false);
+    setError(null);
+    toast.success("Asset checks cleared successfully");
+  } catch (error) {
+    console.error("AssetList: Clear asset checks failed:", error);
+    setError("Failed to clear asset checks. Please try again.");
+  }
+};
 
   const confirmClear = () => {
     setShowConfirmDialog(true);
@@ -766,6 +783,7 @@ export const AssetList = ({
                         <th className="p-2 w-[15%] text-left">Asset Details</th>
                         <th className="p-2 w-[20%] text-left">Specifications</th>
                         <th className="p-2 w-[10%] text-left">Serial Number</th>
+                        <th className="p-2 w-[15%] text-left">Location</th>
                         <th className="p-2 w-[15%] text-left">Asset Check</th>
                       </>
                     )}
@@ -953,60 +971,63 @@ export const AssetList = ({
                         </>
                       )}
                       {viewType === 'audit' && (
-                        <>
-                          <td className="p-2 text-xs">
-                            <div className="text-left">{(currentPage - 1) * rowsPerPage + index + 1}</div>
-                          </td>
-                          <td className="p-2 text-xs">
-                            <div className="text-left">
-                              <button
-                                onClick={() => {
-                                  setSelectedAsset(asset);
-                                  setShowAssignedToOnly(false);
-                                  setShowDetailsDialog(true);
-                                }}
-                                className="bg-primary/10 text-primary px-1 py-0.5 rounded text-xs font-medium hover:bg-primary/20"
-                              >
-                                {asset.asset_id}
-                              </button>
-                            </div>
-                          </td>
-                          <td className="p-2 text-xs">
-                            <div className="text-left">
-                              <div className="font-medium text-sm">{asset.name || '-'}</div>
-                              <div className="text-muted-foreground">{asset.type || '-'}</div>
-                            </div>
-                          </td>
-                          <td className="p-2 text-xs">
-                            <div className="text-left">
-                              <div className="font-medium">{asset.brand || '-'}</div>
-                              <div className="text-muted-foreground">{asset.configuration || "-"}</div>
-                            </div>
-                          </td>
-                          <td className="p-2 text-xs">
-                            <div className="text-left">{asset.serial_number || '-'}</div>
-                          </td>
-                          <td className="p-2 text-xs">
-                            <div className="text-left">
-                              {asset.asset_check === "Matched" ? (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-green-500">✓ Matched</span>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleAssetUncheck(asset.id, asset.asset_id || '')}
-                                    className="h-6 text-xs"
-                                  >
-                                    Uncheck
-                                  </Button>
-                                </div>
-                              ) : (
-                                <span className="text-red-500">✗ Unmatched</span>
-                              )}
-                            </div>
-                          </td>
-                        </>
-                      )}
+  <>
+    <td className="p-2 text-xs">
+      <div className="text-left">{(currentPage - 1) * rowsPerPage + index + 1}</div>
+    </td>
+    <td className="p-2 text-xs">
+      <div className="text-left">
+        <button
+          onClick={() => {
+            setSelectedAsset(asset);
+            setShowAssignedToOnly(false);
+            setShowDetailsDialog(true);
+          }}
+          className="bg-primary/10 text-primary px-1 py-0.5 rounded text-xs font-medium hover:bg-primary/20"
+        >
+          {asset.asset_id}
+        </button>
+      </div>
+    </td>
+    <td className="p-2 text-xs">
+      <div className="text-left">
+        <div className="font-medium text-sm">{asset.name || '-'}</div>
+        <div className="text-muted-foreground">{asset.type || '-'}</div>
+      </div>
+    </td>
+    <td className="p-2 text-xs">
+      <div className="text-left">
+        <div className="font-medium">{asset.brand || '-'}</div>
+        <div className="text-muted-foreground">{asset.configuration || "-"}</div>
+      </div>
+    </td>
+    <td className="p-2 text-xs">
+      <div className="text-left">{asset.serial_number || '-'}</div>
+    </td>
+    <td className="p-2 text-xs">
+      <div className="text-left">{asset.location || '-'}</div>
+    </td>
+    <td className="p-2 text-xs">
+      <div className="text-left">
+        {asset.asset_check === "Matched" ? (
+          <div className="flex items-center gap-2">
+            <span className="text-green-500">✓ Matched</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleAssetUncheck(asset.id, asset.asset_id || '')}
+              className="h-6 text-xs"
+            >
+              Uncheck
+            </Button>
+          </div>
+        ) : (
+          <span className="text-red-500">✗ Unmatched</span>
+        )}
+      </div>
+    </td>
+  </>
+)}
                       {isWarrantyView && (
                         <>
                           <td className="p-2 text-xs">
