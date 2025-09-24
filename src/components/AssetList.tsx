@@ -214,6 +214,16 @@ export const AssetList = ({
     });
   }, [assets, searchTerm, dateRange, typeFilter, brandFilter, configFilter, statusFilter, filterCheckStatus, viewType]);
 
+  // Adjust current page if it exceeds total pages after filtering
+  React.useEffect(() => {
+    const newTotalPages = Math.ceil(filteredAssets.length / rowsPerPage);
+    if (currentPage > newTotalPages && newTotalPages > 0) {
+      setCurrentPage(newTotalPages);
+    } else if (newTotalPages === 0) {
+      setCurrentPage(1);
+    }
+  }, [filteredAssets, rowsPerPage, currentPage]);
+
   const matchedCount = React.useMemo(() => {
     return filteredAssets.filter(asset => asset.asset_check === "Matched").length;
   }, [filteredAssets]);
@@ -276,7 +286,6 @@ export const AssetList = ({
         if (selectedAsset.status === "Assigned" && newStatus !== "Assigned") {
           setShowStatusDialog(false);
           if (newStatus === "Sale") {
-            // For Sale status, keep existing employee details
             await onUpdateStatus(selectedAsset.id, newStatus);
             await onUpdateAsset(selectedAsset.id, { 
               updated_at: new Date().toISOString(),
@@ -294,7 +303,6 @@ export const AssetList = ({
         }
 
         if (newStatus === "Sale" && selectedAsset.status !== "Assigned") {
-          // Open assign dialog for Sale status when not Assigned
           setShowStatusDialog(false);
           setUserName("");
           setEmployeeId("");
@@ -427,43 +435,40 @@ export const AssetList = ({
     }
   };
 
-const handleAssetCheckClear = async () => {
-  try {
-    // Check if any filters are active
-    const isFiltered = searchTerm || typeFilter !== "all" || brandFilter !== "all" || configFilter !== "all" || statusFilter !== "all" || filterCheckStatus;
+  const handleAssetCheckClear = async () => {
+    try {
+      const isFiltered = searchTerm || typeFilter !== "all" || brandFilter !== "all" || configFilter !== "all" || statusFilter !== "all" || filterCheckStatus;
 
-    if (isFiltered) {
-      // Clear only the filtered assets
-      for (const asset of filteredAssets) {
-        if (asset.asset_check === "Matched") {
-          await onUpdateAssetCheck(asset.id, "");
-          await onUpdateAsset(asset.id, {
-            updated_at: new Date().toISOString(),
-          });
+      if (isFiltered) {
+        for (const asset of filteredAssets) {
+          if (asset.asset_check === "Matched") {
+            await onUpdateAssetCheck(asset.id, "");
+            await onUpdateAsset(asset.id, {
+              updated_at: new Date().toISOString()
+            });
+          }
+        }
+      } else {
+        for (const asset of assets) {
+          if (asset.asset_check === "Matched") {
+            await onUpdateAssetCheck(asset.id, "");
+            await onUpdateAsset(asset.id, {
+              updated_at: new Date().toISOString()
+            });
+          }
         }
       }
-    } else {
-      // Clear all assets when no filters are applied
-      for (const asset of assets) {
-        if (asset.asset_check === "Matched") {
-          await onUpdateAssetCheck(asset.id, "");
-          await onUpdateAsset(asset.id, {
-            updated_at: new Date().toISOString(),
-          });
-        }
-      }
+
+      setCheckedAssets(new Set());
+      setAssetCheckId("");
+      setShowConfirmDialog(false);
+      setError(null);
+      toast.success("Asset checks cleared successfully");
+    } catch (error) {
+      console.error("AssetList: Clear asset checks failed:", error);
+      setError("Failed to clear asset checks. Please try again.");
     }
-
-    setCheckedAssets(new Set());
-    setAssetCheckId("");
-    setShowConfirmDialog(false);
-    setError(null);
-    toast.success("Asset checks cleared successfully");
-  } catch (error) {
-    console.error("AssetList: Clear asset checks failed:", error);
-    setError("Failed to clear asset checks. Please try again.");
-  }
-};
+  };
 
   const confirmClear = () => {
     setShowConfirmDialog(true);
@@ -475,7 +480,6 @@ const handleAssetCheckClear = async () => {
 
   const handleFilterCheckStatus = (status: string) => {
     setFilterCheckStatus(prev => prev === status ? null : status);
-    setCurrentPage(1);
   };
 
   const handleShowStatusCheck = () => {
@@ -627,8 +631,6 @@ const handleAssetCheckClear = async () => {
 
   const { startPage, endPage, pageNumbers } = getPageNumbers();
 
-  const historyTableRef = React.useRef<HTMLDivElement>(null);
-
   const handleOpenStickerDialog = (asset: Asset) => {
     if (!asset || !asset.asset_id || !asset.serial_number) {
       setError("Invalid asset selected for sticker generation.");
@@ -675,7 +677,6 @@ const handleAssetCheckClear = async () => {
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
-                setCurrentPage(1);
               }}
               className="pl-10 w-64 h-9 text-sm"
             />
@@ -781,7 +782,7 @@ const handleAssetCheckClear = async () => {
                         <th className="p-2 w-[5%] text-left">S.No.</th>
                         <th className="p-2 w-[10%] text-left">Asset ID</th>
                         <th className="p-2 w-[15%] text-left">Asset Details</th>
-                        <th className="p-2 w-[20%] text-left">Specifications</th>
+                        <th className="p-2 w-[15%] text-left">Specifications</th>
                         <th className="p-2 w-[10%] text-left">Serial Number</th>
                         <th className="p-2 w-[15%] text-left">Location</th>
                         <th className="p-2 w-[15%] text-left">Asset Check</th>
@@ -841,7 +842,7 @@ const handleAssetCheckClear = async () => {
                             <div className="text-left">{asset.serial_number || '-'}</div>
                           </td>
                           <td className="p-2 text-xs">
-                            <div className="text-left">{asset.location || "-"}</div>
+                            <div className="text-left">{asset.location || '-'}</div>
                           </td>
                           <td className="p-2 text-xs">
                             <div className="text-left">
@@ -971,63 +972,63 @@ const handleAssetCheckClear = async () => {
                         </>
                       )}
                       {viewType === 'audit' && (
-  <>
-    <td className="p-2 text-xs">
-      <div className="text-left">{(currentPage - 1) * rowsPerPage + index + 1}</div>
-    </td>
-    <td className="p-2 text-xs">
-      <div className="text-left">
-        <button
-          onClick={() => {
-            setSelectedAsset(asset);
-            setShowAssignedToOnly(false);
-            setShowDetailsDialog(true);
-          }}
-          className="bg-primary/10 text-primary px-1 py-0.5 rounded text-xs font-medium hover:bg-primary/20"
-        >
-          {asset.asset_id}
-        </button>
-      </div>
-    </td>
-    <td className="p-2 text-xs">
-      <div className="text-left">
-        <div className="font-medium text-sm">{asset.name || '-'}</div>
-        <div className="text-muted-foreground">{asset.type || '-'}</div>
-      </div>
-    </td>
-    <td className="p-2 text-xs">
-      <div className="text-left">
-        <div className="font-medium">{asset.brand || '-'}</div>
-        <div className="text-muted-foreground">{asset.configuration || "-"}</div>
-      </div>
-    </td>
-    <td className="p-2 text-xs">
-      <div className="text-left">{asset.serial_number || '-'}</div>
-    </td>
-    <td className="p-2 text-xs">
-      <div className="text-left">{asset.location || '-'}</div>
-    </td>
-    <td className="p-2 text-xs">
-      <div className="text-left">
-        {asset.asset_check === "Matched" ? (
-          <div className="flex items-center gap-2">
-            <span className="text-green-500">✓ Matched</span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleAssetUncheck(asset.id, asset.asset_id || '')}
-              className="h-6 text-xs"
-            >
-              Uncheck
-            </Button>
-          </div>
-        ) : (
-          <span className="text-red-500">✗ Unmatched</span>
-        )}
-      </div>
-    </td>
-  </>
-)}
+                        <>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">{(currentPage - 1) * rowsPerPage + index + 1}</div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">
+                              <button
+                                onClick={() => {
+                                  setSelectedAsset(asset);
+                                  setShowAssignedToOnly(false);
+                                  setShowDetailsDialog(true);
+                                }}
+                                className="bg-primary/10 text-primary px-1 py-0.5 rounded text-xs font-medium hover:bg-primary/20"
+                              >
+                                {asset.asset_id}
+                              </button>
+                            </div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">
+                              <div className="font-medium text-sm">{asset.name || '-'}</div>
+                              <div className="text-muted-foreground">{asset.type || '-'}</div>
+                            </div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">
+                              <div className="font-medium">{asset.brand || '-'}</div>
+                              <div className="text-muted-foreground">{asset.configuration || "-"}</div>
+                            </div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">{asset.serial_number || '-'}</div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">{asset.location || '-'}</div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">
+                              {asset.asset_check === "Matched" ? (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-green-500">✓ Matched</span>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleAssetUncheck(asset.id, asset.asset_id || '')}
+                                    className="h-6 text-xs"
+                                  >
+                                    Uncheck
+                                  </Button>
+                                </div>
+                              ) : (
+                                <span className="text-red-500">✗ Unmatched</span>
+                              )}
+                            </div>
+                          </td>
+                        </>
+                      )}
                       {isWarrantyView && (
                         <>
                           <td className="p-2 text-xs">
@@ -1577,7 +1578,6 @@ const handleAssetCheckClear = async () => {
             ) : (
               <div className="relative">
                 <div
-                  ref={historyTableRef}
                   className="max-h-[65vh] overflow-y-auto"
                   style={{ scrollBehavior: "smooth" }}
                 >
