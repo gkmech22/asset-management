@@ -19,6 +19,10 @@ const AuditView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus
   const [configFilter, setConfigFilter] = useState<string>("all");
   const [locationFilter, setLocationFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [searchQueryType, setSearchQueryType] = useState("");
+  const [searchQueryBrand, setSearchQueryBrand] = useState("");
+  const [searchQueryConfig, setSearchQueryConfig] = useState("");
+  const [searchQueryLocation, setSearchQueryLocation] = useState("");
 
   const assetTypes = [...new Set(assets.map((asset) => asset.type))];
   const assetBrands = [...new Set(assets.map((asset) => asset.brand))];
@@ -67,6 +71,10 @@ const AuditView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus
     setStatusFilter([]);
     setDateRange(undefined);
     setSearchQuery("");
+    setSearchQueryType("");
+    setSearchQueryBrand("");
+    setSearchQueryConfig("");
+    setSearchQueryLocation("");
   };
 
   return (
@@ -109,12 +117,27 @@ const AuditView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus
                   <SelectValue placeholder="All Types" />
                 </SelectTrigger>
                 <SelectContent>
+                  <div className="p-2">
+                    <Input
+                      type="text"
+                      placeholder="Type to search..."
+                      value={searchQueryType}
+                      onChange={(e) => setSearchQueryType(e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      autoFocus
+                      className="w-full h-6 text-xs"
+                    />
+                  </div>
                   <SelectItem value="all">All Types</SelectItem>
-                  {assetTypes.map((type) => (
-                    <SelectItem key={type} value={type} className="text-xs">
-                      {type}
-                    </SelectItem>
-                  ))}
+                  {assetTypes
+                    .filter((type) =>
+                      type.toLowerCase().includes(searchQueryType.toLowerCase())
+                    )
+                    .map((type) => (
+                      <SelectItem key={type} value={type} className="text-xs">
+                        {type}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
@@ -125,12 +148,27 @@ const AuditView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus
                   <SelectValue placeholder="All Brands" />
                 </SelectTrigger>
                 <SelectContent>
+                  <div className="p-2">
+                    <Input
+                      type="text"
+                      placeholder="Type to search..."
+                      value={searchQueryBrand}
+                      onChange={(e) => setSearchQueryBrand(e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      autoFocus
+                      className="w-full h-6 text-xs"
+                    />
+                  </div>
                   <SelectItem value="all">All Brands</SelectItem>
-                  {assetBrands.map((brand) => (
-                    <SelectItem key={brand} value={brand} className="text-xs">
-                      {brand}
-                    </SelectItem>
-                  ))}
+                  {assetBrands
+                    .filter((brand) =>
+                      brand.toLowerCase().includes(searchQueryBrand.toLowerCase())
+                    )
+                    .map((brand) => (
+                      <SelectItem key={brand} value={brand} className="text-xs">
+                        {brand}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
@@ -141,12 +179,27 @@ const AuditView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus
                   <SelectValue placeholder="All Configurations" />
                 </SelectTrigger>
                 <SelectContent>
+                  <div className="p-2">
+                    <Input
+                      type="text"
+                      placeholder="Type to search..."
+                      value={searchQueryConfig}
+                      onChange={(e) => setSearchQueryConfig(e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      autoFocus
+                      className="w-full h-6 text-xs"
+                    />
+                  </div>
                   <SelectItem value="all">All Configurations</SelectItem>
-                  {assetConfigurations.map((config) => (
-                    <SelectItem key={config} value={config} className="text-xs">
-                      {config}
-                    </SelectItem>
-                  ))}
+                  {assetConfigurations
+                    .filter((config) =>
+                      config.toLowerCase().includes(searchQueryConfig.toLowerCase())
+                    )
+                    .map((config) => (
+                      <SelectItem key={config} value={config} className="text-xs">
+                        {config}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
@@ -157,12 +210,27 @@ const AuditView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus
                   <SelectValue placeholder="All Locations" />
                 </SelectTrigger>
                 <SelectContent>
+                  <div className="p-2">
+                    <Input
+                      type="text"
+                      placeholder="Type to search..."
+                      value={searchQueryLocation}
+                      onChange={(e) => setSearchQueryLocation(e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      autoFocus
+                      className="w-full h-6 text-xs"
+                    />
+                  </div>
                   <SelectItem value="all">All Locations</SelectItem>
-                  {assetLocations.map((location) => (
-                    <SelectItem key={location} value={location} className="text-xs">
-                      {location}
-                    </SelectItem>
-                  ))}
+                  {assetLocations
+                    .filter((location) =>
+                      location.toLowerCase().includes(searchQueryLocation.toLowerCase())
+                    )
+                    .map((location) => (
+                      <SelectItem key={location} value={location} className="text-xs">
+                        {location}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

@@ -35,6 +35,11 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
   const [customProvider, setCustomProvider] = useState("");
   const [customName, setCustomName] = useState("");
   const [customConfiguration, setCustomConfiguration] = useState("");
+  const [searchQueryName, setSearchQueryName] = useState("");
+  const [searchQueryType, setSearchQueryType] = useState("");
+  const [searchQueryBrand, setSearchQueryBrand] = useState("");
+  const [searchQueryConfiguration, setSearchQueryConfiguration] = useState("");
+  const [searchQueryProvider, setSearchQueryProvider] = useState("");
 
   // Extract unique values for select options
   const uniqueTypes = Array.from(new Set(assets.map((a) => a.type).filter(Boolean)));
@@ -64,6 +69,11 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
       setCustomName(asset.name === "custom" ? asset.name : "");
       setCustomConfiguration(asset.configuration === "custom" ? asset.configuration : "");
       setError(null);
+      setSearchQueryName("");
+      setSearchQueryType("");
+      setSearchQueryBrand("");
+      setSearchQueryConfiguration("");
+      setSearchQueryProvider("");
     }
   }, [asset, open]);
 
@@ -179,9 +189,24 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
                 <SelectValue placeholder="Select Model" />
               </SelectTrigger>
               <SelectContent>
-                {uniqueNames.map((name) => (
-                  <SelectItem key={name} value={name}>{name}</SelectItem>
-                ))}
+                <div className="p-2">
+                  <Input
+                    type="text"
+                    placeholder="Type to search..."
+                    value={searchQueryName}
+                    onChange={(e) => setSearchQueryName(e.target.value)}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    autoFocus
+                    className="w-full h-6 text-xs"
+                  />
+                </div>
+                {uniqueNames
+                  .filter((name) =>
+                    name.toLowerCase().includes(searchQueryName.toLowerCase())
+                  )
+                  .map((name) => (
+                    <SelectItem key={name} value={name}>{name}</SelectItem>
+                  ))}
                 <SelectItem value="custom">Custom</SelectItem>
               </SelectContent>
             </Select>
@@ -206,9 +231,24 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
                 <SelectValue placeholder="Select asset type" />
               </SelectTrigger>
               <SelectContent>
-                {uniqueTypes.map((type) => (
-                  <SelectItem key={type} value={type}>{type}</SelectItem>
-                ))}
+                <div className="p-2">
+                  <Input
+                    type="text"
+                    placeholder="Type to search..."
+                    value={searchQueryType}
+                    onChange={(e) => setSearchQueryType(e.target.value)}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    autoFocus
+                    className="w-full h-6 text-xs"
+                  />
+                </div>
+                {uniqueTypes
+                  .filter((type) =>
+                    type.toLowerCase().includes(searchQueryType.toLowerCase())
+                  )
+                  .map((type) => (
+                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                  ))}
                 <SelectItem value="custom">Custom</SelectItem>
               </SelectContent>
             </Select>
@@ -233,9 +273,24 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
                 <SelectValue placeholder="Select brand" />
               </SelectTrigger>
               <SelectContent>
-                {uniqueBrands.map((brand) => (
-                  <SelectItem key={brand} value={brand}>{brand}</SelectItem>
-                ))}
+                <div className="p-2">
+                  <Input
+                    type="text"
+                    placeholder="Type to search..."
+                    value={searchQueryBrand}
+                    onChange={(e) => setSearchQueryBrand(e.target.value)}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    autoFocus
+                    className="w-full h-6 text-xs"
+                  />
+                </div>
+                {uniqueBrands
+                  .filter((brand) =>
+                    brand.toLowerCase().includes(searchQueryBrand.toLowerCase())
+                  )
+                  .map((brand) => (
+                    <SelectItem key={brand} value={brand}>{brand}</SelectItem>
+                  ))}
                 <SelectItem value="custom">Custom</SelectItem>
               </SelectContent>
             </Select>
@@ -260,9 +315,24 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
                 <SelectValue placeholder="Select configuration" />
               </SelectTrigger>
               <SelectContent>
-                {uniqueConfigurations.map((config) => (
-                  <SelectItem key={config} value={config}>{config}</SelectItem>
-                ))}
+                <div className="p-2">
+                  <Input
+                    type="text"
+                    placeholder="Type to search..."
+                    value={searchQueryConfiguration}
+                    onChange={(e) => setSearchQueryConfiguration(e.target.value)}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    autoFocus
+                    className="w-full h-6 text-xs"
+                  />
+                </div>
+                {uniqueConfigurations
+                  .filter((config) =>
+                    config.toLowerCase().includes(searchQueryConfiguration.toLowerCase())
+                  )
+                  .map((config) => (
+                    <SelectItem key={config} value={config}>{config}</SelectItem>
+                  ))}
                 <SelectItem value="custom">Custom</SelectItem>
               </SelectContent>
             </Select>
@@ -323,9 +393,24 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
                 <SelectValue placeholder="Select provider" />
               </SelectTrigger>
               <SelectContent>
-                {uniqueProviders.map((provider) => (
-                  <SelectItem key={provider} value={provider}>{provider}</SelectItem>
-                ))}
+                <div className="p-2">
+                  <Input
+                    type="text"
+                    placeholder="Type to search..."
+                    value={searchQueryProvider}
+                    onChange={(e) => setSearchQueryProvider(e.target.value)}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    autoFocus
+                    className="w-full h-6 text-xs"
+                  />
+                </div>
+                {uniqueProviders
+                  .filter((provider) =>
+                    provider.toLowerCase().includes(searchQueryProvider.toLowerCase())
+                  )
+                  .map((provider) => (
+                    <SelectItem key={provider} value={provider}>{provider}</SelectItem>
+                  ))}
                 <SelectItem value="custom">Custom</SelectItem>
               </SelectContent>
             </Select>

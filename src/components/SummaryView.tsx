@@ -4,6 +4,7 @@ import { Asset } from "@/hooks/useAssets";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface SummaryViewProps {
   assets: Asset[];
@@ -28,16 +29,20 @@ const SummaryView = ({
   onDelete,
   userRole,
 }: SummaryViewProps) => {
-  const [typeFilter, setTypeFilter] = React.useState("all");
-  const [brandFilter, setBrandFilter] = React.useState("all");
-  const [statusFilter, setStatusFilter] = React.useState("all");
-  const [locationFilter, setLocationFilter] = React.useState("all");
+  const [typeFilter, setTypeFilter] = React.useState("All");
+  const [brandFilter, setBrandFilter] = React.useState("All");
+  const [statusFilter, setStatusFilter] = React.useState("All");
+  const [locationFilter, setLocationFilter] = React.useState("All");
   const [currentPage, setCurrentPage] = React.useState(1);
   const rowsPerPage = 15;
+  const [searchQueryType, setSearchQueryType] = React.useState("");
+  const [searchQueryBrand, setSearchQueryBrand] = React.useState("");
+  const [searchQueryStatus, setSearchQueryStatus] = React.useState("");
+  const [searchQueryLocation, setSearchQueryLocation] = React.useState("");
 
   // Define possible locations
   const locations = [
-    "all",
+    "All",
     "Mumbai Office",
     "Hyderabad WH",
     "Ghaziabad WH",
@@ -55,12 +60,12 @@ const SummaryView = ({
   // Get unique asset types, brands, and statuses
   const assetTypes = React.useMemo(() => {
     const types = new Set(assets.map(asset => asset.type));
-    return ["all", ...Array.from(types).sort()];
+    return ["All", ...Array.from(types).sort()];
   }, [assets]);
 
   const brands = React.useMemo(() => {
     const brandSet = new Set(assets.map(asset => asset.brand));
-    return ["all", ...Array.from(brandSet).sort()];
+    return ["All", ...Array.from(brandSet).sort()];
   }, [assets]);
 
   const statuses = React.useMemo(() => {
@@ -71,10 +76,10 @@ const SummaryView = ({
   // Filter assets based on selected filters
   const filteredAssets = React.useMemo(() => {
     return assets.filter((asset) => {
-      const matchesType = typeFilter === "all" || asset.type === typeFilter;
-      const matchesBrand = brandFilter === "all" || asset.brand === brandFilter;
-      const matchesStatus = statusFilter === "all" || asset.status === statusFilter;
-      const matchesLocation = locationFilter === "all" || asset.location === locationFilter;
+      const matchesType = typeFilter === "All" || asset.type === typeFilter;
+      const matchesBrand = brandFilter === "All" || asset.brand === brandFilter;
+      const matchesStatus = statusFilter === "All" || asset.status === statusFilter;
+      const matchesLocation = locationFilter === "All" || asset.location === locationFilter;
       return matchesType && matchesBrand && matchesStatus && matchesLocation;
     });
   }, [assets, typeFilter, brandFilter, statusFilter, locationFilter]);
@@ -108,7 +113,7 @@ const SummaryView = ({
     return totals;
   }, [summaryData, statuses]);
 
-  // Sort by assetType alphabetically
+  // Sort by assetType alphabeticAlly
   const tableData = Object.values(summaryData).sort((a, b) => a.assetType.localeCompare(b.assetType));
 
   // Pagination calculations
@@ -144,7 +149,7 @@ const SummaryView = ({
     "Scrap/Damage": "bg-red-600",
     Sold: "bg-blue-800",
     Others: "bg-gray-600",
-    // Add fallback for new statuses
+    // Add fAllback for new statuses
   };
 
   const getStatusColor = (status: string) => {
@@ -165,11 +170,26 @@ const SummaryView = ({
                 <SelectValue placeholder="Select asset type" />
               </SelectTrigger>
               <SelectContent>
-                {assetTypes.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {type}
-                  </SelectItem>
-                ))}
+                <div className="p-2">
+                  <Input
+                    type="text"
+                    placeholder="Type to search..."
+                    value={searchQueryType}
+                    onChange={(e) => setSearchQueryType(e.target.value)}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    autoFocus
+                    className="w-full h-6 text-xs"
+                  />
+                </div>
+                {assetTypes
+                  .filter((type) =>
+                    type.toLowerCase().includes(searchQueryType.toLowerCase())
+                  )
+                  .map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
@@ -180,11 +200,26 @@ const SummaryView = ({
                 <SelectValue placeholder="Select brand" />
               </SelectTrigger>
               <SelectContent>
-                {brands.map((brand) => (
-                  <SelectItem key={brand} value={brand}>
-                    {brand}
-                  </SelectItem>
-                ))}
+                <div className="p-2">
+                  <Input
+                    type="text"
+                    placeholder="Type to search..."
+                    value={searchQueryBrand}
+                    onChange={(e) => setSearchQueryBrand(e.target.value)}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    autoFocus
+                    className="w-full h-6 text-xs"
+                  />
+                </div>
+                {brands
+                  .filter((brand) =>
+                    brand.toLowerCase().includes(searchQueryBrand.toLowerCase())
+                  )
+                  .map((brand) => (
+                    <SelectItem key={brand} value={brand}>
+                      {brand}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
@@ -195,11 +230,26 @@ const SummaryView = ({
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
               <SelectContent>
-                {["all", ...statuses].map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {status}
-                  </SelectItem>
-                ))}
+                <div className="p-2">
+                  <Input
+                    type="text"
+                    placeholder="Type to search..."
+                    value={searchQueryStatus}
+                    onChange={(e) => setSearchQueryStatus(e.target.value)}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    autoFocus
+                    className="w-full h-6 text-xs"
+                  />
+                </div>
+                {["All", ...statuses]
+                  .filter((status) =>
+                    status.toLowerCase().includes(searchQueryStatus.toLowerCase())
+                  )
+                  .map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
@@ -210,11 +260,26 @@ const SummaryView = ({
                 <SelectValue placeholder="Select location" />
               </SelectTrigger>
               <SelectContent>
-                {locations.map((location) => (
-                  <SelectItem key={location} value={location}>
-                    {location}
-                  </SelectItem>
-                ))}
+                <div className="p-2">
+                  <Input
+                    type="text"
+                    placeholder="Type to search..."
+                    value={searchQueryLocation}
+                    onChange={(e) => setSearchQueryLocation(e.target.value)}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    autoFocus
+                    className="w-full h-6 text-xs"
+                  />
+                </div>
+                {locations
+                  .filter((location) =>
+                    location.toLowerCase().includes(searchQueryLocation.toLowerCase())
+                  )
+                  .map((location) => (
+                    <SelectItem key={location} value={location}>
+                      {location}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
