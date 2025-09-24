@@ -66,7 +66,6 @@ export const AssetList = ({
   const [showDetailsDialog, setShowDetailsDialog] = React.useState(false);
   const [showHistoryDialog, setShowHistoryDialog] = React.useState(false);
   const [showReturnDialog, setShowReturnDialog] = React.useState(false);
-  const [showRevokeDialog, setShowRevokeDialog] = React.useState(false);
   const [showStickerDialog, setShowStickerDialog] = React.useState(false);
   const [returnRemarks, setReturnRemarks] = React.useState("");
   const [returnLocation, setReturnLocation] = React.useState("");
@@ -229,64 +228,87 @@ export const AssetList = ({
     currentPage * rowsPerPage
   );
 
-const handleAssignAsset = async () => {
-  if (selectedAsset && userName.trim() && employeeId.trim() && employeeEmail.trim()) {
-    try {
-      // Remove the check for existing asset with employee ID since multiple assets can be assigned to same employee
-      // const existingAssetWithEmployeeId = assets.find(
-      //   (asset) => asset.employee_id === employeeId && asset.id !== selectedAsset.id
-      // );
+  const handleAssignAsset = async () => {
+    if (selectedAsset && userName.trim() && employeeId.trim() && employeeEmail.trim()) {
+      try {
+        const selectedAssetSerial = assets.find((asset) => asset.id === selectedAsset.id)?.serial_number;
+        const existingAssetWithSerial = assets.find(
+          (asset) => asset.serial_number === selectedAssetSerial && asset.id !== selectedAsset.id
+        );
 
-      const selectedAssetSerial = assets.find((asset) => asset.id === selectedAsset.id)?.serial_number;
-      const existingAssetWithSerial = assets.find(
-        (asset) => asset.serial_number === selectedAssetSerial && asset.id !== selectedAsset.id
-      );
+        if (existingAssetWithSerial) {
+          setError(`Serial Number ${selectedAssetSerial} is already associated with another asset.`);
+          return;
+        }
 
-      // if (existingAssetWithEmployeeId) {
-      //   setError(`Employee ID ${employeeId} is already assigned to another asset (Serial: ${existingAssetWithEmployeeId.serial_number}).`);
-      //   return;
-      // }
+        if (selectedAsset.status !== "Available") {
+          setError("This asset is not available for assignment. Please update the status to 'Available' first.");
+          return;
+        }
 
-      if (existingAssetWithSerial) {
-        setError(`Serial Number ${selectedAssetSerial} is already associated with another asset.`);
-        return;
+        await onAssign(selectedAsset.id, userName.trim(), employeeId.trim());
+        await onUpdateAsset(selectedAsset.id, { 
+          status: "Assigned", 
+          received_by: "", 
+          return_date: "",
+          assigned_date: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+        setShowAssignDialog(false);
+        setUserName("");
+        setEmployeeId("");
+        setEmployeeEmail("");
+        setSelectedAsset(null);
+        setError(null);
+        toast.success("Asset assigned successfully");
+      } catch (error) {
+        console.error("AssetList: Assign failed:", error);
+        setError("Failed to assign asset. Please try again.");
       }
-
-      // Additional check to ensure asset is available for assignment
-      if (selectedAsset.status !== "Available") {
-        setError("This asset is not available for assignment. Please update the status to 'Available' first.");
-        return;
-      }
-
-      await onAssign(selectedAsset.id, userName.trim(), employeeId.trim());
-      await onUpdateAsset(selectedAsset.id, { status: "Assigned", received_by: "", return_date: "" });
-      setShowAssignDialog(false);
-      setUserName("");
-      setEmployeeId("");
-      setEmployeeEmail("");
-      setSelectedAsset(null);
-      setError(null);
-      toast.success("Asset assigned successfully");
-    } catch (error) {
-      console.error("AssetList: Assign failed:", error);
-      setError("Failed to assign asset. Please try again.");
+    } else {
+      setError("Please enter Employee ID, Name, and Email");
     }
-  } else {
-    setError("Please enter Employee ID, Name, and Email");
-  }
-};
+  };
+
   const handleUpdateStatus = async () => {
     if (selectedAsset && newStatus) {
       try {
         if (selectedAsset.status === "Assigned" && newStatus !== "Assigned") {
           setShowStatusDialog(false);
-          setShowReturnDialog(true);
+          if (newStatus === "Sale") {
+            // For Sale status, keep existing employee details
+            await onUpdateStatus(selectedAsset.id, newStatus);
+            await onUpdateAsset(selectedAsset.id, { 
+              updated_at: new Date().toISOString(),
+              assigned_to: selectedAsset.assigned_to,
+              employee_id: selectedAsset.employee_id
+            });
+            setNewStatus("");
+            setSelectedAsset(null);
+            setError(null);
+            toast.success("Status updated to Sale successfully");
+          } else {
+            setShowReturnDialog(true);
+          }
           return;
         }
-        await onUpdateStatus(selectedAsset.id, newStatus);
-        if (newStatus === "Assigned") {
-          await onUpdateAsset(selectedAsset.id, { received_by: "", return_date: "" });
+
+        if (newStatus === "Sale" && selectedAsset.status !== "Assigned") {
+          // Open assign dialog for Sale status when not Assigned
+          setShowStatusDialog(false);
+          setUserName("");
+          setEmployeeId("");
+          setEmployeeEmail("");
+          setShowAssignDialog(true);
+          return;
         }
+
+        await onUpdateStatus(selectedAsset.id, newStatus);
+        await onUpdateAsset(selectedAsset.id, { 
+          updated_at: new Date().toISOString(),
+          received_by: newStatus === "Assigned" ? "" : receivedByInput || receivedBy,
+          return_date: newStatus === "Assigned" ? "" : new Date().toISOString()
+        });
         setShowStatusDialog(false);
         setNewStatus("");
         setSelectedAsset(null);
@@ -315,13 +337,15 @@ const handleAssignAsset = async () => {
           await onUpdateStatus(selectedAsset.id, newStatus);
           await onUpdateAsset(selectedAsset.id, { 
             received_by: finalReceivedBy,
-            return_date: new Date().toISOString()
+            return_date: new Date().toISOString(),
+            updated_at: new Date().toISOString()
           });
         } else {
           await onUpdateStatus(selectedAsset.id, "Available");
           await onUpdateAsset(selectedAsset.id, { 
             received_by: finalReceivedBy,
-            return_date: new Date().toISOString()
+            return_date: new Date().toISOString(),
+            updated_at: new Date().toISOString()
           });
         }
         
@@ -340,38 +364,13 @@ const handleAssignAsset = async () => {
     }
   };
 
-  const handleRevokeAsset = async () => {
-    if (selectedAsset) {
-      try {
-        const lastAssignment = history
-          .filter(entry => entry.field_changed === "assigned_to" || entry.field_changed === "employee_id")
-          .sort((a, b) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime())[0];
-
-        const userName = lastAssignment?.field_changed === "assigned_to" ? lastAssignment.new_value : selectedAsset.assigned_to || "";
-        const employeeId = lastAssignment?.field_changed === "employee_id" ? lastAssignment.new_value : selectedAsset.employee_id || "";
-
-        if (!userName || !employeeId) {
-          setError("Cannot revoke: No previous assignment details found.");
-          return;
-        }
-
-        await onAssign(selectedAsset.id, userName, employeeId);
-        await onUpdateAsset(selectedAsset.id, { status: "Assigned", received_by: "", return_date: "" });
-        setShowRevokeDialog(false);
-        setSelectedAsset(null);
-        setError(null);
-        toast.success("Asset return revoked successfully");
-      } catch (error) {
-        console.error("AssetList: Revoke failed:", error);
-        setError("Failed to revoke asset assignment. Please try again.");
-      }
-    }
-  };
-
   const handleUpdateLocation = async () => {
     if (selectedAsset && newLocation) {
       try {
         await onUpdateLocation(selectedAsset.id, newLocation);
+        await onUpdateAsset(selectedAsset.id, {
+          updated_at: new Date().toISOString()
+        });
         setShowLocationDialog(false);
         setNewLocation("");
         setSelectedAsset(null);
@@ -392,6 +391,9 @@ const handleAssignAsset = async () => {
       if (asset) {
         try {
           await onUpdateAssetCheck(asset.id, "Matched");
+          await onUpdateAsset(asset.id, {
+            updated_at: new Date().toISOString()
+          });
           setCheckedAssets(prev => new Set([...prev, assetCheckId]));
           setAssetCheckId("");
           setError(null);
@@ -409,6 +411,9 @@ const handleAssignAsset = async () => {
   const handleAssetUncheck = async (assetId: string, assetCheckId: string) => {
     try {
       await onUpdateAssetCheck(assetId, "");
+      await onUpdateAsset(assetId, {
+        updated_at: new Date().toISOString()
+      });
       setCheckedAssets(prev => {
         const newSet = new Set(prev);
         newSet.delete(assetCheckId);
@@ -427,6 +432,9 @@ const handleAssignAsset = async () => {
       for (const asset of assets) {
         if (asset.asset_check === "Matched") {
           await onUpdateAssetCheck(asset.id, "");
+          await onUpdateAsset(asset.id, {
+            updated_at: new Date().toISOString()
+          });
         }
       }
       setCheckedAssets(new Set());
@@ -922,16 +930,6 @@ const handleAssignAsset = async () => {
                                   >
                                     History
                                   </DropdownMenuItem>
-                                  {asset.received_by && asset.status !== "Assigned" && (
-                                    <DropdownMenuItem
-                                      onClick={() => {
-                                        setSelectedAsset(asset);
-                                        setShowRevokeDialog(true);
-                                      }}
-                                    >
-                                      Revoke
-                                    </DropdownMenuItem>
-                                  )}
                                   <DropdownMenuItem
                                     onClick={async () => {
                                       if (confirm("Are you sure you want to delete this asset?")) {
@@ -1159,7 +1157,7 @@ const handleAssignAsset = async () => {
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Assign Asset</DialogTitle>
+            <DialogTitle>{newStatus === "Sale" ? "Assign Asset for Sale" : "Assign Asset"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -1228,17 +1226,27 @@ const handleAssignAsset = async () => {
                   setEmployeeId("");
                   setEmployeeEmail("");
                   setSelectedAsset(null);
+                  setNewStatus("");
                 }}
                 className="flex-1"
               >
                 Cancel
               </Button>
               <Button
-                onClick={handleAssignAsset}
+                onClick={async () => {
+                  await handleAssignAsset();
+                  if (newStatus === "Sale") {
+                    await onUpdateStatus(selectedAsset!.id, "Sale");
+                    await onUpdateAsset(selectedAsset!.id, {
+                      updated_at: new Date().toISOString()
+                    });
+                    setNewStatus("");
+                  }
+                }}
                 disabled={!userName.trim() || !employeeId.trim() || !employeeEmail.trim() || !selectedAsset || isFetchingEmployee}
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
               >
-                Assign
+                {newStatus === "Sale" ? "Assign and Mark as Sale" : "Assign"}
               </Button>
             </div>
           </div>
@@ -1429,41 +1437,6 @@ const handleAssignAsset = async () => {
         </DialogContent>
       </Dialog>
 
-      {/* Revoke Dialog */}
-      <Dialog open={showRevokeDialog} onOpenChange={setShowRevokeDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Revoke Asset Return</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Asset: {selectedAsset?.name || "N/A"}</Label>
-              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id || "N/A"}</p>
-            </div>
-            <p className="text-sm">Are you sure you want to revoke the return of this asset? This will reassign it to the previous user and set the status to "Assigned".</p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowRevokeDialog(false);
-                  setSelectedAsset(null);
-                }}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleRevokeAsset}
-                disabled={!selectedAsset}
-                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
-              >
-                Revoke
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       {/* Confirm Clear Dialog */}
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <DialogContent className="max-w-md">
@@ -1599,7 +1572,7 @@ const handleAssignAsset = async () => {
                     </thead>
                     <tbody>
                       {[...history]
-                        .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)) // Sort by updated_at descending
+                        .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
                         .map((entry) => (
                         <tr key={entry.id} className="border-b">
                           <td className="p-2 text-xs">{entry.field_changed}</td>
