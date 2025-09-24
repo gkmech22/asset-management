@@ -1594,17 +1594,19 @@ const handleAssignAsset = async () => {
                         <th className="p-2 text-left">Old Value</th>
                         <th className="p-2 text-left">New Value</th>
                         <th className="p-2 text-left">Changed By</th>
-                        <th className="p-2 text-left">Changed At</th>
+                        <th className="p-2 text-left">Updated At</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {history.map((entry) => (
+                      {[...history]
+                        .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)) // Sort by updated_at descending
+                        .map((entry) => (
                         <tr key={entry.id} className="border-b">
                           <td className="p-2 text-xs">{entry.field_changed}</td>
                           <td className="p-2 text-xs">{entry.old_value || "-"}</td>
                           <td className="p-2 text-xs">{entry.new_value || "-"}</td>
                           <td className="p-2 text-xs">{entry.changed_by}</td>
-                          <td className="p-2 text-xs">{formatDate(entry.changed_at)}</td>
+                          <td className="p-2 text-xs">{formatDate(entry.updated_at)}</td>
                         </tr>
                       ))}
                     </tbody>

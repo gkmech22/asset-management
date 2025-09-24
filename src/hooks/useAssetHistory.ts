@@ -10,8 +10,7 @@ export const useAssetHistory = (assetId: string | null) => {
         .from("asset_edit_history")
         .select("*")
         .eq("asset_id", assetId)
-        .order("changed_at", { ascending: false })
-        .limit(15); // Limit to recent 15 entries
+        .order("id", { ascending: false });
       if (error) throw error;
       return data;
     },
