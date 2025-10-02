@@ -1,4 +1,3 @@
-// EmployeeDetails.tsx
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,8 +13,8 @@ interface Employee {
   employee_id: string;
   employee_name: string;
   email: string;
-  role: string;
-  department: string;
+  role?: string;
+  department?: string;
 }
 
 const EmployeeDetails = () => {
@@ -31,7 +30,6 @@ const EmployeeDetails = () => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [showBulkUpload, setShowBulkUpload] = useState(false);
   const rowsPerPage = 10;
 
   useEffect(() => {
@@ -69,12 +67,19 @@ const EmployeeDetails = () => {
     try {
       setLoading(true);
       let result;
+      const employeeData = {
+        employee_id: newEmployee.employee_id,
+        employee_name: newEmployee.employee_name,
+        email: newEmployee.email,
+        role: newEmployee.role || null,
+        department: newEmployee.department || null
+      };
       
       if (editingId) {
         // Update existing employee
         const { error } = await supabase
           .from('employees')
-          .update(newEmployee)
+          .update(employeeData)
           .eq('employee_id', editingId);
         
         if (error) {
@@ -88,7 +93,7 @@ const EmployeeDetails = () => {
         // Add new employee
         const { error } = await supabase
           .from('employees')
-          .insert([newEmployee]);
+          .insert([employeeData]);
         
         if (error) {
           toast.error('Failed to add employee');
@@ -116,7 +121,13 @@ const EmployeeDetails = () => {
   };
 
   const handleEdit = (emp: Employee) => {
-    setNewEmployee(emp);
+    setNewEmployee({
+      employee_id: emp.employee_id,
+      employee_name: emp.employee_name,
+      email: emp.email,
+      role: emp.role || '',
+      department: emp.department || ''
+    });
     setEditingId(emp.employee_id);
   };
 
@@ -161,7 +172,7 @@ const EmployeeDetails = () => {
 
   const filteredEmployees = employees.filter(emp => 
     Object.values(emp).some(value => 
-      value.toLowerCase().includes(searchTerm.toLowerCase())
+      value?.toLowerCase().includes(searchTerm.toLowerCase())
     )
   );
 
@@ -172,7 +183,13 @@ const EmployeeDetails = () => {
   );
 
   const handleDownload = () => {
-    const csv = Papa.unparse(employees);
+    const csv = Papa.unparse(employees.map(emp => ({
+      employee_id: emp.employee_id,
+      employee_name: emp.employee_name,
+      email: emp.email,
+      role: emp.role || '',
+      department: emp.department || ''
+    })));
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -180,69 +197,85 @@ const EmployeeDetails = () => {
     link.click();
   };
 
-const handleBulkUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-  const file = event.target.files?.[0];
-  if (!file) return;
+  const handleTemplateDownload = () => {
+    const template = [{
+      employee_id: '',
+      employee_name: '',
+      email: '',
+      role: '',
+      department: ''
+    }];
+    const csv = Papa.unparse(template);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'employee_template.csv';
+    link.click();
+  };
 
-  Papa.parse(file, {
-    header: true,
-    skipEmptyLines: true, // Skip empty lines to avoid parsing issues
-    complete: async (results) => {
-      const data = results.data as Employee[];
-      if (!Array.isArray(data) || data.length === 0) {
-        toast.error('No valid data found in the CSV file');
-        return;
-      }
+  const handleBulkUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-      const validEmployees: Employee[] = [];
-      const errors: string[] = [];
-
-      // Validate each row
-      data.forEach((emp, index) => {
-        if (!emp.employee_id || !emp.employee_name || !emp.email) {
-          errors.push(`Row ${index + 2}: Missing required fields (Employee ID, Name, or Email)`);
-        } else {
-          validEmployees.push({
-            employee_id: emp.employee_id,
-            employee_name: emp.employee_name,
-            email: emp.email,
-            role: emp.role || '', // Default to empty string if not provided
-            department: emp.department || '', // Default to empty string if not provided
-          });
-        }
-      });
-
-      if (validEmployees.length === 0) {
-        toast.error('No valid employees to upload. Check the CSV format and try again.');
-        return;
-      }
-
-      try {
-        setLoading(true);
-        const { error } = await supabase.from('employees').insert(validEmployees);
-
-        if (error) {
-          throw error;
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        const data = results.data as Employee[];
+        if (!Array.isArray(data) || data.length === 0) {
+          toast.error('No valid data found in the CSV file');
+          return;
         }
 
-        toast.success(`Successfully uploaded ${validEmployees.length} employee(s)`);
-        await fetchEmployees();
-      } catch (error: any) {
-        toast.error(`Failed to upload employees: ${error.message}`);
-        console.error('Bulk upload error:', error);
-        if (errors.length > 0) {
-          toast.error(`Validation errors: ${errors.join('\n')}`);
+        const validEmployees: Employee[] = [];
+        const errors: string[] = [];
+
+        data.forEach((emp, index) => {
+          if (!emp.employee_id || !emp.employee_name || !emp.email) {
+            errors.push(`Row ${index + 2}: Missing required fields (Employee ID, Name, or Email)`);
+          } else {
+            validEmployees.push({
+              employee_id: emp.employee_id,
+              employee_name: emp.employee_name,
+              email: emp.email,
+              role: emp.role || null,
+              department: emp.department || null
+            });
+          }
+        });
+
+        if (validEmployees.length === 0) {
+          toast.error('No valid employees to upload. Check the CSV format and try again.');
+          return;
         }
-      } finally {
-        setLoading(false);
-      }
-    },
-    error: (error) => {
-      toast.error('Failed to parse CSV file. Please ensure it’s a valid CSV with the correct headers.');
-      console.error('CSV parsing error:', error);
-    },
-  });
-};
+
+        try {
+          setLoading(true);
+          const { error } = await supabase.from('employees').insert(validEmployees);
+
+          if (error) {
+            throw error;
+          }
+
+          toast.success(`Successfully uploaded ${validEmployees.length} employee(s)`);
+          await fetchEmployees();
+        } catch (error: any) {
+          toast.error(`Failed to upload employees: ${error.message}`);
+          console.error('Bulk upload error:', error);
+          if (errors.length > 0) {
+            toast.error(`Validation errors: ${errors.join('\n')}`);
+          }
+        } finally {
+          setLoading(false);
+        }
+      },
+      error: (error) => {
+        toast.error('Failed to parse CSV file. Please ensure it’s a valid CSV with the correct headers.');
+        console.error('CSV parsing error:', error);
+      },
+    });
+  };
+
   if (loading && employees.length === 0) {
     return (
       <Card className="shadow-card">
@@ -373,6 +406,10 @@ const handleBulkUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
             />
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" onClick={handleTemplateDownload}>
+              <Download className="h-4 w-4 mr-2" />
+              Template
+            </Button>
             <Button variant="outline" onClick={handleDownload}>
               <Download className="h-4 w-4 mr-2" />
               Download
