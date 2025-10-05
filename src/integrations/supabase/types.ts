@@ -7,61 +7,192 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "13.0.4"
   }
   public: {
     Tables: {
+      asset_edit_history: {
+        Row: {
+          asset_id: string
+          changed_by: string | null
+          field_changed: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          asset_id: string
+          changed_by?: string | null
+          field_changed: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          asset_id?: string
+          changed_by?: string | null
+          field_changed?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_asset_id"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assets: {
         Row: {
+          asset_check: string | null
+          asset_condition: string | null
           asset_id: string
           assigned_date: string | null
           assigned_to: string | null
           brand: string
           configuration: string | null
           created_at: string
+          created_by: string | null
           employee_id: string | null
           id: string
           location: string
           name: string
+          provider: string | null
+          received_by: string | null
+          recovery_amount: number | null
+          remarks: string | null
+          return_date: string | null
           serial_number: string
           status: string
           type: string
           updated_at: string
+          updated_by: string | null
+          warranty_end: string | null
+          warranty_start: string | null
+          warranty_status: string | null
         }
         Insert: {
+          asset_check?: string | null
+          asset_condition?: string | null
           asset_id: string
           assigned_date?: string | null
           assigned_to?: string | null
           brand: string
           configuration?: string | null
           created_at?: string
+          created_by?: string | null
           employee_id?: string | null
           id?: string
           location: string
           name: string
+          provider?: string | null
+          received_by?: string | null
+          recovery_amount?: number | null
+          remarks?: string | null
+          return_date?: string | null
           serial_number: string
           status?: string
           type: string
           updated_at?: string
+          updated_by?: string | null
+          warranty_end?: string | null
+          warranty_start?: string | null
+          warranty_status?: string | null
         }
         Update: {
+          asset_check?: string | null
+          asset_condition?: string | null
           asset_id?: string
           assigned_date?: string | null
           assigned_to?: string | null
           brand?: string
           configuration?: string | null
           created_at?: string
+          created_by?: string | null
           employee_id?: string | null
           id?: string
           location?: string
           name?: string
+          provider?: string | null
+          received_by?: string | null
+          recovery_amount?: number | null
+          remarks?: string | null
+          return_date?: string | null
           serial_number?: string
           status?: string
           type?: string
           updated_at?: string
+          updated_by?: string | null
+          warranty_end?: string | null
+          warranty_start?: string | null
+          warranty_status?: string | null
+        }
+        Relationships: []
+      }
+      employees: {
+        Row: {
+          created_at: string | null
+          department: string | null
+          email: string
+          employee_id: string
+          employee_name: string
+          role: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          department?: string | null
+          email: string
+          employee_id: string
+          employee_name: string
+          role?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          department?: string | null
+          email?: string
+          employee_id?: string
+          employee_name?: string
+          role?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      users: {
+        Row: {
+          account_type: string | null
+          created_at: string | null
+          department: string | null
+          email: string
+          id: string
+          role: string | null
+        }
+        Insert: {
+          account_type?: string | null
+          created_at?: string | null
+          department?: string | null
+          email: string
+          id?: string
+          role?: string | null
+        }
+        Update: {
+          account_type?: string | null
+          created_at?: string | null
+          department?: string | null
+          email?: string
+          id?: string
+          role?: string | null
         }
         Relationships: []
       }

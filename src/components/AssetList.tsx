@@ -69,6 +69,8 @@ export const AssetList = ({
   const [showStickerDialog, setShowStickerDialog] = React.useState(false);
   const [returnRemarks, setReturnRemarks] = React.useState("");
   const [returnLocation, setReturnLocation] = React.useState("");
+  const [returnStatus, setReturnStatus] = React.useState("");
+  const [assetCondition, setAssetCondition] = React.useState("");
   const [newStatus, setNewStatus] = React.useState("");
   const [newLocation, setNewLocation] = React.useState("");
   const [receivedByInput, setReceivedByInput] = React.useState("");
@@ -97,7 +99,6 @@ export const AssetList = ({
 
   const receivedBy = React.useMemo(() => {
     try {
-      if (user?.displayName) return user.displayName;
       if (user?.email) {
         const prefix = user.email.split('@')[0];
         const parts = prefix.split(/[_.\-]/).filter(Boolean);
@@ -332,35 +333,32 @@ export const AssetList = ({
   const handleReturnAsset = async () => {
     if (selectedAsset) {
       try {
-        if (newStatus !== "Assigned" && !returnLocation) {
-          setError("Location is required for this status.");
+        if (!returnStatus) {
+          setError("Please select a status");
+          return;
+        }
+        
+        if (returnStatus !== "Available" && !returnLocation) {
+          setError("Location is required for this status");
           return;
         }
         
         const finalReceivedBy = receivedByInput.trim() || receivedBy;
         
-        await onUnassign(selectedAsset.id, returnRemarks, finalReceivedBy, newStatus !== "Assigned" ? returnLocation : undefined);
-        
-        if (newStatus && newStatus !== "Assigned") {
-          await onUpdateStatus(selectedAsset.id, newStatus);
-          await onUpdateAsset(selectedAsset.id, { 
-            received_by: finalReceivedBy,
-            return_date: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
-        } else {
-          await onUpdateStatus(selectedAsset.id, "Available");
-          await onUpdateAsset(selectedAsset.id, { 
-            received_by: finalReceivedBy,
-            return_date: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
-        }
+        await onUnassign(selectedAsset.id, returnRemarks, finalReceivedBy, returnStatus !== "Available" ? returnLocation : undefined);
+        await onUpdateStatus(selectedAsset.id, returnStatus);
+        await onUpdateAsset(selectedAsset.id, { 
+          received_by: finalReceivedBy,
+          return_date: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          asset_condition: assetCondition || null
+        });
         
         setShowReturnDialog(false);
         setReturnRemarks("");
         setReturnLocation("");
-        setNewStatus("");
+        setReturnStatus("");
+        setAssetCondition("");
         setReceivedByInput("");
         setSelectedAsset(null);
         setError(null);
@@ -1375,7 +1373,7 @@ export const AssetList = ({
 
       {/* Return Dialog */}
       <Dialog open={showReturnDialog} onOpenChange={setShowReturnDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Return Asset</DialogTitle>
           </DialogHeader>
@@ -1386,18 +1384,27 @@ export const AssetList = ({
             </div>
             <div className="space-y-2">
               <Label>Status *</Label>
-              <Select value={newStatus} onValueChange={setNewStatus}>
+              <Select value={returnStatus} onValueChange={setReturnStatus}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
-                  {allStatuses.map(status => (
+                  <SelectItem value="Available">Available</SelectItem>
+                  {allStatuses.filter(s => s !== "Assigned").map(status => (
                     <SelectItem key={status} value={status}>{status}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            {newStatus !== "Assigned" && (
+            <div className="space-y-2">
+              <Label>Asset Condition</Label>
+              <Input
+                value={assetCondition}
+                onChange={(e) => setAssetCondition(e.target.value)}
+                placeholder="Enter asset condition (optional)"
+              />
+            </div>
+            {returnStatus && returnStatus !== "Available" && (
               <div className="space-y-2">
                 <Label>Location *</Label>
                 <Select value={returnLocation} onValueChange={setReturnLocation}>
@@ -1439,7 +1446,8 @@ export const AssetList = ({
                   setShowReturnDialog(false);
                   setReturnRemarks("");
                   setReturnLocation("");
-                  setNewStatus("");
+                  setReturnStatus("");
+                  setAssetCondition("");
                   setReceivedByInput("");
                   setSelectedAsset(null);
                 }}
@@ -1449,7 +1457,7 @@ export const AssetList = ({
               </Button>
               <Button
                 onClick={handleReturnAsset}
-                disabled={!selectedAsset || !newStatus || (newStatus !== "Assigned" && !returnLocation)}
+                disabled={!selectedAsset || !returnStatus || (returnStatus !== "Available" && !returnLocation)}
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
               >
                 Return
