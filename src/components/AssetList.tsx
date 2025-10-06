@@ -784,8 +784,9 @@ export const AssetList = ({
                         <th className="p-2 w-[15%] text-left">Asset Details</th>
                         <th className="p-2 w-[15%] text-left">Specifications</th>
                         <th className="p-2 w-[10%] text-left">Serial Number</th>
-                        <th className="p-2 w-[15%] text-left">Location</th>
-                        <th className="p-2 w-[15%] text-left">Asset Check</th>
+                        <th className="p-2 w-[10%] text-left">Asset Condition</th>
+                        <th className="p-2 w-[12%] text-left">Location</th>
+                        <th className="p-2 w-[13%] text-left">Asset Check</th>
                       </>
                     )}
                     {isWarrantyView && (
@@ -795,11 +796,12 @@ export const AssetList = ({
                         <th className="p-2 w-[15%] text-left">Asset Details</th>
                         <th className="p-2 w-[15%] text-left">Specifications</th>
                         <th className="p-2 w-[10%] text-left">Serial Number</th>
-                        <th className="p-2 w-[10%] text-left">Provider</th>
-                        <th className="p-2 w-[12%] text-left">Warranty Start</th>
-                        <th className="p-2 w-[12%] text-left">Warranty End</th>
-                        <th className="p-2 w-[11%] text-left">Warranty Period</th>
-                        <th className="p-2 w-[11%] text-left">Warranty Status</th>
+                        <th className="p-2 w-[8%] text-left">Provider</th>
+                        <th className="p-2 w-[8%] text-left">Asset Condition</th>
+                        <th className="p-2 w-[10%] text-left">Warranty Start</th>
+                        <th className="p-2 w-[10%] text-left">Warranty End</th>
+                        <th className="p-2 w-[10%] text-left">Warranty Period</th>
+                        <th className="p-2 w-[9%] text-left">Warranty Status</th>
                       </>
                     )}
                   </tr>
@@ -881,22 +883,23 @@ export const AssetList = ({
                                   Assign
                                 </Button>
                               ) : asset.status === "Assigned" ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    setSelectedAsset(asset);
-                                    setNewStatus("");
-                                    setReturnLocation("");
-                                    setReturnRemarks("");
-                                    setReceivedByInput("");
-                                    setShowReturnDialog(true);
-                                  }}
-                                  className="text-xs h-6"
-                                >
-                                  <UserMinus className="h-2 w-2 mr-1" />
-                                  Return
-                                </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedAsset(asset);
+                        setReturnStatus("");
+                        setReturnLocation(asset.location || "");
+                        setReturnRemarks("");
+                        setAssetCondition("");
+                        setReceivedByInput("");
+                        setShowReturnDialog(true);
+                      }}
+                      className="text-xs h-6"
+                    >
+                      <UserMinus className="h-2 w-2 mr-1" />
+                      Return
+                    </Button>
                               ) : null}
                               <Button
                                 size="sm"
@@ -1006,6 +1009,9 @@ export const AssetList = ({
                             <div className="text-left">{asset.serial_number || '-'}</div>
                           </td>
                           <td className="p-2 text-xs">
+                            <div className="text-left">{asset.asset_condition || '-'}</div>
+                          </td>
+                          <td className="p-2 text-xs">
                             <div className="text-left">{asset.location || '-'}</div>
                           </td>
                           <td className="p-2 text-xs">
@@ -1065,6 +1071,9 @@ export const AssetList = ({
                           </td>
                           <td className="p-2 text-xs">
                             <div className="text-left">{asset.provider || "-"}</div>
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="text-left">{asset.asset_condition || '-'}</div>
                           </td>
                           <td className="p-2 text-xs">
                             <div className="text-left">{formatDate(asset.warranty_start)}</div>
@@ -1399,6 +1408,21 @@ export const AssetList = ({
               </Select>
             </div>
             <div className="space-y-2">
+              <Label>Location</Label>
+              <Select value={returnLocation} onValueChange={setReturnLocation}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select location" />
+                </SelectTrigger>
+                <SelectContent>
+                  {locations.map((location) => (
+                    <SelectItem key={location} value={location}>
+                      {location}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label>Asset Condition</Label>
               <Input
                 value={assetCondition}
@@ -1406,23 +1430,6 @@ export const AssetList = ({
                 placeholder="Enter asset condition (optional)"
               />
             </div>
-            {returnStatus && returnStatus !== "Available" && (
-              <div className="space-y-2">
-                <Label>Location *</Label>
-                <Select value={returnLocation} onValueChange={setReturnLocation}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select location" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {locations.map((location) => (
-                      <SelectItem key={location} value={location}>
-                        {location}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
             <div className="space-y-2">
               <Label>Received By</Label>
               <Input
@@ -1459,7 +1466,7 @@ export const AssetList = ({
               </Button>
               <Button
                 onClick={handleReturnAsset}
-                disabled={!selectedAsset || !returnStatus || (returnStatus !== "Available" && !returnLocation)}
+                disabled={!selectedAsset || !returnStatus}
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
               >
                 Return
