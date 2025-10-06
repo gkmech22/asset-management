@@ -8,7 +8,7 @@ import { AssetList } from "./AssetList";
 import { DatePickerWithRange } from "./DatePickerWithRange";
 import { DateRange } from "react-day-picker";
 
-const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus, onUpdateLocation, onUpdateAssetCheck, onDelete, userRole }) => {
+const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus, onUpdateLocation, onUpdateAssetCheck, onDelete, userRole }: any) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -67,8 +67,8 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
   const scrapDamageAssets = filteredAssets.filter((asset) => asset.status === "Scrap/Damage").length;
 
   const getAssetTypeCounts = (status: string) => {
-    return assetTypes.reduce((acc, type) => {
-      acc[type] = filteredAssets.filter((asset) => asset.type === type && (status === "all" || asset.status === status)).length;
+    return (assetTypes as string[]).reduce((acc, type) => {
+      acc[type as string] = filteredAssets.filter((asset: any) => asset.type === type && (status === "all" || asset.status === status)).length;
       return acc;
     }, {} as Record<string, number>);
   };
@@ -247,11 +247,11 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                     />
                   </div>
                   <SelectItem value="all">All Types</SelectItem>
-                  {assetTypes
-                    .filter((type) =>
+                  {(assetTypes as string[])
+                    .filter((type: string) =>
                       type.toLowerCase().includes(searchQueryType.toLowerCase())
                     )
-                    .map((type) => (
+                    .map((type: string) => (
                       <SelectItem key={type} value={type} className="text-xs">
                         {type}
                       </SelectItem>
@@ -278,11 +278,11 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                     />
                   </div>
                   <SelectItem value="all">All Brands</SelectItem>
-                  {assetBrands
-                    .filter((brand) =>
+                  {(assetBrands as string[])
+                    .filter((brand: string) =>
                       brand.toLowerCase().includes(searchQueryBrand.toLowerCase())
                     )
-                    .map((brand) => (
+                    .map((brand: string) => (
                       <SelectItem key={brand} value={brand} className="text-xs">
                         {brand}
                       </SelectItem>
@@ -309,11 +309,11 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                     />
                   </div>
                   <SelectItem value="all">All Configurations</SelectItem>
-                  {assetConfigurations
-                    .filter((config) =>
+                  {(assetConfigurations as string[])
+                    .filter((config: string) =>
                       config.toLowerCase().includes(searchQueryConfig.toLowerCase())
                     )
-                    .map((config) => (
+                    .map((config: string) => (
                       <SelectItem key={config} value={config} className="text-xs">
                         {config}
                       </SelectItem>
@@ -340,11 +340,11 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                     />
                   </div>
                   <SelectItem value="all">All Locations</SelectItem>
-                  {assetLocations
-                    .filter((location) =>
+                  {(assetLocations as string[])
+                    .filter((location: string) =>
                       location.toLowerCase().includes(searchQueryLocation.toLowerCase())
                     )
-                    .map((location) => (
+                    .map((location: string) => (
                       <SelectItem key={location} value={location} className="text-xs">
                         {location}
                       </SelectItem>
@@ -371,11 +371,11 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                     />
                   </div>
                   <SelectItem value="all">All</SelectItem>
-                  {assetStatuses
-                    .filter((status) =>
+                  {(assetStatuses as string[])
+                    .filter((status: string) =>
                       status.toLowerCase().includes(searchQueryStatus.toLowerCase())
                     )
-                    .map((status) => (
+                    .map((status: string) => (
                       <SelectItem key={status} value={status} className="text-xs">
                         {status}
                       </SelectItem>

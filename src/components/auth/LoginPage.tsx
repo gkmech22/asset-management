@@ -9,30 +9,6 @@ export const LoginPage = () => {
   const { user, loading, signInWithGoogle } = useAuth();
   const location = useLocation();
 
-  // Handle OAuth redirect tokens
-  useEffect(() => {
-    const hash = location.hash;
-    if (hash) {
-      try {
-        const params = new URLSearchParams(hash.replace('#', ''));
-        const accessToken = params.get('access_token');
-        const refreshToken = params.get('refresh_token');
-        const expiresIn = params.get('expires_in');
-
-        if (accessToken && refreshToken && expiresIn) {
-          // Process tokens with Supabase
-          signInWithGoogle({ accessToken, refreshToken, expiresIn }).catch((error) => {
-            console.error('Error processing OAuth tokens:', error);
-          });
-
-          // Clean up the URL by removing the hash
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
-      } catch (error) {
-        console.error('Error parsing URL hash:', error);
-      }
-    }
-  }, [location, signInWithGoogle]);
 
   // Redirect if already authenticated
   if (!loading && user) {

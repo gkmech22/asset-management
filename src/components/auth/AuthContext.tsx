@@ -8,9 +8,8 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 interface AuthContextType {
   user: any | null;
   loading: boolean;
-  signInWithGoogle: (tokens?: { accessToken: string; refreshToken: string; expiresIn: string }) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
-  updateUser: (attributes: any) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -46,31 +45,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
-  const signInWithGoogle = async (tokens?: { accessToken: string; refreshToken: string; expiresIn: string }) => {
+  const signInWithGoogle = async () => {
     try {
-      if (tokens) {
-        // Handle OAuth redirect tokens
-        const { data, error } = await supabase.auth.setSession({
-          access_token: tokens.accessToken,
-          refresh_token: tokens.refreshToken,
-          expires_in: parseInt(tokens.expiresIn),
-        });
-        if (error) throw error;
-        setUser(data.session?.user ?? null);
-      } else {
-        // Initiate Google OAuth flow
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: window.location.origin, // http://localhost:3000
-            queryParams: {
-              access_type: 'offline',
-              prompt: 'consent',
-            },
+      // Initiate Google OAuth flow
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
           },
-        });
-        if (error) throw error;
-      }
+        },
+      });
+      if (error) throw error;
     } catch (error) {
       console.error('Google sign-in error:', error);
       throw error;
@@ -88,19 +76,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const updateUser = async (attributes: any) => {
-    try {
-      const { data, error } = await supabase.auth.updateUser(attributes);
-      if (error) throw error;
-      setUser(data.user);
-    } catch (error) {
-      console.error('Update user error:', error);
-      throw error;
-    }
-  };
-
   return (
-    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signOut, updateUser }}>
+    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signOut }}>
       {children}
     </AuthContext.Provider>
   );

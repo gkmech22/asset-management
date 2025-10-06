@@ -187,10 +187,10 @@ Asset Management Team`);
     for (const format of formats) {
       const match = dateStr.trim().match(format.pattern);
       if (match) {
-        let [year, month, day] = format.order.map(i => match[i]);
-        year = parseInt(year, 10);
-        month = format.order[1] === 2 ? monthNames[month.toLowerCase()] : parseInt(month, 10) - 1;
-        day = parseInt(day, 10);
+        let [yearStr, monthStr, dayStr] = format.order.map(i => match[i]);
+        let year = parseInt(yearStr, 10);
+        let month = format.order[1] === 2 ? monthNames[monthStr.toLowerCase()] : parseInt(monthStr, 10) - 1;
+        let day = parseInt(dayStr, 10);
 
         if (format.adjustYear && year < 100) year += year < 50 ? 2000 : 1900;
         if (isNaN(year) || isNaN(month) || isNaN(day) || month < 0 || month > 11 || day < 1 || day > 31) {
@@ -255,7 +255,7 @@ Asset Management Team`);
         recovery_amount: newAsset.recoveryAmount || null,
       };
       
-      const { data, error } = await createAssetMutation.mutateAsync(asset);
+      const data = await createAssetMutation.mutateAsync(asset);
       if (error) {
         throw new Error(error.message || "Failed to create asset.");
       }
@@ -307,7 +307,7 @@ Asset Management Team`);
     }
   };
 
-  const handleUnassignAsset = async (assetId: string, remarks?: string, receivedBy?: string, location?: string) => {
+  const handleUnassignAsset = async (assetId: string, remarks?: string, receivedBy?: string, location?: string, configuration?: string | null, assetCondition?: string | null, status?: string) => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
       toast.error("Unauthorized: Insufficient permissions.");
       return;
@@ -324,6 +324,9 @@ Asset Management Team`);
         remarks,
         receivedBy: receivedBy || currentUser,
         location,
+        configuration,
+        assetCondition,
+        status,
       });
       
       await logEditHistory(assetId, "assigned_to", asset?.assigned_to || null, null);
@@ -619,7 +622,7 @@ Asset Management Team`);
       for (const asset of validAssets) {
         try {
           const result = await createAssetMutation.mutateAsync(asset);
-          if (result.error || !result) {
+          if (!result) {
             errors.push(`Failed to create asset ${asset.asset_id}`);
             unaddedAssets.push(asset.asset_id);
             continue;

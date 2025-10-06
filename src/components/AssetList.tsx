@@ -21,7 +21,7 @@ import { toast } from "sonner";
 interface AssetListProps {
   assets: Asset[];
   onAssign: (assetId: string, userName: string, employeeId: string) => Promise<void>;
-  onUnassign: (assetId: string, remarks?: string, receivedBy?: string, location?: string) => Promise<void>;
+  onUnassign: (assetId: string, remarks?: string, receivedBy?: string, location?: string, configuration?: string | null, assetCondition?: string | null, status?: string) => Promise<void>;
   onUpdateAsset: (assetId: string, updatedAsset: any) => Promise<void>;
   onUpdateStatus: (assetId: string, status: string) => Promise<void>;
   onUpdateLocation: (assetId: string, location: string) => Promise<void>;
@@ -344,15 +344,17 @@ export const AssetList = ({
         }
         
         const finalReceivedBy = receivedByInput.trim() || receivedBy;
+        const finalLocation = returnStatus !== "Available" ? (returnLocation || selectedAsset.location) : selectedAsset.location;
         
-        await onUnassign(selectedAsset.id, returnRemarks, finalReceivedBy, returnStatus !== "Available" ? returnLocation : undefined);
-        await onUpdateStatus(selectedAsset.id, returnStatus);
-        await onUpdateAsset(selectedAsset.id, { 
-          received_by: finalReceivedBy,
-          return_date: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          asset_condition: assetCondition || null
-        });
+        await onUnassign(
+          selectedAsset.id, 
+          returnRemarks, 
+          finalReceivedBy, 
+          finalLocation,
+          null,
+          assetCondition || null,
+          returnStatus
+        );
         
         setShowReturnDialog(false);
         setReturnRemarks("");

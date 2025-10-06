@@ -22,7 +22,7 @@ export const AssetSticker: React.FC<AssetStickerProps> = ({ asset }) => {
     }
 
     const loadJsBarcode = () => {
-      if (window.JsBarcode) {
+      if ((window as any).JsBarcode) {
         console.log("AssetSticker: JsBarcode already loaded");
         setIsLoading(false);
         return;
@@ -118,7 +118,7 @@ export const AssetSticker: React.FC<AssetStickerProps> = ({ asset }) => {
       const serialNumber = asset.serial_number || "NO-SERIAL";
       try {
         console.log("AssetSticker: Generating barcode with serial:", serialNumber);
-        window.JsBarcode(barcodeCanvas, serialNumber, {
+        (window as any).JsBarcode(barcodeCanvas, serialNumber, {
           format: "CODE128",
           width: 1.5,
           height: barcodeHeight,
