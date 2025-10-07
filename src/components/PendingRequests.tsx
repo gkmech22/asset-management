@@ -9,16 +9,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { CheckCircle, XCircle, Eye, X } from "lucide-react";
+import { CheckCircle, XCircle, Eye, X, MessageCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface PendingRequest {
   id: string;
-  request_type: 'assign' | 'return';
+  request_type: "assign" | "return";
   asset_id: string;
   requested_by: string;
   requested_at: string;
-  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  status: "pending" | "approved" | "rejected" | "cancelled";
   assign_to?: string;
   employee_id?: string;
   employee_email?: string;
@@ -47,25 +47,33 @@ interface PendingRequest {
 }
 
 const locations = [
-  "Mumbai Office", "Hyderabad WH", "Ghaziabad WH", "Bhiwandi WH", "Patiala WH",
-  "Bangalore Office", "Kolkata WH", "Trichy WH", "Gurugram Office", "Indore WH",
-  "Bangalore WH", "Jaipur WH"
+  "Mumbai Office",
+  "Hyderabad WH",
+  "Ghaziabad WH",
+  "Bhiwandi WH",
+  "Patiala WH",
+  "Bangalore Office",
+  "Kolkata WH",
+  "Trichy WH",
+  "Gurugram Office",
+  "Indore WH",
+  "Bangalore WH",
+  "Jaipur WH"
 ];
 
 const allStatuses = ["Available", "Scrap/Damage", "Sale", "Lost", "Emp Damage", "Courier Damage"];
 
-export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
+export const PendingRequests = ({ onRefresh }) => {
   const { user } = useAuth() || { user: null };
-  const [requests, setRequests] = useState<PendingRequest[]>([]);
+  const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState<PendingRequest | null>(null);
+  const [selectedRequest, setSelectedRequest] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'cancelled'>('pending');
+  const [filterStatus, setFilterStatus] = useState('pending');
   
-  // Editable fields
   const [editedAssignTo, setEditedAssignTo] = useState("");
   const [editedEmployeeId, setEditedEmployeeId] = useState("");
   const [editedReturnLocation, setEditedReturnLocation] = useState("");
@@ -114,7 +122,7 @@ export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
 
       if (error) throw error;
       setRequests((data || []) as PendingRequest[]);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching requests:', error);
       toast.error('Failed to fetch requests');
     } finally {
@@ -122,7 +130,7 @@ export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
     }
   };
 
-  const handleViewDetails = (request: PendingRequest) => {
+  const handleViewDetails = (request) => {
     setSelectedRequest(request);
     setEditMode(false);
     setEditedAssignTo(request.assign_to || "");
@@ -151,7 +159,6 @@ export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
     }
 
     try {
-      // Update the asset based on request type
       if (selectedRequest.request_type === 'assign') {
         await supabase
           .from('assets')
@@ -184,7 +191,6 @@ export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
           .eq('id', selectedRequest.asset_id);
       }
 
-      // Update request status
       const { error: requestError } = await supabase
         .from('pending_requests')
         .update({
@@ -201,7 +207,7 @@ export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
       setShowDetailsDialog(false);
       fetchRequests();
       onRefresh?.();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error approving request:', error);
       toast.error('Failed to approve request: ' + (error.message || 'Unknown error'));
     }
@@ -238,13 +244,13 @@ export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
       setShowDetailsDialog(false);
       fetchRequests();
       onRefresh?.();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error rejecting request:', error);
-      toast.error('Failed to reject request: ' + (error.message || 'Unknown error'));
+      toast.error('Failed to reject request');
     }
   };
 
-  const handleCancel = async (request: PendingRequest) => {
+  const handleCancel = async (request) => {
     if (!user?.email) return;
 
     if (request.status !== 'pending') {
@@ -252,7 +258,6 @@ export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
       return;
     }
     
-    // Only the person who created the request can cancel it
     if (request.requested_by !== user.email) {
       toast.error('You can only cancel your own requests');
       return;
@@ -271,9 +276,36 @@ export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
       toast.success('Request cancelled');
       fetchRequests();
       onRefresh?.();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error cancelling request:', error);
       toast.error('Failed to cancel request');
+    }
+  };
+
+  const openCommentInNewTab = (comment) => {
+    if (comment) {
+      const commentWindow = window.open("", "_blank");
+      if (commentWindow) {
+        commentWindow.document.write(`
+          <html>
+            <head>
+              <title>Comment Details</title>
+              <style>
+                body { font-family: Arial, sans-serif; padding: 20px; }
+                h1 { font-size: 24px; margin-bottom: 10px; }
+                p { font-size: 16px; }
+              </style>
+            </head>
+            <body>
+              <h1>Approver Comment</h1>
+              <p>${comment.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>
+            </body>
+          </html>
+        `);
+        commentWindow.document.close();
+      } else {
+        toast.error("Popup blocked. Please allow popups to view comments.");
+      }
     }
   };
 
@@ -360,6 +392,17 @@ export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {request.approver_comments && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openCommentInNewTab(request.approver_comments)}
+                      className="ml-2"
+                    >
+                      <MessageCircle className="h-4 w-4 mr-1" />
+                      Comment
+                    </Button>
+                  )}
                   <Button size="sm" variant="outline" onClick={() => handleViewDetails(request)}>
                     <Eye className="h-4 w-4 mr-1" />
                     View
