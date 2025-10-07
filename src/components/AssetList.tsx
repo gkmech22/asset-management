@@ -95,7 +95,7 @@ export const AssetList = ({
     "Bangalore WH", "Jaipur WH"
   ];
 
-  const allStatuses = ["Available", "Scrap/Damage", "Sale", "Lost", "Emp Damage", "Courier Damage"];
+  const allStatuses = ["Scrap/Damage", "Sale", "Lost", "Emp Damage", "Courier Damage"];
 
   const receivedBy = React.useMemo(() => {
     try {

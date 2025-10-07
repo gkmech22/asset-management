@@ -169,6 +169,89 @@ export type Database = {
         }
         Relationships: []
       }
+      pending_requests: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          asset_condition: string | null
+          asset_id: string
+          assign_to: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          configuration: string | null
+          created_at: string
+          employee_email: string | null
+          employee_id: string | null
+          id: string
+          received_by: string | null
+          rejection_reason: string | null
+          request_type: string
+          requested_at: string
+          requested_by: string
+          return_location: string | null
+          return_remarks: string | null
+          return_status: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          asset_condition?: string | null
+          asset_id: string
+          assign_to?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          configuration?: string | null
+          created_at?: string
+          employee_email?: string | null
+          employee_id?: string | null
+          id?: string
+          received_by?: string | null
+          rejection_reason?: string | null
+          request_type: string
+          requested_at?: string
+          requested_by: string
+          return_location?: string | null
+          return_remarks?: string | null
+          return_status?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          asset_condition?: string | null
+          asset_id?: string
+          assign_to?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          configuration?: string | null
+          created_at?: string
+          employee_email?: string | null
+          employee_id?: string | null
+          id?: string
+          received_by?: string | null
+          rejection_reason?: string | null
+          request_type?: string
+          requested_at?: string
+          requested_by?: string
+          return_location?: string | null
+          return_remarks?: string | null
+          return_status?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_requests_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           account_type: string | null
