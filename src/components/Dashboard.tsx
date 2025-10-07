@@ -18,6 +18,7 @@ import SummaryView from "./SummaryView";
 import EmployeeDetails from "./EmployeeDetails";
 import { PendingRequests } from "./PendingRequests";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 const locations = [
   "Mumbai Office", "Hyderabad WH", "Ghaziabad WH", "Bhiwandi WH", "Patiala WH",
@@ -28,7 +29,7 @@ const locations = [
 export const Dashboard = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
-  const { data: assets = [], isLoading, error } = useAssets();
+  const { data: assets = [], isLoading, error, refetch } = useAssets();
   const createAssetMutation = useCreateAsset();
   const updateAssetMutation = useUpdateAsset();
   const unassignAssetMutation = useUnassignAsset();
@@ -72,6 +73,28 @@ export const Dashboard = () => {
     };
     fetchUserAndAuthorize();
     fetchPendingCount();
+
+    // Real-time subscription for assets
+    const assetsSubscription = supabase
+      .channel('assets-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'assets' }, (payload) => {
+        refetch();
+      })
+      .subscribe();
+
+    // Real-time subscription for pending requests
+    const pendingRequestsSubscription = supabase
+      .channel('pending-requests-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pending_requests' }, () => {
+        fetchPendingCount();
+      })
+      .subscribe();
+
+    // Cleanup subscriptions on unmount
+    return () => {
+      assetsSubscription.unsubscribe();
+      pendingRequestsSubscription.unsubscribe();
+    };
   }, []);
 
   const fetchPendingCount = async () => {
@@ -204,6 +227,7 @@ export const Dashboard = () => {
       
       const data = await createAssetMutation.mutateAsync(asset);
       await logEditHistory(data.id, "created", null, "Asset Created");
+      refetch(); // Update assets state immediately
       toast.success("Asset created successfully");
       setShowAddForm(false);
     } catch (error: any) {
@@ -223,7 +247,6 @@ export const Dashboard = () => {
         throw new Error("Asset not found.");
       }
       
-      // Check if Operator - create pending request
       if (userRole === 'Operator') {
         const { data: emp } = await supabase.from('employees').select('email').eq('employee_id', employeeId).single();
         
@@ -241,7 +264,6 @@ export const Dashboard = () => {
         return;
       }
 
-      // Super Admin or Admin - direct update
       await updateAssetMutation.mutateAsync({
         id: assetId,
         assigned_to: userName,
@@ -255,7 +277,7 @@ export const Dashboard = () => {
       await logEditHistory(assetId, "assigned_to", asset?.assigned_to || null, userName);
       await logEditHistory(assetId, "employee_id", asset?.employee_id || null, employeeId);
       await logEditHistory(assetId, "status", asset?.status || null, "Assigned");
-      
+      refetch(); // Update assets state immediately
       toast.success("Asset assigned successfully");
     } catch (error: any) {
       toast.error(error.message || "Failed to assign asset.");
@@ -274,7 +296,6 @@ export const Dashboard = () => {
         throw new Error("Asset not found.");
       }
       
-      // Check if Operator - create pending request
       if (userRole === 'Operator') {
         await supabase.from('pending_requests').insert({
           request_type: 'return',
@@ -293,7 +314,6 @@ export const Dashboard = () => {
         return;
       }
 
-      // Super Admin or Admin - direct update
       await unassignAssetMutation.mutateAsync({
         id: assetId,
         remarks,
@@ -316,7 +336,7 @@ export const Dashboard = () => {
       if (remarks) {
         await logEditHistory(assetId, "remarks", asset?.remarks || null, remarks);
       }
-      
+      refetch(); // Update assets state immediately
       toast.success("Asset returned successfully");
     } catch (error: any) {
       toast.error(error.message || "Failed to return asset.");
@@ -363,7 +383,6 @@ export const Dashboard = () => {
         updated_at: new Date().toISOString(),
       });
 
-      // Log changes
       if (asset?.asset_id !== updatedAsset.assetId) {
         await logEditHistory(assetId, "asset_id", asset?.asset_id || null, updatedAsset.assetId);
       }
@@ -394,7 +413,7 @@ export const Dashboard = () => {
       if (asset?.warranty_status !== warrantyStatus) {
         await logEditHistory(assetId, "warranty_status", asset?.warranty_status || null, warrantyStatus);
       }
-      
+      refetch(); // Update assets state immediately
       toast.success("Asset updated successfully");
     } catch (error: any) {
       toast.error(error.message || "Failed to update asset.");
@@ -421,6 +440,7 @@ export const Dashboard = () => {
       });
 
       await logEditHistory(assetId, "status", asset?.status || null, status);
+      refetch(); // Update assets state immediately
       toast.success("Asset status updated");
     } catch (error: any) {
       toast.error(error.message || "Failed to update status.");
@@ -447,6 +467,7 @@ export const Dashboard = () => {
       });
 
       await logEditHistory(assetId, "location", asset?.location || null, location);
+      refetch(); // Update assets state immediately
       toast.success("Location updated");
     } catch (error: any) {
       toast.error(error.message || "Failed to update location.");
@@ -468,6 +489,7 @@ export const Dashboard = () => {
       });
 
       await logEditHistory(assetId, "asset_check", asset?.asset_check || null, assetCheck);
+      refetch(); // Update assets state immediately
     } catch (error: any) {
       console.error("Failed to update asset check:", error);
     }
@@ -481,6 +503,7 @@ export const Dashboard = () => {
 
     try {
       await deleteAssetMutation.mutateAsync(assetId);
+      refetch(); // Update assets state immediately
       toast.success("Asset deleted successfully");
     } catch (error: any) {
       toast.error(error.message || "Failed to delete asset.");
@@ -591,12 +614,10 @@ export const Dashboard = () => {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-bold text-foreground">IT Asset Management</h1>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm">
-                    <Menu className="h-4 w-4 mr-2" />
-                    Views
+                    <Menu className="h-0 w-0 mr-0" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
@@ -607,6 +628,8 @@ export const Dashboard = () => {
                   <DropdownMenuItem onClick={() => setCurrentPage('employees')}>Employee Details</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              <img src="/logo.png" alt="LEAD GROUP" className="h-10" />
+              <span className="text-2xl font-bold text-primary">Asset Management System</span>
             </div>
 
             <div className="flex items-center gap-3">
@@ -627,7 +650,7 @@ export const Dashboard = () => {
                 size="sm" 
                 className="relative"
                 onClick={() => {
-                  setShowPendingRequests(!showPendingRequests);
+                  setShowPendingRequests(true);
                   fetchPendingCount();
                 }}
               >
@@ -645,11 +668,6 @@ export const Dashboard = () => {
       </div>
 
       <div className="container mx-auto px-4 py-6">
-        {showPendingRequests && (
-          <PendingRequests onRefresh={() => {
-            fetchPendingCount();
-          }} />
-        )}
         {renderContent()}
       </div>
 
@@ -666,11 +684,18 @@ export const Dashboard = () => {
           onOpenChange={setShowBulkUpload}
           onUpload={() => {
             setShowBulkUpload(false);
+            refetch(); // Update assets state after bulk upload
             toast.success("Assets uploaded successfully");
           }}
           onDownload={() => {}}
         />
       )}
+
+      <Dialog open={showPendingRequests} onOpenChange={setShowPendingRequests}>
+        <DialogContent className="m-0 max-w-screen max-h-screen overflow-y-auto">
+          <PendingRequests onRefresh={refetch} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -28,6 +28,10 @@ interface PendingRequest {
   asset_condition?: string;
   received_by?: string;
   configuration?: string;
+  approved_by?: string;
+  approved_at?: string;
+  cancelled_by?: string;
+  cancelled_at?: string;
   assets?: {
     asset_id: string;
     name: string;
@@ -38,6 +42,7 @@ interface PendingRequest {
     location: string;
     status: string;
     assigned_to?: string;
+    employee_id?: string;
   };
 }
 
@@ -57,6 +62,8 @@ export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<PendingRequest | null>(null);
   const [editMode, setEditMode] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'cancelled'>('pending');
   
   // Editable fields
   const [editedAssignTo, setEditedAssignTo] = useState("");
@@ -66,6 +73,7 @@ export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
   const [editedAssetCondition, setEditedAssetCondition] = useState("");
   const [editedRemarks, setEditedRemarks] = useState("");
   const [editedConfiguration, setEditedConfiguration] = useState("");
+  const [approverComments, setApproverComments] = useState("");
 
   useEffect(() => {
     fetchUserRole();
@@ -98,17 +106,17 @@ export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
             configuration,
             location,
             status,
-            assigned_to
+            assigned_to,
+            employee_id
           )
         `)
-        .eq('status', 'pending')
         .order('requested_at', { ascending: false });
 
       if (error) throw error;
       setRequests((data || []) as PendingRequest[]);
     } catch (error: any) {
       console.error('Error fetching requests:', error);
-      toast.error('Failed to fetch pending requests');
+      toast.error('Failed to fetch requests');
     } finally {
       setLoading(false);
     }
@@ -124,11 +132,17 @@ export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
     setEditedAssetCondition(request.asset_condition || "");
     setEditedRemarks(request.return_remarks || "");
     setEditedConfiguration(request.configuration || "");
+    setApproverComments("");
     setShowDetailsDialog(true);
   };
 
   const handleApprove = async () => {
     if (!selectedRequest || !user?.email) return;
+
+    if (selectedRequest.status !== 'pending') {
+      toast.error('Request already processed');
+      return;
+    }
     
     const isAdmin = userRole === 'Super Admin' || userRole === 'Admin';
     if (!isAdmin) {
@@ -171,14 +185,17 @@ export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
       }
 
       // Update request status
-      await supabase
+      const { error: requestError } = await supabase
         .from('pending_requests')
         .update({
           status: 'approved',
           approved_by: user.email,
           approved_at: new Date().toISOString(),
+          approver_comments: approverComments || null,
         })
         .eq('id', selectedRequest.id);
+
+      if (requestError) throw requestError;
 
       toast.success('Request approved successfully');
       setShowDetailsDialog(false);
@@ -186,12 +203,17 @@ export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
       onRefresh?.();
     } catch (error: any) {
       console.error('Error approving request:', error);
-      toast.error('Failed to approve request');
+      toast.error('Failed to approve request: ' + (error.message || 'Unknown error'));
     }
   };
 
   const handleReject = async () => {
     if (!selectedRequest || !user?.email) return;
+
+    if (selectedRequest.status !== 'pending') {
+      toast.error('Request already processed');
+      return;
+    }
     
     const isAdmin = userRole === 'Super Admin' || userRole === 'Admin';
     if (!isAdmin) {
@@ -200,29 +222,38 @@ export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
     }
 
     try {
-      await supabase
+      const { error: requestError } = await supabase
         .from('pending_requests')
         .update({
           status: 'rejected',
           approved_by: user.email,
           approved_at: new Date().toISOString(),
+          approver_comments: approverComments || null,
         })
         .eq('id', selectedRequest.id);
+
+      if (requestError) throw requestError;
 
       toast.success('Request rejected');
       setShowDetailsDialog(false);
       fetchRequests();
+      onRefresh?.();
     } catch (error: any) {
       console.error('Error rejecting request:', error);
-      toast.error('Failed to reject request');
+      toast.error('Failed to reject request: ' + (error.message || 'Unknown error'));
     }
   };
 
-  const handleCancel = async (requestId: string, requestedBy: string) => {
+  const handleCancel = async (request: PendingRequest) => {
     if (!user?.email) return;
+
+    if (request.status !== 'pending') {
+      toast.error('Cannot cancel processed request');
+      return;
+    }
     
     // Only the person who created the request can cancel it
-    if (requestedBy !== user.email) {
+    if (request.requested_by !== user.email) {
       toast.error('You can only cancel your own requests');
       return;
     }
@@ -235,10 +266,11 @@ export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
           cancelled_by: user.email,
           cancelled_at: new Date().toISOString(),
         })
-        .eq('id', requestId);
+        .eq('id', request.id);
 
       toast.success('Request cancelled');
       fetchRequests();
+      onRefresh?.();
     } catch (error: any) {
       console.error('Error cancelling request:', error);
       toast.error('Failed to cancel request');
@@ -255,19 +287,59 @@ export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
 
   const isAdmin = userRole === 'Super Admin' || userRole === 'Admin';
 
+  const filteredRequests = requests
+    .filter((request) => filterStatus === 'all' || request.status === filterStatus)
+    .filter((request) => {
+      const asset = request.assets;
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        request.assets?.asset_id.toLowerCase().includes(searchLower) ||
+        (asset?.name || '').toLowerCase().includes(searchLower) ||
+        (asset?.type || '').toLowerCase().includes(searchLower) ||
+        (asset?.brand || '').toLowerCase().includes(searchLower) ||
+        (asset?.serial_number || '').toLowerCase().includes(searchLower) ||
+        (request.requested_by || '').toLowerCase().includes(searchLower) ||
+        (request.assign_to || '').toLowerCase().includes(searchLower) ||
+        (request.employee_id || '').toLowerCase().includes(searchLower) ||
+        (asset?.assigned_to || '').toLowerCase().includes(searchLower) ||
+        (asset?.employee_id || '').toLowerCase().includes(searchLower) ||
+        (request.return_remarks || '').toLowerCase().includes(searchLower)
+      );
+    });
+
   return (
     <>
       <Card className="mb-6">
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            Pending Approval Requests
-            <Badge variant="secondary">{requests.length}</Badge>
+            Requests
+            <Badge variant="secondary">{filteredRequests.length}</Badge>
           </CardTitle>
+          <div className="flex items-center gap-2">
+            <Input 
+              placeholder="Search..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-32"
+            />
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-32">
+                <SelectValue placeholder="Filter" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {requests.map((request) => (
-              <div key={request.id} className="flex items-center justify-between p-3 border rounded-lg">
+          <div className="space-y-3" style={{ maxHeight: '500px', overflowY: 'auto' }}>
+            {filteredRequests.map((request) => (
+              <div key={request.id} className="flex items-center justify-between p-3 border rounded-lg" style={{ minHeight: '100px', maxHeight: '100px' }}>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <Badge variant={request.request_type === 'assign' ? 'default' : 'secondary'}>
@@ -279,17 +351,32 @@ export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
                   <div className="text-xs text-muted-foreground">
                     Requested by: {request.requested_by} • {new Date(request.requested_at).toLocaleString()}
                   </div>
+                  <div className="text-xs font-medium text-blue-600 mt-1">
+                    {request.request_type === 'assign' ? (
+                      <>Assign to: {request.assign_to} ({request.employee_id})</>
+                    ) : (
+                      <>Returning from: {request.assets?.assigned_to} ({request.assets?.employee_id})</>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button size="sm" variant="outline" onClick={() => handleViewDetails(request)}>
                     <Eye className="h-4 w-4 mr-1" />
                     View
                   </Button>
-                  {request.requested_by === user?.email && (
+                  <Badge variant={
+                    request.status === 'approved' ? 'success' :
+                    request.status === 'rejected' ? 'destructive' :
+                    request.status === 'pending' ? 'secondary' :
+                    request.status === 'cancelled' ? 'outline' : 'secondary'
+                  }>
+                    {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                  </Badge>
+                  {request.status === 'pending' && request.requested_by === user?.email && (
                     <Button
                       size="sm"
                       variant="destructive"
-                      onClick={() => handleCancel(request.id, request.requested_by)}
+                      onClick={() => handleCancel(request)}
                     >
                       <X className="h-4 w-4 mr-1" />
                       Cancel
@@ -405,6 +492,14 @@ export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
                     )}
                   </div>
                   <div>
+                    <Label>Employee ID</Label>
+                    {editMode && isAdmin ? (
+                      <Input value={editedEmployeeId} onChange={(e) => setEditedEmployeeId(e.target.value)} />
+                    ) : (
+                      <div className="text-sm">{selectedRequest.assets?.employee_id || 'N/A'}</div>
+                    )}
+                  </div>
+                  <div>
                     <Label>Configuration</Label>
                     {editMode && isAdmin ? (
                       <Input value={editedConfiguration} onChange={(e) => setEditedConfiguration(e.target.value)} />
@@ -423,33 +518,68 @@ export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
                 </div>
               )}
 
-              <div className="pt-4 border-t">
-                <Label className="text-xs text-muted-foreground">Requested By</Label>
-                <div className="text-sm">{selectedRequest.requested_by}</div>
-                <Label className="text-xs text-muted-foreground mt-2">Requested At</Label>
-                <div className="text-sm">{new Date(selectedRequest.requested_at).toLocaleString()}</div>
+              <div className="pt-4 border-t space-y-4">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Requested By</Label>
+                  <div className="text-sm">{selectedRequest.requested_by}</div>
+                  <Label className="text-xs text-muted-foreground mt-2">Requested At</Label>
+                  <div className="text-sm">{new Date(selectedRequest.requested_at).toLocaleString()}</div>
+                </div>
+
+                {selectedRequest.status !== 'pending' && (
+                  <>
+                    {selectedRequest.status === 'cancelled' && selectedRequest.cancelled_at && (
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Cancelled By</Label>
+                        <div className="text-sm">{selectedRequest.cancelled_by}</div>
+                        <Label className="text-xs text-muted-foreground mt-2">Cancelled At</Label>
+                        <div className="text-sm">{new Date(selectedRequest.cancelled_at).toLocaleString()}</div>
+                      </div>
+                    )}
+                    {(selectedRequest.status === 'approved' || selectedRequest.status === 'rejected') && selectedRequest.approved_at && (
+                      <div>
+                        <Label className="text-xs text-muted-foreground">{selectedRequest.status === 'approved' ? 'Approved' : 'Rejected'} By</Label>
+                        <div className="text-sm">{selectedRequest.approved_by}</div>
+                        <Label className="text-xs text-muted-foreground mt-2">{selectedRequest.status === 'approved' ? 'Approved' : 'Rejected'} At</Label>
+                        <div className="text-sm">{new Date(selectedRequest.approved_at).toLocaleString()}</div>
+                        {selectedRequest.approver_comments && (
+                          <>
+                            <Label className="text-xs text-muted-foreground mt-2">Approver Comments</Label>
+                            <div className="text-sm">{selectedRequest.approver_comments}</div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
 
-              {isAdmin && (
-                <div className="flex justify-end gap-2 pt-4 border-t">
-                  {!editMode && (
-                    <Button variant="outline" onClick={() => setEditMode(true)}>
-                      Edit Before Approval
+              {isAdmin && selectedRequest.status === 'pending' && (
+                <div className="pt-4 border-t space-y-4">
+                  <div>
+                    <Label>Approver Comments (Optional)</Label>
+                    <Textarea value={approverComments} onChange={(e) => setApproverComments(e.target.value)} />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    {!editMode && (
+                      <Button variant="outline" onClick={() => setEditMode(true)}>
+                        Edit Before Approval
+                      </Button>
+                    )}
+                    {editMode && (
+                      <Button variant="outline" onClick={() => setEditMode(false)}>
+                        Cancel Edit
+                      </Button>
+                    )}
+                    <Button variant="destructive" onClick={handleReject}>
+                      <XCircle className="h-4 w-4 mr-1" />
+                      Reject
                     </Button>
-                  )}
-                  {editMode && (
-                    <Button variant="outline" onClick={() => setEditMode(false)}>
-                      Cancel Edit
+                    <Button onClick={handleApprove}>
+                      <CheckCircle className="h-4 w-4 mr-1" />
+                      Approve
                     </Button>
-                  )}
-                  <Button variant="destructive" onClick={handleReject}>
-                    <XCircle className="h-4 w-4 mr-1" />
-                    Reject
-                  </Button>
-                  <Button onClick={handleApprove}>
-                    <CheckCircle className="h-4 w-4 mr-1" />
-                    Approve
-                  </Button>
+                  </div>
                 </div>
               )}
             </div>
