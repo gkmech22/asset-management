@@ -32,6 +32,8 @@ interface PendingRequest {
   approved_at?: string;
   cancelled_by?: string;
   cancelled_at?: string;
+  original_assigned_to?: string; // Stores original "Returning from" name
+  original_employee_id?: string; // Stores original employee ID
   assets?: {
     asset_id: string;
     name: string;
@@ -73,6 +75,8 @@ export const PendingRequests = ({ onRefresh }) => {
   const [editMode, setEditMode] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('pending');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
   
   const [editedAssignTo, setEditedAssignTo] = useState("");
   const [editedEmployeeId, setEditedEmployeeId] = useState("");
@@ -159,6 +163,10 @@ export const PendingRequests = ({ onRefresh }) => {
     }
 
     try {
+      // Preserve original "Returning from" data before updating assets
+      const originalAssignedTo = selectedRequest.assets?.assigned_to || null;
+      const originalEmployeeId = selectedRequest.assets?.employee_id || null;
+
       if (selectedRequest.request_type === 'assign') {
         await supabase
           .from('assets')
@@ -191,6 +199,7 @@ export const PendingRequests = ({ onRefresh }) => {
           .eq('id', selectedRequest.asset_id);
       }
 
+      // Update pending_requests with original "Returning from" data
       const { error: requestError } = await supabase
         .from('pending_requests')
         .update({
@@ -198,6 +207,8 @@ export const PendingRequests = ({ onRefresh }) => {
           approved_by: user.email,
           approved_at: new Date().toISOString(),
           approver_comments: approverComments || null,
+          original_assigned_to: selectedRequest.request_type === 'return' ? originalAssignedTo : null,
+          original_employee_id: selectedRequest.request_type === 'return' ? originalEmployeeId : null,
         })
         .eq('id', selectedRequest.id);
 
@@ -339,6 +350,24 @@ export const PendingRequests = ({ onRefresh }) => {
       );
     });
 
+  // Pagination logic
+  const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedRequests = filteredRequests.slice(startIndex, endIndex);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) setCurrentPage(currentPage - 1);
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+  };
+
   return (
     <>
       <Card className="mb-6">
@@ -370,7 +399,7 @@ export const PendingRequests = ({ onRefresh }) => {
         </CardHeader>
         <CardContent>
           <div className="space-y-3" style={{ maxHeight: '500px', overflowY: 'auto' }}>
-            {filteredRequests.map((request) => (
+            {paginatedRequests.map((request) => (
               <div key={request.id} className="flex items-center justify-between p-3 border rounded-lg" style={{ minHeight: '100px', maxHeight: '100px' }}>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
@@ -387,7 +416,7 @@ export const PendingRequests = ({ onRefresh }) => {
                     {request.request_type === 'assign' ? (
                       <>Assign to: {request.assign_to} ({request.employee_id})</>
                     ) : (
-                      <>Returning from: {request.assets?.assigned_to} ({request.assets?.employee_id})</>
+                      <>Returning from: {request.original_assigned_to || request.assets?.assigned_to} ({request.original_employee_id || request.assets?.employee_id})</>
                     )}
                   </div>
                 </div>
@@ -429,6 +458,36 @@ export const PendingRequests = ({ onRefresh }) => {
               </div>
             ))}
           </div>
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center gap-2 mt-4">
+              <Button
+                variant="outline"
+                onClick={handlePreviousPage}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <Button
+                  key={page}
+                  variant={currentPage === page ? "default" : "outline"}
+                  onClick={() => handlePageChange(page)}
+                >
+                  {page}
+                </Button>
+              ))}
+              <Button
+                variant="outline"
+                onClick={handleNextPage}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -557,6 +616,12 @@ export const PendingRequests = ({ onRefresh }) => {
                     ) : (
                       <div className="text-sm">{selectedRequest.return_remarks || 'N/A'}</div>
                     )}
+                  </div>
+                  <div className="col-span-2">
+                    <Label>Returning From (Original)</Label>
+                    <div className="text-sm">
+                      {selectedRequest.original_assigned_to || selectedRequest.assets?.assigned_to} ({selectedRequest.original_employee_id || selectedRequest.assets?.employee_id})
+                    </div>
                   </div>
                 </div>
               )}
