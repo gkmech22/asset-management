@@ -31,7 +31,7 @@ export const LoginPage = () => {
           <div className="flex items-center justify-center gap-2 mb-4">
             <Package className="h-8 w-8 text-primary" />
             <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              Asset Vault Quest
+              Asset Management System
             </h1>
           </div>
           <p className="text-muted-foreground">
