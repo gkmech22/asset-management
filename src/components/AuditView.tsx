@@ -10,30 +10,8 @@ import { DateRange } from "react-day-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Asset } from "@/hooks/useAssets";
 
-interface AuditViewProps {
-  assets: Asset[];
-  onAssign: (assetId: string, userName: string, employeeId: string) => Promise<void>;
-  onUnassign: (assetId: string, remarks?: string, receivedBy?: string, location?: string) => Promise<void>;
-  onUpdateAsset: (assetId: string, updatedAsset: any) => Promise<void>;
-  onUpdateStatus: (assetId: string, status: string) => Promise<void>;
-  onUpdateLocation: (assetId: string, location: string) => Promise<void>;
-  onUpdateAssetCheck: (assetId: string, assetCheck: string) => Promise<void>;
-  onDelete: (assetId: string) => Promise<void>;
-  userRole: string | null;
-}
-
-const AuditView = ({ 
-  assets, 
-  onAssign, 
-  onUnassign, 
-  onUpdateAsset, 
-  onUpdateStatus, 
-  onUpdateLocation, 
-  onUpdateAssetCheck, 
-  onDelete 
-}: AuditViewProps) => {
+const AuditView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus, onUpdateLocation, onUpdateAssetCheck, onDelete, userRole }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -77,6 +55,8 @@ const AuditView = ({
         asset.remarks || "",
         asset.warranty_start || "",
         asset.warranty_end || "",
+        asset.amc_start || "",
+        asset.amc_end || "",
         asset.asset_check || "",
       ].some((field) => field.toLowerCase().includes(searchQuery.toLowerCase()));
 
@@ -151,11 +131,11 @@ const AuditView = ({
                   <SelectItem value="all">All Types</SelectItem>
                   {assetTypes
                     .filter((type) =>
-                      String(type).toLowerCase().includes(searchQueryType.toLowerCase())
+                      type.toLowerCase().includes(searchQueryType.toLowerCase())
                     )
                     .map((type) => (
-                      <SelectItem key={String(type)} value={String(type)} className="text-xs">
-                        {String(type)}
+                      <SelectItem key={type} value={type} className="text-xs">
+                        {type}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -182,11 +162,11 @@ const AuditView = ({
                   <SelectItem value="all">All Brands</SelectItem>
                   {assetBrands
                     .filter((brand) =>
-                      String(brand).toLowerCase().includes(searchQueryBrand.toLowerCase())
+                      brand.toLowerCase().includes(searchQueryBrand.toLowerCase())
                     )
                     .map((brand) => (
-                      <SelectItem key={String(brand)} value={String(brand)} className="text-xs">
-                        {String(brand)}
+                      <SelectItem key={brand} value={brand} className="text-xs">
+                        {brand}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -213,11 +193,11 @@ const AuditView = ({
                   <SelectItem value="all">All Configurations</SelectItem>
                   {assetConfigurations
                     .filter((config) =>
-                      String(config).toLowerCase().includes(searchQueryConfig.toLowerCase())
+                      config.toLowerCase().includes(searchQueryConfig.toLowerCase())
                     )
                     .map((config) => (
-                      <SelectItem key={String(config)} value={String(config)} className="text-xs">
-                        {String(config)}
+                      <SelectItem key={config} value={config} className="text-xs">
+                        {config}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -244,11 +224,11 @@ const AuditView = ({
                   <SelectItem value="all">All Locations</SelectItem>
                   {assetLocations
                     .filter((location) =>
-                      String(location).toLowerCase().includes(searchQueryLocation.toLowerCase())
+                      location.toLowerCase().includes(searchQueryLocation.toLowerCase())
                     )
                     .map((location) => (
-                      <SelectItem key={String(location)} value={String(location)} className="text-xs">
-                        {String(location)}
+                      <SelectItem key={location} value={location} className="text-xs">
+                        {location}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -265,20 +245,20 @@ const AuditView = ({
                 <PopoverContent className="w-56">
                   <div className="space-y-2">
                     {assetStatuses.map((status) => (
-                      <div key={String(status)} className="flex items-center space-x-2">
+                      <div key={status} className="flex items-center space-x-2">
                         <Checkbox
-                          id={`status-${String(status)}`}
-                          checked={statusFilter.includes(String(status))}
+                          id={`status-${status}`}
+                          checked={statusFilter.includes(status)}
                           onCheckedChange={(checked) => {
                             if (checked) {
-                              setStatusFilter([...statusFilter, String(status)]);
+                              setStatusFilter([...statusFilter, status]);
                             } else {
-                              setStatusFilter(statusFilter.filter((s) => s !== String(status)));
+                              setStatusFilter(statusFilter.filter((s) => s !== status));
                             }
                           }}
                         />
-                        <Label htmlFor={`status-${String(status)}`} className="text-sm">
-                          {String(status)}
+                        <Label htmlFor={`status-${status}`} className="text-sm">
+                          {status}
                         </Label>
                       </div>
                     ))}

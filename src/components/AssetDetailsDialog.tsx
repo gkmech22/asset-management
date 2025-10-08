@@ -38,10 +38,10 @@ export const AssetDetailsDialog = ({ asset, open, onOpenChange, showAssignedToOn
         )}
         <div className="space-y-4">
           {showAssignedToOnly ? (
-          <div className="space-y-2">
-            <Label htmlFor="assignedTo">Assigned To</Label>
-            <Input id="assignedTo" value={asset.assigned_to || "Unassigned"} disabled className="bg-muted" />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="assignedTo">Assigned To</Label>
+              <Input id="assignedTo" value={asset.assigned_to || asset.userName || "Unassigned"} disabled className="bg-muted" />
+            </div>
           ) : (
             <>
               <div className="space-y-2">
@@ -109,10 +109,6 @@ export const AssetDetailsDialog = ({ asset, open, onOpenChange, showAssignedToOn
               <div className="space-y-2">
                 <Label htmlFor="updatedAt">Last Updated At</Label>
                 <Input id="updatedAt" value={asset.updated_at ? formatDate(asset.updated_at) : ""} disabled className="bg-muted" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="assetCondition">Asset Condition</Label>
-                <Input id="assetCondition" value={asset.asset_condition || "-"} disabled className="bg-muted" />
               </div>
             </>
           )}

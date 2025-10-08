@@ -71,16 +71,15 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }) => {
   const convertToCsvData = async (file) => {
     if (file.name.endsWith('.csv')) {
       const text = await file.text();
-      const parseResult = Papa.parse(text, {
+      const { data: rows, errors } = Papa.parse(text, {
         header: false,
         skipEmptyLines: true,
-        transform: (value: any) => value?.trim() || "",
+        trimHeaders: true,
+        transform: (value) => value?.trim() || "",
       });
-      const rows = parseResult.data;
-      const errors = parseResult.errors;
-      if (errors.length > 0) throw new Error(`CSV parsing errors: ${errors.map((e: any) => e.message).join(', ')}`);
-      const headers = (rows as any[])[0];
-      const dataRows = (rows as any[]).slice(1).filter((row: any) => row.length > 0 && row.some((cell: any) => cell != null && cell.toString().trim() !== ""));
+      if (errors.length > 0) throw new Error(`CSV parsing errors: ${errors.map((e) => e.message).join(', ')}`);
+      const headers = rows[0];
+      const dataRows = rows.slice(1).filter(row => row.length > 0 && row.some(cell => cell != null && cell.toString().trim() !== ""));
       const headerError = validateCsvHeaders(headers);
       if (headerError) throw new Error(headerError);
       return { headers, dataRows };

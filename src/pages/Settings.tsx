@@ -1,9 +1,13 @@
+// src/pages/Settings.tsx
+import { Outlet } from 'react-router-dom';
+import { SettingsSidebar } from '@/components/SettingsSidebar';
+
 export const Settings = () => {
   return (
-    <div className="flex min-h-screen p-6">
-      <div className="container mx-auto">
-        <h1 className="text-3xl font-bold mb-6">Settings</h1>
-        <p className="text-muted-foreground">Settings page coming soon...</p>
+    <div className="flex min-h-screen">
+      <SettingsSidebar />
+      <div className="flex-1 p-6">
+        <Outlet />
       </div>
     </div>
   );
