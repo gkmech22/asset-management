@@ -682,6 +682,15 @@ const handleUnassignAsset = async (assetId: string, remarks?: string, receivedBy
         />
       )}
 
+            {/* Footer */}
+      <footer className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t shadow-card py-2">
+        <div className="container mx-auto px-4">
+          <p className="text-[14px] text-muted-foreground">
+            Crafted by 🤓 IT Infra minds, for IT Infra needs
+          </p>
+        </div>
+      </footer>
+
       {showBulkUpload && (
         <BulkUpload
           open={showBulkUpload}
