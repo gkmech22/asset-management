@@ -7,8 +7,30 @@ import { Filter, Search } from "lucide-react";
 import { AssetList } from "./AssetList";
 import { DatePickerWithRange } from "./DatePickerWithRange";
 import { DateRange } from "react-day-picker";
+import { Asset } from "@/hooks/useAssets";
 
-const AmcsView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus, onUpdateLocation, onDelete, userRole }) => {
+interface AmcsViewProps {
+  assets: Asset[];
+  onAssign: (assetId: string, userName: string, employeeId: string) => Promise<void>;
+  onUnassign: (assetId: string, remarks?: string, receivedBy?: string, location?: string) => Promise<void>;
+  onUpdateAsset: (assetId: string, updatedAsset: any) => Promise<void>;
+  onUpdateStatus: (assetId: string, status: string) => Promise<void>;
+  onUpdateLocation: (assetId: string, location: string) => Promise<void>;
+  onUpdateAssetCheck: (assetId: string, assetCheck: string) => Promise<void>;
+  onDelete: (assetId: string) => Promise<void>;
+  userRole: string | null;
+}
+
+const AmcsView = ({ 
+  assets, 
+  onAssign, 
+  onUnassign, 
+  onUpdateAsset, 
+  onUpdateStatus, 
+  onUpdateLocation,
+  onUpdateAssetCheck,
+  onDelete 
+}: AmcsViewProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -53,8 +75,6 @@ const AmcsView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus,
         asset.remarks || "",
         asset.warranty_start || "",
         asset.warranty_end || "",
-        asset.amc_start || "",
-        asset.amc_end || "",
       ].some((field) => field.toLowerCase().includes(searchQuery.toLowerCase()));
 
     return typeMatch && brandMatch && configMatch && locationMatch && statusMatch && searchMatch;
@@ -129,11 +149,11 @@ const AmcsView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus,
                   <SelectItem value="all">All Types</SelectItem>
                   {assetTypes
                     .filter((type) =>
-                      type.toLowerCase().includes(searchQueryType.toLowerCase())
+                      String(type).toLowerCase().includes(searchQueryType.toLowerCase())
                     )
                     .map((type) => (
-                      <SelectItem key={type} value={type} className="text-xs">
-                        {type}
+                      <SelectItem key={String(type)} value={String(type)} className="text-xs">
+                        {String(type)}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -160,11 +180,11 @@ const AmcsView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus,
                   <SelectItem value="all">All Brands</SelectItem>
                   {assetBrands
                     .filter((brand) =>
-                      brand.toLowerCase().includes(searchQueryBrand.toLowerCase())
+                      String(brand).toLowerCase().includes(searchQueryBrand.toLowerCase())
                     )
                     .map((brand) => (
-                      <SelectItem key={brand} value={brand} className="text-xs">
-                        {brand}
+                      <SelectItem key={String(brand)} value={String(brand)} className="text-xs">
+                        {String(brand)}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -191,11 +211,11 @@ const AmcsView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus,
                   <SelectItem value="all">All Configurations</SelectItem>
                   {assetConfigurations
                     .filter((config) =>
-                      config.toLowerCase().includes(searchQueryConfig.toLowerCase())
+                      String(config).toLowerCase().includes(searchQueryConfig.toLowerCase())
                     )
                     .map((config) => (
-                      <SelectItem key={config} value={config} className="text-xs">
-                        {config}
+                      <SelectItem key={String(config)} value={String(config)} className="text-xs">
+                        {String(config)}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -222,11 +242,11 @@ const AmcsView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus,
                   <SelectItem value="all">All Locations</SelectItem>
                   {assetLocations
                     .filter((location) =>
-                      location.toLowerCase().includes(searchQueryLocation.toLowerCase())
+                      String(location).toLowerCase().includes(searchQueryLocation.toLowerCase())
                     )
                     .map((location) => (
-                      <SelectItem key={location} value={location} className="text-xs">
-                        {location}
+                      <SelectItem key={String(location)} value={String(location)} className="text-xs">
+                        {String(location)}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -253,11 +273,11 @@ const AmcsView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus,
                   <SelectItem value="all">All</SelectItem>
                   {assetStatuses
                     .filter((status) =>
-                      status.toLowerCase().includes(searchQueryStatus.toLowerCase())
+                      String(status).toLowerCase().includes(searchQueryStatus.toLowerCase())
                     )
                     .map((status) => (
-                      <SelectItem key={status} value={status} className="text-xs">
-                        {status}
+                      <SelectItem key={String(status)} value={String(status)} className="text-xs">
+                        {String(status)}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -278,6 +298,7 @@ const AmcsView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus,
         onUpdateAsset={onUpdateAsset}
         onUpdateStatus={onUpdateStatus}
         onUpdateLocation={onUpdateLocation}
+        onUpdateAssetCheck={onUpdateAssetCheck}
         onDelete={onDelete}
         dateRange={dateRange}
         typeFilter={typeFilter}

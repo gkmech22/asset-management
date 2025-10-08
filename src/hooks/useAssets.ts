@@ -27,6 +27,7 @@ export interface Asset {
   warranty_status: string | null;
   provider: string | null;
   recovery_amount?: number;
+  asset_condition?: string | null;
 }
 
 export const useAssets = () => {
@@ -68,7 +69,7 @@ export const useAssets = () => {
       return allAssets;
     },
     staleTime: 5 * 60 * 1000,
-    cacheTime: 10 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     retry: 2,
   });
 };
@@ -124,12 +125,14 @@ export const useUnassignAsset = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, remarks, receivedBy, location, configuration }: { 
+    mutationFn: async ({ id, remarks, receivedBy, location, configuration, assetCondition, status }: { 
       id: string; 
       remarks?: string; 
       receivedBy?: string; 
       location?: string;
-      configuration?: string | null 
+      configuration?: string | null;
+      assetCondition?: string | null;
+      status?: string;
     }) => {
       const { data: currentAsset, error: fetchError } = await supabase
         .from('assets')
@@ -143,7 +146,7 @@ export const useUnassignAsset = () => {
       }
 
       const updatePayload: Partial<Asset> = {
-        status: 'Available',
+        status: status || 'Available',
         assigned_to: null,
         employee_id: null,
         assigned_date: null,
@@ -159,6 +162,9 @@ export const useUnassignAsset = () => {
       }
       if (location !== undefined && location !== currentAsset.location) {
         updatePayload.location = location;
+      }
+      if (assetCondition !== undefined) {
+        updatePayload.asset_condition = assetCondition || null;
       }
 
       const { data, error } = await supabase

@@ -9,30 +9,6 @@ export const LoginPage = () => {
   const { user, loading, signInWithGoogle } = useAuth();
   const location = useLocation();
 
-  // Handle OAuth redirect tokens
-  useEffect(() => {
-    const hash = location.hash;
-    if (hash) {
-      try {
-        const params = new URLSearchParams(hash.replace('#', ''));
-        const accessToken = params.get('access_token');
-        const refreshToken = params.get('refresh_token');
-        const expiresIn = params.get('expires_in');
-
-        if (accessToken && refreshToken && expiresIn) {
-          // Process tokens with Supabase
-          signInWithGoogle({ accessToken, refreshToken, expiresIn }).catch((error) => {
-            console.error('Error processing OAuth tokens:', error);
-          });
-
-          // Clean up the URL by removing the hash
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
-      } catch (error) {
-        console.error('Error parsing URL hash:', error);
-      }
-    }
-  }, [location, signInWithGoogle]);
 
   // Redirect if already authenticated
   if (!loading && user) {
@@ -55,7 +31,7 @@ export const LoginPage = () => {
           <div className="flex items-center justify-center gap-2 mb-4">
             <Package className="h-8 w-8 text-primary" />
             <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              Asset Vault Quest
+              Asset Management System
             </h1>
           </div>
           <p className="text-muted-foreground">

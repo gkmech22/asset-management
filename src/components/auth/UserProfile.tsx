@@ -18,7 +18,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export const UserProfile = () => {
-  const { user, signOut, updateUser } = useAuth();
+  const { user, signOut } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [openProfile, setOpenProfile] = useState(false);
   const [openSettings, setOpenSettings] = useState(false);
@@ -81,11 +81,11 @@ export const UserProfile = () => {
     setIsLoading(false);
   };
 
-  const handleUpdateProfile = async (e) => {
+  const handleUpdateProfile = async (e: any) => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await updateUser({ data: { full_name: fullName } });
+      await supabase.auth.updateUser({ data: { full_name: fullName } });
       const { data: session } = await supabase.auth.getSession();
       if (session.session) {
         setFullName(session.session.user.user_metadata.full_name || '');
@@ -98,11 +98,11 @@ export const UserProfile = () => {
     }
   };
 
-  const handleUpdateSettings = async (e) => {
+  const handleUpdateSettings = async (e: any) => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await updateUser({ data: { department, role } });
+      await supabase.auth.updateUser({ data: { department, role } });
       const { data: session } = await supabase.auth.getSession();
       if (session.session) {
         setDepartment(session.session.user.user_metadata.department || '');
