@@ -14,7 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 interface PendingRequest {
   id: string;
-  request_type: "assign" | "return";
+  request_type: "assign" | "return" | "change_location" | "change_status";
   asset_id: string;
   requested_by: string;
   requested_at: string;
@@ -32,8 +32,10 @@ interface PendingRequest {
   approved_at?: string;
   cancelled_by?: string;
   cancelled_at?: string;
-  original_assigned_to?: string; // Stores original "Returning from" name
-  original_employee_id?: string; // Stores original employee ID
+  original_assigned_to?: string;
+  original_employee_id?: string;
+  new_location?: string;
+  new_status?: string;
   assets?: {
     asset_id: string;
     name: string;
@@ -65,13 +67,13 @@ const locations = [
 
 const allStatuses = ["Available", "Scrap/Damage", "Sale", "Lost", "Emp Damage", "Courier Damage"];
 
-export const PendingRequests = ({ onRefresh }) => {
+export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
   const { user } = useAuth() || { user: null };
-  const [requests, setRequests] = useState([]);
+  const [requests, setRequests] = useState<PendingRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [selectedRequest, setSelectedRequest] = useState<PendingRequest | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('pending');
@@ -126,7 +128,7 @@ export const PendingRequests = ({ onRefresh }) => {
 
       if (error) throw error;
       setRequests((data || []) as PendingRequest[]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching requests:', error);
       toast.error('Failed to fetch requests');
     } finally {
@@ -134,13 +136,13 @@ export const PendingRequests = ({ onRefresh }) => {
     }
   };
 
-  const handleViewDetails = (request) => {
+  const handleViewDetails = (request: PendingRequest) => {
     setSelectedRequest(request);
     setEditMode(false);
     setEditedAssignTo(request.assign_to || "");
     setEditedEmployeeId(request.employee_id || "");
-    setEditedReturnLocation(request.return_location || "");
-    setEditedReturnStatus(request.return_status || "");
+    setEditedReturnLocation(request.return_location || request.new_location || "");
+    setEditedReturnStatus(request.return_status || request.new_status || "");
     setEditedAssetCondition(request.asset_condition || "");
     setEditedRemarks(request.return_remarks || "");
     setEditedConfiguration(request.configuration || "");
@@ -163,7 +165,6 @@ export const PendingRequests = ({ onRefresh }) => {
     }
 
     try {
-      // Preserve original "Returning from" data before updating assets
       const originalAssignedTo = selectedRequest.assets?.assigned_to || null;
       const originalEmployeeId = selectedRequest.assets?.employee_id || null;
 
@@ -179,7 +180,7 @@ export const PendingRequests = ({ onRefresh }) => {
             updated_at: new Date().toISOString(),
           })
           .eq('id', selectedRequest.asset_id);
-      } else {
+      } else if (selectedRequest.request_type === 'return') {
         await supabase
           .from('assets')
           .update({
@@ -197,9 +198,26 @@ export const PendingRequests = ({ onRefresh }) => {
             updated_at: new Date().toISOString(),
           })
           .eq('id', selectedRequest.asset_id);
+      } else if (selectedRequest.request_type === 'change_location') {
+        await supabase
+          .from('assets')
+          .update({
+            location: editMode ? editedReturnLocation : selectedRequest.new_location,
+            updated_by: user.email,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', selectedRequest.asset_id);
+      } else if (selectedRequest.request_type === 'change_status') {
+        await supabase
+          .from('assets')
+          .update({
+            status: editMode ? editedReturnStatus : selectedRequest.new_status,
+            updated_by: user.email,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', selectedRequest.asset_id);
       }
 
-      // Update pending_requests with original "Returning from" data
       const { error: requestError } = await supabase
         .from('pending_requests')
         .update({
@@ -218,7 +236,7 @@ export const PendingRequests = ({ onRefresh }) => {
       setShowDetailsDialog(false);
       fetchRequests();
       onRefresh?.();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error approving request:', error);
       toast.error('Failed to approve request: ' + (error.message || 'Unknown error'));
     }
@@ -255,13 +273,13 @@ export const PendingRequests = ({ onRefresh }) => {
       setShowDetailsDialog(false);
       fetchRequests();
       onRefresh?.();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error rejecting request:', error);
       toast.error('Failed to reject request');
     }
   };
 
-  const handleCancel = async (request) => {
+  const handleCancel = async (request: PendingRequest) => {
     if (!user?.email) return;
 
     if (request.status !== 'pending') {
@@ -287,13 +305,13 @@ export const PendingRequests = ({ onRefresh }) => {
       toast.success('Request cancelled');
       fetchRequests();
       onRefresh?.();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error cancelling request:', error);
       toast.error('Failed to cancel request');
     }
   };
 
-  const openCommentInNewTab = (comment) => {
+  const openCommentInNewTab = (comment: string) => {
     if (comment) {
       const commentWindow = window.open("", "_blank");
       if (commentWindow) {
@@ -346,17 +364,18 @@ export const PendingRequests = ({ onRefresh }) => {
         (request.employee_id || '').toLowerCase().includes(searchLower) ||
         (asset?.assigned_to || '').toLowerCase().includes(searchLower) ||
         (asset?.employee_id || '').toLowerCase().includes(searchLower) ||
-        (request.return_remarks || '').toLowerCase().includes(searchLower)
+        (request.return_remarks || '').toLowerCase().includes(searchLower) ||
+        (request.new_location || '').toLowerCase().includes(searchLower) ||
+        (request.new_status || '').toLowerCase().includes(searchLower)
       );
     });
 
-  // Pagination logic
   const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedRequests = filteredRequests.slice(startIndex, endIndex);
 
-  const handlePageChange = (page) => {
+  const handlePageChange = (page: number) => {
     setCurrentPage(page);
   };
 
@@ -408,6 +427,7 @@ export const PendingRequests = ({ onRefresh }) => {
                     </Badge>
                     <span className="font-medium text-sm">{request.assets?.asset_id}</span>
                     <span className="text-sm text-muted-foreground">{request.assets?.name}</span>
+                    <span className="text-sm text-muted-foreground">({request.assets?.serial_number || 'N/A'})</span>
                   </div>
                   <div className="text-xs text-muted-foreground">
                     Requested by: {request.requested_by} • {new Date(request.requested_at).toLocaleString()}
@@ -415,9 +435,13 @@ export const PendingRequests = ({ onRefresh }) => {
                   <div className="text-xs font-medium text-blue-600 mt-1">
                     {request.request_type === 'assign' ? (
                       <>Assign to: {request.assign_to} ({request.employee_id})</>
-                    ) : (
-                      <>Returning from: {request.original_assigned_to || request.assets?.assigned_to} ({request.original_employee_id || request.assets?.employee_id})</>
-                    )}
+                    ) : request.request_type === 'return' ? (
+                      <>Returning from: {request.original_assigned_to || request.assets?.assigned_to || 'N/A'} ({request.original_employee_id || request.assets?.employee_id || 'N/A'})</>
+                    ) : request.request_type === 'change_location' ? (
+                      <>New Location: {request.new_location || 'N/A'}</>
+                    ) : request.request_type === 'change_status' ? (
+                      <>New Status: {request.new_status || 'N/A'}</>
+                    ) : null}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -495,7 +519,10 @@ export const PendingRequests = ({ onRefresh }) => {
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              Request Details - {selectedRequest?.request_type === 'assign' ? 'Assignment' : 'Return'}
+              Request Details - {selectedRequest?.request_type === 'assign' ? 'Assignment' : 
+                                selectedRequest?.request_type === 'return' ? 'Return' : 
+                                selectedRequest?.request_type === 'change_location' ? 'Location Change' : 
+                                'Status Change'}
             </DialogTitle>
           </DialogHeader>
 
@@ -508,23 +535,23 @@ export const PendingRequests = ({ onRefresh }) => {
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Asset Name</Label>
-                  <div className="text-sm">{selectedRequest.assets?.name}</div>
+                  <div className="text-sm">{selectedRequest.assets?.name || 'N/A'}</div>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Type</Label>
-                  <div className="text-sm">{selectedRequest.assets?.type}</div>
+                  <div className="text-sm">{selectedRequest.assets?.type || 'N/A'}</div>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Brand</Label>
-                  <div className="text-sm">{selectedRequest.assets?.brand}</div>
+                  <div className="text-sm">{selectedRequest.assets?.brand || 'N/A'}</div>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Serial Number</Label>
-                  <div className="text-sm">{selectedRequest.assets?.serial_number}</div>
+                  <div className="text-sm">{selectedRequest.assets?.serial_number || 'N/A'}</div>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Current Status</Label>
-                  <div className="text-sm">{selectedRequest.assets?.status}</div>
+                  <div className="text-sm">{selectedRequest.assets?.status || 'N/A'}</div>
                 </div>
               </div>
 
@@ -535,7 +562,7 @@ export const PendingRequests = ({ onRefresh }) => {
                     {editMode && isAdmin ? (
                       <Input value={editedAssignTo} onChange={(e) => setEditedAssignTo(e.target.value)} />
                     ) : (
-                      <div className="text-sm font-medium">{selectedRequest.assign_to}</div>
+                      <div className="text-sm font-medium">{selectedRequest.assign_to || 'N/A'}</div>
                     )}
                   </div>
                   <div>
@@ -543,7 +570,7 @@ export const PendingRequests = ({ onRefresh }) => {
                     {editMode && isAdmin ? (
                       <Input value={editedEmployeeId} onChange={(e) => setEditedEmployeeId(e.target.value)} />
                     ) : (
-                      <div className="text-sm font-medium">{selectedRequest.employee_id}</div>
+                      <div className="text-sm font-medium">{selectedRequest.employee_id || 'N/A'}</div>
                     )}
                   </div>
                 </div>
@@ -565,7 +592,7 @@ export const PendingRequests = ({ onRefresh }) => {
                         </SelectContent>
                       </Select>
                     ) : (
-                      <div className="text-sm">{selectedRequest.return_location}</div>
+                      <div className="text-sm">{selectedRequest.return_location || 'N/A'}</div>
                     )}
                   </div>
                   <div>
@@ -620,8 +647,60 @@ export const PendingRequests = ({ onRefresh }) => {
                   <div className="col-span-2">
                     <Label>Returning From (Original)</Label>
                     <div className="text-sm">
-                      {selectedRequest.original_assigned_to || selectedRequest.assets?.assigned_to} ({selectedRequest.original_employee_id || selectedRequest.assets?.employee_id})
+                      {selectedRequest.original_assigned_to || selectedRequest.assets?.assigned_to || 'N/A'} ({selectedRequest.original_employee_id || selectedRequest.assets?.employee_id || 'N/A'})
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedRequest.request_type === 'change_location' && (
+                <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                  <div>
+                    <Label>Current Location</Label>
+                    <div className="text-sm">{selectedRequest.assets?.location || 'N/A'}</div>
+                  </div>
+                  <div>
+                    <Label>New Location</Label>
+                    {editMode && isAdmin ? (
+                      <Select value={editedReturnLocation} onValueChange={setEditedReturnLocation}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {locations.map((loc) => (
+                            <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div className="text-sm">{selectedRequest.new_location || 'N/A'}</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {selectedRequest.request_type === 'change_status' && (
+                <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                  <div>
+                    <Label>Current Status</Label>
+                    <div className="text-sm">{selectedRequest.assets?.status || 'N/A'}</div>
+                  </div>
+                  <div>
+                    <Label>New Status</Label>
+                    {editMode && isAdmin ? (
+                      <Select value={editedReturnStatus} onValueChange={setEditedReturnStatus}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {allStatuses.map((status) => (
+                            <SelectItem key={status} value={status}>{status}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div className="text-sm">{selectedRequest.new_status || 'N/A'}</div>
+                    )}
                   </div>
                 </div>
               )}

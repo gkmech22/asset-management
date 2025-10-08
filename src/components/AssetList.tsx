@@ -1400,7 +1400,6 @@ export const AssetList = ({
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Available">Available</SelectItem>
                   {allStatuses.filter(s => s !== "Assigned").map(status => (
                     <SelectItem key={status} value={status}>{status}</SelectItem>
                   ))}
