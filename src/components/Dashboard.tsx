@@ -284,64 +284,68 @@ export const Dashboard = () => {
     }
   };
 
-  const handleUnassignAsset = async (assetId: string, remarks?: string, receivedBy?: string, location?: string, configuration?: string | null, assetCondition?: string | null, status?: string) => {
-    if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
-      toast.error("Unauthorized: Insufficient permissions.");
+const handleUnassignAsset = async (assetId: string, remarks?: string, receivedBy?: string, location?: string, assetCondition?: string | null, status?: string) => {
+  if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
+    toast.error("Unauthorized: Insufficient permissions.");
+    return;
+  }
+
+  try {
+    const asset = assets.find((a) => a.id === assetId);
+    if (!asset) {
+      throw new Error("Asset not found.");
+    }
+
+    if (userRole === 'Operator') {
+      await supabase.from('pending_requests').insert({
+        request_type: 'return',
+        asset_id: assetId,
+        requested_by: currentUser,
+        return_remarks: remarks,
+        return_location: location || asset.location,
+        return_status: status || 'Available',
+        asset_condition: assetCondition,
+        received_by: receivedBy || currentUser,
+      });
+
+      toast.success("Return request sent for approval");
+      fetchPendingCount();
       return;
     }
 
-    try {
-      const asset = assets.find((a) => a.id === assetId);
-      if (!asset) {
-        throw new Error("Asset not found.");
-      }
-      
-      if (userRole === 'Operator') {
-        await supabase.from('pending_requests').insert({
-          request_type: 'return',
-          asset_id: assetId,
-          requested_by: currentUser,
-          return_remarks: remarks,
-          return_location: location || asset.location,
-          return_status: status || 'Available',
-          asset_condition: assetCondition,
-          received_by: receivedBy || currentUser,
-          configuration: configuration !== undefined ? configuration : asset.configuration,
-        });
-        
-        toast.success("Return request sent for approval");
-        fetchPendingCount();
-        return;
-      }
+    // Only update configuration if a new value is explicitly provided and different
+    const updateData = {
+      id: assetId,
+      remarks,
+      receivedBy: receivedBy || currentUser,
+      location,
+      assetCondition,
+      status: status || "Available",
+      updated_by: currentUser,
+      updated_at: new Date().toISOString(),
+    };
 
-      await unassignAssetMutation.mutateAsync({
-        id: assetId,
-        remarks,
-        receivedBy: receivedBy || currentUser,
-        location,
-        configuration,
-        assetCondition,
-        status,
-      });
-      
-      await logEditHistory(assetId, "assigned_to", asset?.assigned_to || null, null);
-      await logEditHistory(assetId, "employee_id", asset?.employee_id || null, null);
-      await logEditHistory(assetId, "status", asset?.status || null, status || "Available");
-      await logEditHistory(assetId, "return_date", asset?.return_date || null, new Date().toISOString());
-      await logEditHistory(assetId, "received_by", asset?.received_by || null, receivedBy || currentUser);
-      
-      if (location) {
-        await logEditHistory(assetId, "location", asset?.location || null, location);
-      }
-      if (remarks) {
-        await logEditHistory(assetId, "remarks", asset?.remarks || null, remarks);
-      }
-      refetch(); // Update assets state immediately
-      toast.success("Asset returned successfully");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to return asset.");
+    await unassignAssetMutation.mutateAsync(updateData);
+
+    await logEditHistory(assetId, "assigned_to", asset?.assigned_to || null, null);
+    await logEditHistory(assetId, "employee_id", asset?.employee_id || null, null);
+    await logEditHistory(assetId, "status", asset?.status || null, status || "Available");
+    await logEditHistory(assetId, "return_date", asset?.return_date || null, new Date().toISOString());
+    await logEditHistory(assetId, "received_by", asset?.received_by || null, receivedBy || currentUser);
+
+    if (location) {
+      await logEditHistory(assetId, "location", asset?.location || null, location);
     }
-  };
+    if (remarks) {
+      await logEditHistory(assetId, "remarks", asset?.remarks || null, remarks);
+    }
+
+    refetch(); // Update assets state immediately
+    toast.success("Asset returned successfully");
+  } catch (error: any) {
+    toast.error(error.message || "Failed to return asset.");
+  }
+};
 
   const handleUpdateAsset = async (assetId: string, updatedAsset: any) => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
@@ -611,9 +615,9 @@ export const Dashboard = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b bg-card sticky top-0 z-50">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-4 text-wrap overflow-auto">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 text-wrap">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm">
@@ -629,17 +633,17 @@ export const Dashboard = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
               <img src="/logo.png" alt="LEAD GROUP" className="h-10" />
-              <span className="text-2xl font-bold text-primary">Asset Management System</span>
+              <span className="text-2xl font-bold text-primary text-wrap">Asset Management System</span>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 text-wrap">
               {(userRole === 'Super Admin' || userRole === 'Admin' || userRole === 'Operator') && (
                 <>
-                  <Button onClick={() => setShowBulkUpload(true)} variant="outline" size="sm">
+                  <Button onClick={() => setShowBulkUpload(true)} variant="outline" size="sm" className="text-wrap">
                     <Upload className="h-4 w-4 mr-2" />
                     Bulk Upload
                   </Button>
-                  <Button onClick={() => setShowAddForm(true)} size="sm">
+                  <Button onClick={() => setShowAddForm(true)} size="sm" className="text-wrap">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Asset
                   </Button>
@@ -648,7 +652,7 @@ export const Dashboard = () => {
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="relative"
+                className="relative text-wrap"
                 onClick={() => {
                   setShowPendingRequests(true);
                   fetchPendingCount();
@@ -667,7 +671,7 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-6">
+      <div className="container mx-auto px-4 py-6 text-wrap overflow-auto">
         {renderContent()}
       </div>
 
@@ -692,7 +696,7 @@ export const Dashboard = () => {
       )}
 
       <Dialog open={showPendingRequests} onOpenChange={setShowPendingRequests}>
-        <DialogContent className="m-0 max-w-screen max-h-screen overflow-y-auto">
+        <DialogContent className="m-0 max-w-screen max-h-screen overflow-y-auto text-wrap">
           <PendingRequests onRefresh={refetch} />
         </DialogContent>
       </Dialog>
