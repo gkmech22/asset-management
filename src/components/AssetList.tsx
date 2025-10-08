@@ -1393,23 +1393,28 @@ export const AssetList = ({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Asset Condition</Label>
-              <Input
-                value={assetCondition}
-                onChange={(e) => setAssetCondition(e.target.value)}
-                placeholder="Enter asset condition (optional)"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="statusRemarks">Remarks</Label>
-              <Input
-                id="statusRemarks"
-                value={returnRemarks}
-                onChange={(e) => setReturnRemarks(e.target.value)}
-                placeholder="Enter remarks (optional)"
-              />
-            </div>
+            {/* Only show Asset Condition and Remarks if NOT going to return dialog */}
+            {!(selectedAsset?.status === "Assigned" && newStatus !== "Assigned") && (
+              <>
+                <div className="space-y-2">
+                  <Label>Asset Condition</Label>
+                  <Input
+                    value={assetCondition}
+                    onChange={(e) => setAssetCondition(e.target.value)}
+                    placeholder="Enter asset condition (optional)"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="statusRemarks">Remarks</Label>
+                  <Input
+                    id="statusRemarks"
+                    value={returnRemarks}
+                    onChange={(e) => setReturnRemarks(e.target.value)}
+                    placeholder="Enter remarks (optional)"
+                  />
+                </div>
+              </>
+            )}
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -1673,6 +1678,7 @@ export const AssetList = ({
           if (!open) setSelectedAsset(null);
         }}
         onUpdate={onUpdateAsset}
+        userRole={userRole}
       />
 
       {/* Details Dialog */}
