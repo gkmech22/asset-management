@@ -436,14 +436,12 @@ export const PendingRequests = ({ onRefresh }) => {
                     <Eye className="h-4 w-4 mr-1" />
                     View
                   </Button>
-                  <Badge 
-                    className={
-                      request.status === 'approved' ? 'bg-green-600 text-white' :
-                      request.status === 'rejected' ? 'bg-destructive text-destructive-foreground' :
-                      request.status === 'pending' ? 'bg-secondary text-secondary-foreground' :
-                      request.status === 'cancelled' ? 'bg-muted text-muted-foreground' : 'bg-secondary text-secondary-foreground'
-                    }
-                  >
+                  <Badge variant={
+                    request.status === 'approved' ? 'success' :
+                    request.status === 'rejected' ? 'destructive' :
+                    request.status === 'pending' ? 'secondary' :
+                    request.status === 'cancelled' ? 'outline' : 'secondary'
+                  }>
                     {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
                   </Badge>
                   {request.status === 'pending' && request.requested_by === user?.email && (

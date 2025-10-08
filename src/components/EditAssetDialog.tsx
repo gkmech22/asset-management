@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 
 interface EditAssetDialogProps {
   asset: any;
@@ -14,10 +13,9 @@ interface EditAssetDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdate: (assetId: string, updatedAsset: any) => void;
-  userRole?: string | null;
 }
 
-export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate, userRole = null }: EditAssetDialogProps) => {
+export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }: EditAssetDialogProps) => {
   const [formData, setFormData] = useState({
     assetId: "",
     name: "",
@@ -110,7 +108,7 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate, u
     return null;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -148,41 +146,7 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate, u
 
     // Only call onUpdate if there are changes
     if (Object.keys(updatedFields).length > 0) {
-      // For Operators, create a pending request instead of direct update
-      if (userRole === 'Operator' || userRole === 'Reporter') {
-        try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user?.email) {
-            toast.error("User not authenticated");
-            return;
-          }
-
-          const { error: insertError } = await supabase
-            .from('pending_requests')
-            .insert({
-              asset_id: asset.id,
-              request_type: 'edit',
-              requested_by: user.email,
-              status: 'pending',
-              configuration: JSON.stringify(updatedFields),
-            });
-
-          if (insertError) {
-            console.error('Error creating edit request:', insertError);
-            toast.error("Failed to submit edit request");
-            return;
-          }
-
-          toast.success("Edit request submitted for approval");
-        } catch (error) {
-          console.error('Error submitting edit request:', error);
-          toast.error("Failed to submit edit request");
-          return;
-        }
-      } else {
-        // Admin and Super Admin can directly update
-        onUpdate(asset.id, updatedFields);
-      }
+      onUpdate(asset.id, updatedFields);
     }
     onOpenChange(false);
     setError(null);
