@@ -16,17 +16,20 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
   const [configFilter, setConfigFilter] = useState<string>("all");
   const [locationFilter, setLocationFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [assetConditionFilter, setAssetConditionFilter] = useState<string>("all");
   const [searchQueryType, setSearchQueryType] = useState("");
   const [searchQueryBrand, setSearchQueryBrand] = useState("");
   const [searchQueryConfig, setSearchQueryConfig] = useState("");
   const [searchQueryLocation, setSearchQueryLocation] = useState("");
   const [searchQueryStatus, setSearchQueryStatus] = useState("");
+  const [searchQueryAssetCondition, setSearchQueryAssetCondition] = useState("");
 
   const assetTypes = [...new Set(assets.map((asset) => asset.type))];
   const assetBrands = [...new Set(assets.map((asset) => asset.brand))];
   const assetConfigurations = [...new Set(assets.map((asset) => asset.configuration).filter(Boolean))];
   const assetLocations = [...new Set(assets.map((asset) => asset.location))];
   const assetStatuses = [...new Set(assets.map((asset) => asset.status))];
+  const assetConditions = [...new Set(assets.map((asset) => asset.asset_condition).filter(Boolean))];
 
   const filteredAssets = assets.filter((asset) => {
     const typeMatch = typeFilter === "all" || asset.type === typeFilter;
@@ -34,6 +37,7 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
     const configMatch = configFilter === "all" || asset.configuration === configFilter;
     const locationMatch = locationFilter === "all" || asset.location === locationFilter;
     const statusMatch = !statusFilter || statusFilter === "all" || asset.status === statusFilter;
+    const assetConditionMatch = assetConditionFilter === "all" || asset.asset_condition === assetConditionFilter;
 
     const searchMatch = searchQuery.trim() === "" || 
       [
@@ -56,9 +60,10 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
         asset.amc_start || "",
         asset.amc_end || "",
         asset.asset_check || "",
+        asset.asset_condition || "",
       ].some((field) => field.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    return typeMatch && brandMatch && configMatch && locationMatch && statusMatch && searchMatch;
+    return typeMatch && brandMatch && configMatch && locationMatch && statusMatch && assetConditionMatch && searchMatch;
   });
 
   const totalInventory = filteredAssets.length;
@@ -79,6 +84,7 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
     setConfigFilter("all");
     setLocationFilter("all");
     setStatusFilter("");
+    setAssetConditionFilter("all");
     setDateRange(undefined);
     setSearchQuery("");
     setSearchQueryType("");
@@ -86,6 +92,7 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
     setSearchQueryConfig("");
     setSearchQueryLocation("");
     setSearchQueryStatus("");
+    setSearchQueryAssetCondition("");
   };
 
   return (
@@ -227,7 +234,7 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
           </div>
         </CardHeader>
         <CardContent className="pt-2">
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-7 gap-2">
             <div className="space-y-1">
               <label className="text-xs font-medium">Asset Type</label>
               <Select value={typeFilter} onValueChange={setTypeFilter}>
@@ -384,6 +391,37 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
               </Select>
             </div>
             <div className="space-y-1">
+              <label className="text-xs font-medium">Asset Condition</label>
+              <Select value={assetConditionFilter} onValueChange={setAssetConditionFilter}>
+                <SelectTrigger className="text-xs h-7">
+                  <SelectValue placeholder="All Conditions" />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="p-2">
+                    <Input
+                      type="text"
+                      placeholder="Type to search..."
+                      value={searchQueryAssetCondition}
+                      onChange={(e) => setSearchQueryAssetCondition(e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      autoFocus
+                      className="w-full h-6 text-xs"
+                    />
+                  </div>
+                  <SelectItem value="all">All Conditions</SelectItem>
+                  {(assetConditions as string[])
+                    .filter((condition: string) =>
+                      condition.toLowerCase().includes(searchQueryAssetCondition.toLowerCase())
+                    )
+                    .map((condition: string) => (
+                      <SelectItem key={condition} value={condition} className="text-xs">
+                        {condition}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
               <label className="text-xs font-medium">Allocation Date Range</label>
               <DatePickerWithRange date={dateRange} setDate={setDateRange} className="h-7" />
             </div>
@@ -404,8 +442,10 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
         typeFilter={typeFilter}
         brandFilter={brandFilter}
         configFilter={configFilter}
+        assetConditionFilter={assetConditionFilter}
         defaultRowsPerPage={10}
         viewType="dashboard"
+        userRole={userRole}
       />
     </>
   );

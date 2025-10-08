@@ -32,8 +32,10 @@ interface AssetListProps {
   brandFilter?: string;
   configFilter?: string;
   statusFilter?: string;
+  assetConditionFilter?: string;
   defaultRowsPerPage?: number;
   viewType?: 'dashboard' | 'audit' | 'amcs' | 'summary';
+  userRole?: string | null;
 }
 
 export const AssetList = ({
@@ -50,8 +52,10 @@ export const AssetList = ({
   brandFilter = "all",
   configFilter = "all",
   statusFilter = "all",
+  assetConditionFilter = "all",
   defaultRowsPerPage = 100,
   viewType = 'dashboard',
+  userRole = null,
 }: AssetListProps) => {
   const { user } = useAuth() || { user: null };
   const [searchTerm, setSearchTerm] = React.useState("");
@@ -204,8 +208,9 @@ export const AssetList = ({
       const matchesBrand = brandFilter === "all" || asset.brand === brandFilter;
       const matchesConfig = configFilter === "all" || asset.configuration === configFilter;
       const matchesStatus = statusFilter === "all" || asset.status === statusFilter;
+      const matchesAssetCondition = assetConditionFilter === "all" || asset.asset_condition === assetConditionFilter;
 
-      return matchesSearch && matchesDateRange && matchesType && matchesBrand && matchesConfig && matchesStatus;
+      return matchesSearch && matchesDateRange && matchesType && matchesBrand && matchesConfig && matchesStatus && matchesAssetCondition;
     }).sort((a, b) => {
       if (a.status === "Available" && b.status !== "Available") return -1;
       if (a.status !== "Available" && b.status === "Available") return 1;
@@ -284,6 +289,42 @@ export const AssetList = ({
   const handleUpdateStatus = async () => {
     if (selectedAsset && newStatus) {
       try {
+        // For Operators, create a pending request instead of direct update
+        if (userRole === 'Operator' || userRole === 'Reporter') {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user?.email) {
+            toast.error("User not authenticated");
+            return;
+          }
+
+          const { error: insertError } = await supabase
+            .from('pending_requests')
+            .insert({
+              asset_id: selectedAsset.id,
+              request_type: 'status_change',
+              requested_by: user.email,
+              status: 'pending',
+              return_status: newStatus,
+              asset_condition: assetCondition || null,
+              return_remarks: returnRemarks || null,
+            });
+
+          if (insertError) {
+            console.error('Error creating status change request:', insertError);
+            toast.error("Failed to submit request");
+            return;
+          }
+
+          setShowStatusDialog(false);
+          setNewStatus("");
+          setAssetCondition("");
+          setReturnRemarks("");
+          setSelectedAsset(null);
+          toast.success("Status change request submitted for approval");
+          return;
+        }
+
+        // Admin and Super Admin can directly update
         if (selectedAsset.status === "Assigned" && newStatus !== "Assigned") {
           setShowStatusDialog(false);
           if (newStatus === "Sale") {
@@ -291,9 +332,13 @@ export const AssetList = ({
             await onUpdateAsset(selectedAsset.id, { 
               updated_at: new Date().toISOString(),
               assigned_to: selectedAsset.assigned_to,
-              employee_id: selectedAsset.employee_id
+              employee_id: selectedAsset.employee_id,
+              asset_condition: assetCondition || selectedAsset.asset_condition,
+              remarks: returnRemarks || selectedAsset.remarks
             });
             setNewStatus("");
+            setAssetCondition("");
+            setReturnRemarks("");
             setSelectedAsset(null);
             setError(null);
             toast.success("Status updated to Sale successfully");
@@ -316,10 +361,14 @@ export const AssetList = ({
         await onUpdateAsset(selectedAsset.id, { 
           updated_at: new Date().toISOString(),
           received_by: newStatus === "Assigned" ? "" : receivedByInput || receivedBy,
-          return_date: newStatus === "Assigned" ? "" : new Date().toISOString()
+          return_date: newStatus === "Assigned" ? "" : new Date().toISOString(),
+          asset_condition: assetCondition || selectedAsset.asset_condition,
+          remarks: returnRemarks || selectedAsset.remarks
         });
         setShowStatusDialog(false);
         setNewStatus("");
+        setAssetCondition("");
+        setReturnRemarks("");
         setSelectedAsset(null);
         setError(null);
         toast.success("Status updated successfully");
@@ -375,12 +424,48 @@ export const AssetList = ({
   const handleUpdateLocation = async () => {
     if (selectedAsset && newLocation) {
       try {
+        // For Operators, create a pending request instead of direct update
+        if (userRole === 'Operator' || userRole === 'Reporter') {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user?.email) {
+            toast.error("User not authenticated");
+            return;
+          }
+
+          const { error: insertError } = await supabase
+            .from('pending_requests')
+            .insert({
+              asset_id: selectedAsset.id,
+              request_type: 'location_change',
+              requested_by: user.email,
+              status: 'pending',
+              return_location: newLocation,
+              return_remarks: returnRemarks || null,
+            });
+
+          if (insertError) {
+            console.error('Error creating location change request:', insertError);
+            toast.error("Failed to submit request");
+            return;
+          }
+
+          setShowLocationDialog(false);
+          setNewLocation("");
+          setReturnRemarks("");
+          setSelectedAsset(null);
+          toast.success("Location change request submitted for approval");
+          return;
+        }
+
+        // Admin and Super Admin can directly update
         await onUpdateLocation(selectedAsset.id, newLocation);
         await onUpdateAsset(selectedAsset.id, {
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          remarks: returnRemarks || selectedAsset.remarks
         });
         setShowLocationDialog(false);
         setNewLocation("");
+        setReturnRemarks("");
         setSelectedAsset(null);
         setError(null);
         toast.success("Location updated successfully");
@@ -1308,12 +1393,31 @@ export const AssetList = ({
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label>Asset Condition</Label>
+              <Input
+                value={assetCondition}
+                onChange={(e) => setAssetCondition(e.target.value)}
+                placeholder="Enter asset condition (optional)"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="statusRemarks">Remarks</Label>
+              <Input
+                id="statusRemarks"
+                value={returnRemarks}
+                onChange={(e) => setReturnRemarks(e.target.value)}
+                placeholder="Enter remarks (optional)"
+              />
+            </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 onClick={() => {
                   setShowStatusDialog(false);
                   setNewStatus("");
+                  setAssetCondition("");
+                  setReturnRemarks("");
                   setSelectedAsset(null);
                 }}
                 className="flex-1"
@@ -1358,12 +1462,22 @@ export const AssetList = ({
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="locationRemarks">Remarks</Label>
+              <Input
+                id="locationRemarks"
+                value={returnRemarks}
+                onChange={(e) => setReturnRemarks(e.target.value)}
+                placeholder="Enter remarks for location change (optional)"
+              />
+            </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 onClick={() => {
                   setShowLocationDialog(false);
                   setNewLocation("");
+                  setReturnRemarks("");
                   setSelectedAsset(null);
                 }}
                 className="flex-1"
