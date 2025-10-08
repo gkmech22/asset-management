@@ -132,39 +132,41 @@ export const AssetList = ({
   }, [assets]);
 
   // Fetch employee details from Supabase
-  const fetchEmployee = async (id: string) => {
-    if (!id || id.length < 3) {
+const fetchEmployee = async (id: string) => {
+  if (!id || id.length < 3) {
+    setUserName('');
+    setEmployeeEmail('');
+    return;
+  }
+
+  try {
+    setIsFetchingEmployee(true);
+    // Normalize the input by removing any prefix like 'LBPL' and converting to uppercase
+    const normalizedId = id.replace(/^lbpl/i, '').toUpperCase();
+    const { data, error } = await supabase
+      .from('employees')
+      .select('employee_name, email')
+      .eq('employee_id', `LBPL${normalizedId}`)
+      .single();
+
+    if (data && !error) {
+      setUserName(data.employee_name || '');
+      setEmployeeEmail(data.email || '');
+      toast.success('Employee details loaded successfully');
+    } else {
       setUserName('');
       setEmployeeEmail('');
-      return;
+      toast.error('Employee not found');
     }
-
-    try {
-      setIsFetchingEmployee(true);
-      const { data, error } = await supabase
-        .from('employees')
-        .select('employee_name, email')
-        .eq('employee_id', id)
-        .single();
-
-      if (data && !error) {
-        setUserName(data.employee_name || '');
-        setEmployeeEmail(data.email || '');
-        toast.success('Employee details loaded successfully');
-      } else {
-        setUserName('');
-        setEmployeeEmail('');
-        toast.error('Employee not found');
-      }
-    } catch (error) {
-      console.error('Error fetching employee:', error);
-      setUserName('');
-      setEmployeeEmail('');
-      toast.error('Failed to fetch employee details');
-    } finally {
-      setIsFetchingEmployee(false);
-    }
-  };
+  } catch (error) {
+    console.error('Error fetching employee:', error);
+    setUserName('');
+    setEmployeeEmail('');
+    toast.error('Failed to fetch employee details');
+  } finally {
+    setIsFetchingEmployee(false);
+  }
+};
 
   const filteredAssets = React.useMemo(() => {
     return assets.filter((asset) => {
