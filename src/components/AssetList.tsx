@@ -71,7 +71,7 @@ export const AssetList = ({
   const [returnLocation, setReturnLocation] = React.useState("");
   const [returnStatus, setReturnStatus] = React.useState("");
   const [assetCondition, setAssetCondition] = React.useState("");
-  const [assetValueRecovery, setAssetValueRecovery] = React.useState("");
+  const [assetValueRecovery, setAssetValueRecovery] = React.useState<string>("");
   const [newStatus, setNewStatus] = React.useState("");
   const [newLocation, setNewLocation] = React.useState("");
   const [receivedByInput, setReceivedByInput] = React.useState("");
@@ -292,7 +292,7 @@ export const AssetList = ({
           setShowStatusDialog(false);
           setShowReturnDialog(true);
           setReturnStatus(newStatus);
-          setAssetValueRecovery(statusesRequiringRecovery.includes(newStatus) ? selectedAsset.asset_value_recovery || "" : "");
+          setAssetValueRecovery(statusesRequiringRecovery.includes(newStatus) ? (selectedAsset.asset_value_recovery?.toString() || "") : "");
           return;
         }
 
@@ -342,6 +342,7 @@ export const AssetList = ({
         
         const finalReceivedBy = receivedByInput.trim() || receivedBy;
         const finalLocation = returnStatus !== "Available" ? (returnLocation || selectedAsset.location) : selectedAsset.location;
+        const assetValueRecoveryNum = assetValueRecovery ? parseFloat(assetValueRecovery) : null;
         
         await onUnassign(
           selectedAsset.id, 
@@ -351,12 +352,12 @@ export const AssetList = ({
           null,
           assetCondition || null,
           returnStatus,
-          statusesRequiringRecovery.includes(returnStatus) ? assetValueRecovery || null : null
+          assetValueRecoveryNum?.toString() || null
         );
         
         await onUpdateAsset(selectedAsset.id, {
           updated_at: new Date().toISOString(),
-          asset_value_recovery: statusesRequiringRecovery.includes(returnStatus) ? assetValueRecovery || null : null
+          asset_value_recovery: statusesRequiringRecovery.includes(returnStatus) ? assetValueRecoveryNum : null
         });
         
         setShowReturnDialog(false);
@@ -463,7 +464,7 @@ export const AssetList = ({
             await onUpdateAssetCheck(asset.id, "");
             await onUpdateAsset(asset.id, {
               updated_at: new Date().toISOString(),
-              asset_value_recovery: statusesRequiringRecovery.includes(asset.status || '') ? asset.asset_value_recovery || null : null
+            asset_value_recovery: statusesRequiringRecovery.includes(asset.status || '') ? (asset.asset_value_recovery || null) : null
             });
           }
         }
@@ -524,7 +525,7 @@ export const AssetList = ({
           escapeCsvField(asset.assigned_date),
           escapeCsvField(asset.return_date),
           escapeCsvField(asset.received_by),
-          escapeCsvField(asset.asset_value_recovery),
+          escapeCsvField(asset.asset_value_recovery?.toString()),
         ].join(",")
       ),
     ].join("\n");
@@ -782,6 +783,7 @@ export const AssetList = ({
                         <th className="p-2 w-[15%] text-left">Asset Details</th>
                         <th className="p-2 w-[15%] text-left">Specifications</th>
                         <th className="p-2 w-[10%] text-left">Serial Number</th>
+                        <th className="p-2 w-[8%] text-left">FAR Code</th>
                         <th className="p-2 w-[10%] text-left">Location</th>
                         <th className="p-2 w-[10%] text-left">Assigned To</th>
                         <th className="p-2 w-[10%] text-left">Received By</th>
@@ -857,6 +859,9 @@ export const AssetList = ({
                             <div className="text-left">{asset.serial_number || '-'}</div>
                           </td>
                           <td className="p-2 text-xs">
+                            <div className="text-left">{asset.far_code || '-'}</div>
+                          </td>
+                          <td className="p-2 text-xs">
                             <div className="text-left">{asset.location || '-'}</div>
                           </td>
                           <td className="p-2 text-xs">
@@ -905,7 +910,7 @@ export const AssetList = ({
                                     setReturnLocation(asset.location || "");
                                     setReturnRemarks("");
                                     setAssetCondition("");
-                                    setAssetValueRecovery(statusesRequiringRecovery.includes(asset.status || '') ? asset.asset_value_recovery || "" : "");
+                                    setAssetValueRecovery(statusesRequiringRecovery.includes(asset.status || '') ? (asset.asset_value_recovery?.toString() || "") : "");
                                     setReceivedByInput("");
                                     setShowReturnDialog(true);
                                   }}
@@ -942,7 +947,7 @@ export const AssetList = ({
                                     onClick={() => {
                                       setSelectedAsset(asset);
                                       setNewStatus(asset.status || '');
-                                      setAssetValueRecovery(statusesRequiringRecovery.includes(asset.status || '') ? asset.asset_value_recovery || "" : "");
+                                      setAssetValueRecovery(statusesRequiringRecovery.includes(asset.status || '') ? (asset.asset_value_recovery?.toString() || "") : "");
                                       setShowStatusDialog(true);
                                     }}
                                   >

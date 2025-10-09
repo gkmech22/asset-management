@@ -222,7 +222,8 @@ export const Dashboard = () => {
         asset_check: "",
         provider: newAsset.provider,
         warranty_status: warrantyStatus,
-        recovery_amount: newAsset.recoveryAmount || null,
+        asset_value_recovery: newAsset.assetValueRecovery || null,
+        far_code: newAsset.farCode || null,
       };
       
       const data = await createAssetMutation.mutateAsync(asset);
@@ -382,7 +383,8 @@ export const Dashboard = () => {
         warranty_end: updatedAsset.warrantyEnd,
         provider: updatedAsset.provider,
         warranty_status: warrantyStatus,
-        recovery_amount: updatedAsset.recoveryAmount || null,
+        asset_value_recovery: updatedAsset.assetValueRecovery || null,
+        far_code: updatedAsset.farCode || null,
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
       });
@@ -517,10 +519,10 @@ export const Dashboard = () => {
   const handleDownloadData = () => {
     const headers = [
       "Asset ID", "Asset Name", "Asset Type", "Brand", "Configuration", "Serial Number",
-      "Employee ID", "Employee Name", "Status", "Asset Location", "Assigned Date",
+      "FAR Code", "Employee ID", "Employee Name", "Status", "Asset Location", "Assigned Date",
       "Return Date", "Received By", "Remarks", "Warranty Start", "Warranty End",
       "Created By", "Created At", "Updated By", "Updated At", "Asset Check", "Provider",
-      "Warranty Status", "Recovery Amount"
+      "Warranty Status", "Asset Value Recovery"
     ];
 
     const escapeCsvField = (value: string | null | undefined): string => {
@@ -555,7 +557,8 @@ export const Dashboard = () => {
           escapeCsvField(asset.asset_check),
           escapeCsvField(asset.provider),
           escapeCsvField(asset.warranty_status),
-          escapeCsvField(asset.recovery_amount?.toString()),
+          escapeCsvField(asset.asset_value_recovery?.toString()),
+          escapeCsvField(asset.far_code),
         ].join(",")
       ),
     ].join("\n");
@@ -749,10 +752,91 @@ export const Dashboard = () => {
         <BulkUpload
           open={showBulkUpload}
           onOpenChange={setShowBulkUpload}
-          onUpload={() => {
-            setShowBulkUpload(false);
-            refetch(); // Update assets state after bulk upload
-            toast.success("Assets uploaded successfully");
+          onUpload={async (data: { headers: string[]; dataRows: string[][] }) => {
+            try {
+              const headerMap = data.headers.reduce((acc: Record<string, number>, header: string, index: number) => {
+                acc[header.toLowerCase()] = index;
+                return acc;
+              }, {});
+
+              const getValueAtIndex = (row: string[], key: string) => row[headerMap[key]] || "";
+
+              let createdCount = 0;
+              let updatedCount = 0;
+              let errorCount = 0;
+
+              for (const row of data.dataRows) {
+                try {
+                  const serialNumber = getValueAtIndex(row, "serial number");
+                  if (!serialNumber) continue;
+
+                  // Check if asset with this serial number already exists
+                  const existingAsset = assets.find(a => a.serial_number === serialNumber);
+
+                  const employeeName = getValueAtIndex(row, "employee name");
+                  const employeeId = getValueAtIndex(row, "employee id");
+                  const isAssigned = employeeName && employeeId;
+                  const warrantyEnd = parseDate(getValueAtIndex(row, "warranty end"));
+                  const warrantyStatus = warrantyEnd ? (new Date(warrantyEnd) >= new Date() ? "In Warranty" : "Out of Warranty") : "Out of Warranty";
+
+                  const assetData: any = {
+                    asset_id: getValueAtIndex(row, "asset id"),
+                    name: getValueAtIndex(row, "asset name"),
+                    type: getValueAtIndex(row, "asset type"),
+                    brand: getValueAtIndex(row, "brand"),
+                    configuration: getValueAtIndex(row, "configuration") || null,
+                    serial_number: serialNumber,
+                    far_code: getValueAtIndex(row, "far code") || null,
+                    status: isAssigned ? "Assigned" : "Available",
+                    location: getValueAtIndex(row, "location"),
+                    assigned_to: isAssigned ? employeeName : null,
+                    employee_id: isAssigned ? employeeId : null,
+                    assigned_date: isAssigned ? new Date().toISOString() : null,
+                    warranty_start: parseDate(getValueAtIndex(row, "warranty start")),
+                    warranty_end: warrantyEnd,
+                    provider: getValueAtIndex(row, "provider") || null,
+                    warranty_status: warrantyStatus,
+                    updated_by: currentUser,
+                    updated_at: new Date().toISOString(),
+                  };
+
+                  if (existingAsset) {
+                    // Update existing asset
+                    await updateAssetMutation.mutateAsync({
+                      id: existingAsset.id,
+                      ...assetData,
+                    });
+                    updatedCount++;
+                  } else {
+                    // Create new asset
+                    assetData.created_by = currentUser;
+                    assetData.created_at = new Date().toISOString();
+                    assetData.asset_check = "";
+                    assetData.received_by = null;
+                    assetData.return_date = null;
+                    assetData.remarks = null;
+
+                    await createAssetMutation.mutateAsync(assetData);
+                    createdCount++;
+                  }
+                } catch (err) {
+                  console.error("Error processing row:", err);
+                  errorCount++;
+                }
+              }
+
+              refetch();
+              setShowBulkUpload(false);
+              
+              let message = "";
+              if (createdCount > 0) message += `${createdCount} created`;
+              if (updatedCount > 0) message += `${message ? ", " : ""}${updatedCount} updated`;
+              if (errorCount > 0) message += `${message ? ", " : ""}${errorCount} failed`;
+              
+              toast.success(`Bulk upload complete: ${message || "No changes"}`);
+            } catch (error: any) {
+              toast.error(error.message || "Failed to process bulk upload");
+            }
           }}
           onDownload={handleDownloadData}
         />

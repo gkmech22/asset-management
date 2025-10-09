@@ -28,6 +28,7 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
     location: initialData?.location || "",
     employeeId: initialData?.employeeId || "",
     employeeName: initialData?.employeeName || "",
+    farCode: initialData?.farCode || "",
   });
   const [error, setError] = React.useState<string | null>(null);
   const [customType, setCustomType] = React.useState("");
@@ -151,6 +152,7 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
       location: formData.location === "custom" ? customLocation : formData.location,
       employeeId: formData.employeeId || null,
       employeeName: formData.employeeName || null,
+      farCode: formData.farCode || null,
     };
 
     try {
@@ -474,6 +476,16 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
               value={formData.employeeName}
               onChange={(e) => setFormData({ ...formData, employeeName: e.target.value })}
               placeholder="e.g., John Doe"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="farCode">FAR Code</Label>
+            <Input
+              id="farCode"
+              value={formData.farCode}
+              onChange={(e) => setFormData({ ...formData, farCode: e.target.value })}
+              placeholder="e.g., FAR-001 (Optional)"
             />
           </div>
 

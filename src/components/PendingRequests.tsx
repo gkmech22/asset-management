@@ -36,6 +36,8 @@ interface PendingRequest {
   original_employee_id?: string;
   new_location?: string;
   new_status?: string;
+  approver_comments?: string;
+  rejection_reason?: string;
   assets?: {
     asset_id: string;
     name: string;
@@ -547,11 +549,11 @@ export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
                     View
                   </Button>
                   <Badge variant={
-                    request.status === 'approved' ? 'success' :
+                    request.status === 'approved' ? 'default' :
                     request.status === 'rejected' ? 'destructive' :
                     request.status === 'pending' ? 'secondary' :
                     request.status === 'cancelled' ? 'outline' : 'secondary'
-                  }>
+                  } className={request.status === 'approved' ? 'bg-green-500 text-white' : ''}>
                     {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
                   </Badge>
                   {request.status === 'pending' && request.requested_by === user?.email && (
