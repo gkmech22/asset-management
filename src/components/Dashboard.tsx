@@ -38,8 +38,8 @@ export const Dashboard = () => {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState<'dashboard' | 'audit' | 'amcs' | 'summary' | 'employees'>('dashboard');
-  const [pendingCount, setPendingCount] = useState(0);
   const [showPendingRequests, setShowPendingRequests] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
     const fetchUserAndAuthorize = async () => {
@@ -222,8 +222,7 @@ export const Dashboard = () => {
         asset_check: "",
         provider: newAsset.provider,
         warranty_status: warrantyStatus,
-        asset_value_recovery: newAsset.assetValueRecovery || null,
-        far_code: newAsset.farCode || null,
+        recovery_amount: newAsset.recoveryAmount || null,
       };
       
       const data = await createAssetMutation.mutateAsync(asset);
@@ -285,7 +284,7 @@ export const Dashboard = () => {
     }
   };
 
-  const handleUnassignAsset = async (assetId: string, remarks?: string, receivedBy?: string, location?: string, assetCondition?: string | null, status?: string) => {
+  const handleUnassignAsset = async (assetId: string, remarks?: string, receivedBy?: string, location?: string, configuration?: string | null, assetCondition?: string | null, status?: string) => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
       toast.error("Unauthorized: Insufficient permissions.");
       return;
@@ -307,26 +306,23 @@ export const Dashboard = () => {
           return_status: status || 'Available',
           asset_condition: assetCondition,
           received_by: receivedBy || currentUser,
+          configuration: configuration !== undefined ? configuration : asset.configuration,
         });
-
+        
         toast.success("Return request sent for approval");
         fetchPendingCount();
         return;
       }
 
-      // Only update configuration if a new value is explicitly provided and different
-      const updateData = {
+      await unassignAssetMutation.mutateAsync({
         id: assetId,
         remarks,
         receivedBy: receivedBy || currentUser,
         location,
+        configuration,
         assetCondition,
-        status: status || "Available",
-        updated_by: currentUser,
-        updated_at: new Date().toISOString(),
-      };
-
-      await unassignAssetMutation.mutateAsync(updateData);
+        status,
+      });
       
       await logEditHistory(assetId, "assigned_to", asset?.assigned_to || null, null);
       await logEditHistory(assetId, "employee_id", asset?.employee_id || null, null);
@@ -340,7 +336,6 @@ export const Dashboard = () => {
       if (remarks) {
         await logEditHistory(assetId, "remarks", asset?.remarks || null, remarks);
       }
-      
       refetch(); // Update assets state immediately
       toast.success("Asset returned successfully");
     } catch (error: any) {
@@ -383,8 +378,7 @@ export const Dashboard = () => {
         warranty_end: updatedAsset.warrantyEnd,
         provider: updatedAsset.provider,
         warranty_status: warrantyStatus,
-        asset_value_recovery: updatedAsset.assetValueRecovery || null,
-        far_code: updatedAsset.farCode || null,
+        recovery_amount: updatedAsset.recoveryAmount || null,
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
       });
@@ -516,62 +510,6 @@ export const Dashboard = () => {
     }
   };
 
-  const handleDownloadData = () => {
-    const headers = [
-      "Asset ID", "Asset Name", "Asset Type", "Brand", "Configuration", "Serial Number",
-      "FAR Code", "Employee ID", "Employee Name", "Status", "Asset Location", "Assigned Date",
-      "Return Date", "Received By", "Remarks", "Warranty Start", "Warranty End",
-      "Created By", "Created At", "Updated By", "Updated At", "Asset Check", "Provider",
-      "Warranty Status", "Asset Value Recovery"
-    ];
-
-    const escapeCsvField = (value: string | null | undefined): string => {
-      if (!value) return "";
-      return value.includes(",") ? `"${value.replace(/"/g, '""')}"` : value;
-    };
-
-    const csvContent = [
-      headers.join(","),
-      ...assets.map((asset) =>
-        [
-          escapeCsvField(asset.asset_id),
-          escapeCsvField(asset.name),
-          escapeCsvField(asset.type),
-          escapeCsvField(asset.brand),
-          escapeCsvField(asset.configuration),
-          escapeCsvField(asset.serial_number),
-          escapeCsvField(asset.employee_id),
-          escapeCsvField(asset.assigned_to),
-          escapeCsvField(asset.status),
-          escapeCsvField(asset.location),
-          escapeCsvField(asset.assigned_date),
-          escapeCsvField(asset.return_date),
-          escapeCsvField(asset.received_by),
-          escapeCsvField(asset.remarks),
-          escapeCsvField(asset.warranty_start),
-          escapeCsvField(asset.warranty_end),
-          escapeCsvField(asset.created_by),
-          escapeCsvField(asset.created_at),
-          escapeCsvField(asset.updated_by),
-          escapeCsvField(asset.updated_at),
-          escapeCsvField(asset.asset_check),
-          escapeCsvField(asset.provider),
-          escapeCsvField(asset.warranty_status),
-          escapeCsvField(asset.asset_value_recovery?.toString()),
-          escapeCsvField(asset.far_code),
-        ].join(",")
-      ),
-    ].join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "asset_inventory.csv";
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
-
   if (!isAuthorized) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
@@ -671,11 +609,11 @@ export const Dashboard = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="min-h-screen bg-background">
       <div className="border-b bg-card sticky top-0 z-50">
-        <div className="container mx-auto px-4 text-wrap overflow-auto">
+        <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4 text-wrap">
+            <div className="flex items-center gap-4">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm">
@@ -691,17 +629,17 @@ export const Dashboard = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
               <img src="/logo.png" alt="LEAD GROUP" className="h-10" />
-              <span className="text-2xl font-bold text-primary text-wrap">Asset Management System</span>
+              <span className="text-2xl font-bold text-primary">Asset Management System</span>
             </div>
 
-            <div className="flex items-center gap-3 text-wrap">
+            <div className="flex items-center gap-3">
               {(userRole === 'Super Admin' || userRole === 'Admin' || userRole === 'Operator') && (
                 <>
-                  <Button onClick={() => setShowBulkUpload(true)} variant="outline" size="sm" className="text-wrap">
+                  <Button onClick={() => setShowBulkUpload(true)} variant="outline" size="sm">
                     <Upload className="h-4 w-4 mr-2" />
                     Bulk Upload
                   </Button>
-                  <Button onClick={() => setShowAddForm(true)} size="sm" className="text-wrap">
+                  <Button onClick={() => setShowAddForm(true)} size="sm">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Asset
                   </Button>
@@ -710,7 +648,7 @@ export const Dashboard = () => {
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="relative text-wrap"
+                className="relative"
                 onClick={() => {
                   setShowPendingRequests(true);
                   fetchPendingCount();
@@ -729,17 +667,9 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto pt-[60px] pb-[40px] container mx-auto px-4 text-wrap">
+      <div className="container mx-auto px-4 py-6">
         {renderContent()}
       </div>
-
-      <footer className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t shadow-card py-2">
-        <div className="container mx-auto px-4">
-          <p className="text-[14px] text-muted-foreground">
-            Crafted by 🤓 IT Infra minds, for IT Infra needs
-          </p>
-        </div>
-      </footer>
 
       {showAddForm && (
         <AssetForm
@@ -752,98 +682,17 @@ export const Dashboard = () => {
         <BulkUpload
           open={showBulkUpload}
           onOpenChange={setShowBulkUpload}
-          onUpload={async (data: { headers: string[]; dataRows: string[][] }) => {
-            try {
-              const headerMap = data.headers.reduce((acc: Record<string, number>, header: string, index: number) => {
-                acc[header.toLowerCase()] = index;
-                return acc;
-              }, {});
-
-              const getValueAtIndex = (row: string[], key: string) => row[headerMap[key]] || "";
-
-              let createdCount = 0;
-              let updatedCount = 0;
-              let errorCount = 0;
-
-              for (const row of data.dataRows) {
-                try {
-                  const serialNumber = getValueAtIndex(row, "serial number");
-                  if (!serialNumber) continue;
-
-                  // Check if asset with this serial number already exists
-                  const existingAsset = assets.find(a => a.serial_number === serialNumber);
-
-                  const employeeName = getValueAtIndex(row, "employee name");
-                  const employeeId = getValueAtIndex(row, "employee id");
-                  const isAssigned = employeeName && employeeId;
-                  const warrantyEnd = parseDate(getValueAtIndex(row, "warranty end"));
-                  const warrantyStatus = warrantyEnd ? (new Date(warrantyEnd) >= new Date() ? "In Warranty" : "Out of Warranty") : "Out of Warranty";
-
-                  const assetData: any = {
-                    asset_id: getValueAtIndex(row, "asset id"),
-                    name: getValueAtIndex(row, "asset name"),
-                    type: getValueAtIndex(row, "asset type"),
-                    brand: getValueAtIndex(row, "brand"),
-                    configuration: getValueAtIndex(row, "configuration") || null,
-                    serial_number: serialNumber,
-                    far_code: getValueAtIndex(row, "far code") || null,
-                    status: isAssigned ? "Assigned" : "Available",
-                    location: getValueAtIndex(row, "location"),
-                    assigned_to: isAssigned ? employeeName : null,
-                    employee_id: isAssigned ? employeeId : null,
-                    assigned_date: isAssigned ? new Date().toISOString() : null,
-                    warranty_start: parseDate(getValueAtIndex(row, "warranty start")),
-                    warranty_end: warrantyEnd,
-                    provider: getValueAtIndex(row, "provider") || null,
-                    warranty_status: warrantyStatus,
-                    updated_by: currentUser,
-                    updated_at: new Date().toISOString(),
-                  };
-
-                  if (existingAsset) {
-                    // Update existing asset
-                    await updateAssetMutation.mutateAsync({
-                      id: existingAsset.id,
-                      ...assetData,
-                    });
-                    updatedCount++;
-                  } else {
-                    // Create new asset
-                    assetData.created_by = currentUser;
-                    assetData.created_at = new Date().toISOString();
-                    assetData.asset_check = "";
-                    assetData.received_by = null;
-                    assetData.return_date = null;
-                    assetData.remarks = null;
-
-                    await createAssetMutation.mutateAsync(assetData);
-                    createdCount++;
-                  }
-                } catch (err) {
-                  console.error("Error processing row:", err);
-                  errorCount++;
-                }
-              }
-
-              refetch();
-              setShowBulkUpload(false);
-              
-              let message = "";
-              if (createdCount > 0) message += `${createdCount} created`;
-              if (updatedCount > 0) message += `${message ? ", " : ""}${updatedCount} updated`;
-              if (errorCount > 0) message += `${message ? ", " : ""}${errorCount} failed`;
-              
-              toast.success(`Bulk upload complete: ${message || "No changes"}`);
-            } catch (error: any) {
-              toast.error(error.message || "Failed to process bulk upload");
-            }
+          onUpload={() => {
+            setShowBulkUpload(false);
+            refetch(); // Update assets state after bulk upload
+            toast.success("Assets uploaded successfully");
           }}
-          onDownload={handleDownloadData}
+          onDownload={() => {}}
         />
       )}
 
       <Dialog open={showPendingRequests} onOpenChange={setShowPendingRequests}>
-        <DialogContent className="m-0 max-w-screen max-h-screen overflow-y-auto text-wrap">
+        <DialogContent className="m-0 max-w-screen max-h-screen overflow-y-auto">
           <PendingRequests onRefresh={refetch} />
         </DialogContent>
       </Dialog>
