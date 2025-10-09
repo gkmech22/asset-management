@@ -57,7 +57,6 @@ export type Database = {
           asset_check: string | null
           asset_condition: string | null
           asset_id: string
-          asset_value_recovery: number | null
           assigned_date: string | null
           assigned_to: string | null
           brand: string
@@ -65,7 +64,6 @@ export type Database = {
           created_at: string
           created_by: string | null
           employee_id: string | null
-          far_code: string | null
           id: string
           location: string
           name: string
@@ -87,7 +85,6 @@ export type Database = {
           asset_check?: string | null
           asset_condition?: string | null
           asset_id: string
-          asset_value_recovery?: number | null
           assigned_date?: string | null
           assigned_to?: string | null
           brand: string
@@ -95,7 +92,6 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           employee_id?: string | null
-          far_code?: string | null
           id?: string
           location: string
           name: string
@@ -117,7 +113,6 @@ export type Database = {
           asset_check?: string | null
           asset_condition?: string | null
           asset_id?: string
-          asset_value_recovery?: number | null
           assigned_date?: string | null
           assigned_to?: string | null
           brand?: string
@@ -125,7 +120,6 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           employee_id?: string | null
-          far_code?: string | null
           id?: string
           location?: string
           name?: string
@@ -179,20 +173,16 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
-          approver_comments: string | null
           asset_condition: string | null
           asset_id: string
           assign_to: string | null
           cancelled_at: string | null
           cancelled_by: string | null
+          configuration: string | null
           created_at: string
           employee_email: string | null
           employee_id: string | null
           id: string
-          new_location: string | null
-          new_status: string | null
-          original_assigned_to: string | null
-          original_employee_id: string | null
           received_by: string | null
           rejection_reason: string | null
           request_type: string
@@ -207,20 +197,16 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
-          approver_comments?: string | null
           asset_condition?: string | null
           asset_id: string
           assign_to?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
+          configuration?: string | null
           created_at?: string
           employee_email?: string | null
           employee_id?: string | null
           id?: string
-          new_location?: string | null
-          new_status?: string | null
-          original_assigned_to?: string | null
-          original_employee_id?: string | null
           received_by?: string | null
           rejection_reason?: string | null
           request_type: string
@@ -235,20 +221,16 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_by?: string | null
-          approver_comments?: string | null
           asset_condition?: string | null
           asset_id?: string
           assign_to?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
+          configuration?: string | null
           created_at?: string
           employee_email?: string | null
           employee_id?: string | null
           id?: string
-          new_location?: string | null
-          new_status?: string | null
-          original_assigned_to?: string | null
-          original_employee_id?: string | null
           received_by?: string | null
           rejection_reason?: string | null
           request_type?: string

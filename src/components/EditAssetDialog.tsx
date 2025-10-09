@@ -23,7 +23,6 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
     brand: "",
     configuration: "",
     serialNumber: "",
-    farCode: "",
     provider: "",
     warrantyStart: "",
     warrantyEnd: "",
@@ -58,7 +57,6 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
         brand: asset.brand || "",
         configuration: asset.configuration || "",
         serialNumber: asset.serial_number || "",
-        farCode: asset.far_code || "",
         provider: asset.provider || "",
         warrantyStart: asset.warranty_start || "",
         warrantyEnd: asset.warranty_end || "",
@@ -142,7 +140,6 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
     if (formData.brand !== asset.brand) updatedFields.brand = formData.brand === "custom" ? customBrand : formData.brand;
     if (formData.configuration !== (asset.configuration || "")) updatedFields.configuration = formData.configuration === "custom" ? customConfiguration : (formData.configuration || null);
     if (formData.serialNumber !== asset.serial_number) updatedFields.serialNumber = formData.serialNumber;
-    if (formData.farCode !== (asset.far_code || "")) updatedFields.farCode = formData.farCode || null;
     if (formData.provider !== (asset.provider || "")) updatedFields.provider = formData.provider === "custom" ? customProvider : (formData.provider || null);
     if (formData.warrantyStart !== (asset.warranty_start || "")) updatedFields.warrantyStart = formData.warrantyStart || null;
     if (formData.warrantyEnd !== (asset.warranty_end || "")) updatedFields.warrantyEnd = formData.warrantyEnd || null;
@@ -358,16 +355,6 @@ export const EditAssetDialog = ({ asset, assets, open, onOpenChange, onUpdate }:
               onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })}
               placeholder="e.g., MBP16-2023-001"
               required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="farCode">FAR Code</Label>
-            <Input
-              id="farCode"
-              value={formData.farCode}
-              onChange={(e) => setFormData({ ...formData, farCode: e.target.value })}
-              placeholder="e.g., FAR-001 (Optional)"
             />
           </div>
 
