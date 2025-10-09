@@ -98,7 +98,7 @@ export const AssetList = ({
 
   const allStatuses = ["Available", "Scrap/Damage", "Sale", "Sold", "Lost", "Emp Damage", "Courier Damage"];
 
-  const statusesRequiringRecovery = ["Sold", "Lost", "Emp Damage", "Courier Damage"];
+  const statusesRequiringRecovery = ["Lost", "Emp Damage", "Courier Damage"];
 
   const receivedBy = React.useMemo(() => {
     try {
@@ -296,7 +296,7 @@ export const AssetList = ({
           return;
         }
 
-        if ((newStatus === "Sold" || newStatus === "Sale") && selectedAsset.status !== "Assigned") {
+        if (newStatus === "Sold" && selectedAsset.status !== "Assigned") {
           setShowStatusDialog(false);
           setUserName("");
           setEmployeeId("");
@@ -464,7 +464,7 @@ export const AssetList = ({
             await onUpdateAssetCheck(asset.id, "");
             await onUpdateAsset(asset.id, {
               updated_at: new Date().toISOString(),
-            asset_value_recovery: statusesRequiringRecovery.includes(asset.status || '') ? (asset.asset_value_recovery || null) : null
+              asset_value_recovery: statusesRequiringRecovery.includes(asset.status || '') ? (asset.asset_value_recovery || null) : null
             });
           }
         }
@@ -550,7 +550,7 @@ export const AssetList = ({
       case "Sale":
         return <Badge variant="destructive">Sale</Badge>;
       case "Sold":
-        return <Badge variant="default" className="bg-blue-500 text-white">Sold</Badge>;
+        return <Badge variant="destructive">Sold</Badge>;
       case "Lost":
         return <Badge variant="default" className="bg-red-500 text-white">Lost</Badge>;
       case "Emp Damage":
@@ -1207,7 +1207,7 @@ export const AssetList = ({
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{newStatus === "Sold" || newStatus === "Sale" ? "Assign Asset for Sale/Sold" : "Assign Asset"}</DialogTitle>
+            <DialogTitle>{newStatus === "Sold" ? "Assign Asset for Sold" : "Assign Asset"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -1267,7 +1267,7 @@ export const AssetList = ({
                 disabled={isFetchingEmployee}
               />
             </div>
-            {(newStatus === "Sold" || newStatus === "Sale") && (
+            {newStatus === "Sold" && (
               <div className="space-y-2">
                 <Label htmlFor="assetValueRecovery">Asset Value Recovery</Label>
                 <Input
@@ -1298,7 +1298,7 @@ export const AssetList = ({
               <Button
                 onClick={async () => {
                   await handleAssignAsset();
-                  if (newStatus === "Sold" || newStatus === "Sale") {
+                  if (newStatus === "Sold") {
                     await onUpdateStatus(selectedAsset!.id, newStatus);
                     await onUpdateAsset(selectedAsset!.id, {
                       updated_at: new Date().toISOString(),
@@ -1311,7 +1311,7 @@ export const AssetList = ({
                 disabled={!userName.trim() || !employeeId.trim() || !employeeEmail.trim() || !selectedAsset || isFetchingEmployee}
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
               >
-                {newStatus === "Sold" || newStatus === "Sale" ? "Assign and Mark as Sale/Sold" : "Assign"}
+                {newStatus === "Sold" ? "Assign and Mark as Sold" : "Assign"}
               </Button>
             </div>
           </div>

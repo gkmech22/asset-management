@@ -205,6 +205,7 @@ export const Dashboard = () => {
         brand: newAsset.brand,
         configuration: newAsset.configuration,
         serial_number: newAsset.serialNumber,
+        far_code: newAsset.farCode,
         status: isAssigned ? "Assigned" : "Available",
         location: newAsset.location || locations[0],
         assigned_to: isAssigned ? newAsset.employeeName : null,
@@ -497,21 +498,39 @@ const handleUpdateAsset = async (assetId: string, updatedAsset: any) => {
     }
   };
 
-  const handleDeleteAsset = async (assetId: string) => {
-    if (userRole !== 'Super Admin' && userRole !== 'Admin') {
-      toast.error("Unauthorized: Only Super Admin and Admin can delete assets.");
-      return;
+const handleDeleteAsset = async (assetId: string) => {
+  if (userRole !== 'Super Admin' && userRole !== 'Admin') {
+    toast.error("Unauthorized: Only Super Admin and Admin can delete assets.");
+    return;
+  }
+
+  try {
+    // Verify asset exists before attempting deletion
+    const asset = assets.find((a) => a.id === assetId);
+    if (!asset) {
+      throw new Error(`Asset with ID ${assetId} not found.`);
     }
 
-    try {
-      await deleteAssetMutation.mutateAsync(assetId);
-      refetch(); // Update assets state immediately
-      toast.success("Asset deleted successfully");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to delete asset.");
+    // Delete related records in asset_edit_history to avoid foreign key constraint violation
+    const { error: historyError } = await supabase
+      .from('asset_edit_history')
+      .delete()
+      .eq('asset_id', assetId);
+    
+    if (historyError) {
+      throw new Error(`Failed to delete related asset edit history: ${historyError.message}`);
     }
-  };
 
+    // Now delete the asset
+    await deleteAssetMutation.mutateAsync(assetId);
+
+    refetch(); // Update assets state immediately
+    toast.success("Asset deleted successfully");
+  } catch (error: any) {
+    console.error("Error deleting asset:", error); // Log error for debugging
+    toast.error(error.message || "Failed to delete asset. Please check the console for details.");
+  }
+};
   const handleDownload = () => {
     const headers = [
       "asset_id", "name", "type", "brand", "configuration", "serial_number","far_code", "status", "location",
@@ -702,6 +721,7 @@ const handleUpdateAsset = async (assetId: string, updatedAsset: any) => {
 
       {showAddForm && (
         <AssetForm
+          assets={assets}
           onSubmit={handleAddAsset}
           onCancel={() => setShowAddForm(false)}
         />
