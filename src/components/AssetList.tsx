@@ -21,7 +21,7 @@ import { toast } from "sonner";
 interface AssetListProps {
   assets: Asset[];
   onAssign: (assetId: string, userName: string, employeeId: string) => Promise<void>;
-  onUnassign: (assetId: string, remarks?: string, receivedBy?: string, location?: string, configuration?: string | null, assetCondition?: string | null, status?: string) => Promise<void>;
+  onUnassign: (assetId: string, remarks?: string, receivedBy?: string, location?: string, configuration?: string | null, assetCondition?: string | null, status?: string, assetValueRecovery?: string | null) => Promise<void>;
   onUpdateAsset: (assetId: string, updatedAsset: any) => Promise<void>;
   onUpdateStatus: (assetId: string, status: string) => Promise<void>;
   onUpdateLocation: (assetId: string, location: string) => Promise<void>;
@@ -71,6 +71,7 @@ export const AssetList = ({
   const [returnLocation, setReturnLocation] = React.useState("");
   const [returnStatus, setReturnStatus] = React.useState("");
   const [assetCondition, setAssetCondition] = React.useState("");
+  const [assetValueRecovery, setAssetValueRecovery] = React.useState<string>("");
   const [newStatus, setNewStatus] = React.useState("");
   const [newLocation, setNewLocation] = React.useState("");
   const [receivedByInput, setReceivedByInput] = React.useState("");
@@ -95,7 +96,9 @@ export const AssetList = ({
     "Bangalore WH", "Jaipur WH"
   ];
 
-  const allStatuses = ["Available","Scrap/Damage", "Sale", "Lost", "Emp Damage", "Courier Damage"];
+  const allStatuses = ["Available", "Scrap/Damage", "Sale", "Sold", "Lost", "Emp Damage", "Courier Damage"];
+
+  const statusesRequiringRecovery = ["Sold", "Lost", "Emp Damage", "Courier Damage"];
 
   const receivedBy = React.useMemo(() => {
     try {
@@ -131,42 +134,40 @@ export const AssetList = ({
     setCheckedAssets(initialChecked);
   }, [assets]);
 
-  // Fetch employee details from Supabase
-const fetchEmployee = async (id: string) => {
-  if (!id || id.length < 3) {
-    setUserName('');
-    setEmployeeEmail('');
-    return;
-  }
-
-  try {
-    setIsFetchingEmployee(true);
-    // Normalize the input by removing any prefix like 'LBPL' and converting to uppercase
-    const normalizedId = id.replace(/^lbpl/i, '').toUpperCase();
-    const { data, error } = await supabase
-      .from('employees')
-      .select('employee_name, email')
-      .eq('employee_id', `LBPL${normalizedId}`)
-      .single();
-
-    if (data && !error) {
-      setUserName(data.employee_name || '');
-      setEmployeeEmail(data.email || '');
-      toast.success('Employee details loaded successfully');
-    } else {
+  const fetchEmployee = async (id: string) => {
+    if (!id || id.length < 3) {
       setUserName('');
       setEmployeeEmail('');
-      toast.error('Employee not found');
+      return;
     }
-  } catch (error) {
-    console.error('Error fetching employee:', error);
-    setUserName('');
-    setEmployeeEmail('');
-    toast.error('Failed to fetch employee details');
-  } finally {
-    setIsFetchingEmployee(false);
-  }
-};
+
+    try {
+      setIsFetchingEmployee(true);
+      const normalizedId = id.replace(/^lbpl/i, '').toUpperCase();
+      const { data, error } = await supabase
+        .from('employees')
+        .select('employee_name, email')
+        .eq('employee_id', `LBPL${normalizedId}`)
+        .single();
+
+      if (data && !error) {
+        setUserName(data.employee_name || '');
+        setEmployeeEmail(data.email || '');
+        toast.success('Employee details loaded successfully');
+      } else {
+        setUserName('');
+        setEmployeeEmail('');
+        toast.error('Employee not found');
+      }
+    } catch (error) {
+      console.error('Error fetching employee:', error);
+      setUserName('');
+      setEmployeeEmail('');
+      toast.error('Failed to fetch employee details');
+    } finally {
+      setIsFetchingEmployee(false);
+    }
+  };
 
   const filteredAssets = React.useMemo(() => {
     return assets.filter((asset) => {
@@ -217,7 +218,6 @@ const fetchEmployee = async (id: string) => {
     });
   }, [assets, searchTerm, dateRange, typeFilter, brandFilter, configFilter, statusFilter, filterCheckStatus, viewType]);
 
-  // Adjust current page if it exceeds total pages after filtering
   React.useEffect(() => {
     const newTotalPages = Math.ceil(filteredAssets.length / rowsPerPage);
     if (currentPage > newTotalPages && newTotalPages > 0) {
@@ -265,7 +265,8 @@ const fetchEmployee = async (id: string) => {
           received_by: "", 
           return_date: "",
           assigned_date: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          asset_value_recovery: statusesRequiringRecovery.includes(newStatus) ? assetValueRecovery || null : null
         });
         setShowAssignDialog(false);
         setUserName("");
@@ -273,6 +274,7 @@ const fetchEmployee = async (id: string) => {
         setEmployeeEmail("");
         setSelectedAsset(null);
         setError(null);
+        setAssetValueRecovery("");
         toast.success("Asset assigned successfully");
       } catch (error) {
         console.error("AssetList: Assign failed:", error);
@@ -288,24 +290,13 @@ const fetchEmployee = async (id: string) => {
       try {
         if (selectedAsset.status === "Assigned" && newStatus !== "Assigned") {
           setShowStatusDialog(false);
-          if (newStatus === "Sale") {
-            await onUpdateStatus(selectedAsset.id, newStatus);
-            await onUpdateAsset(selectedAsset.id, { 
-              updated_at: new Date().toISOString(),
-              assigned_to: selectedAsset.assigned_to,
-              employee_id: selectedAsset.employee_id
-            });
-            setNewStatus("");
-            setSelectedAsset(null);
-            setError(null);
-            toast.success("Status updated to Sale successfully");
-          } else {
-            setShowReturnDialog(true);
-          }
+          setShowReturnDialog(true);
+          setReturnStatus(newStatus);
+          setAssetValueRecovery(statusesRequiringRecovery.includes(newStatus) ? (selectedAsset.asset_value_recovery?.toString() || "") : "");
           return;
         }
 
-        if (newStatus === "Sale" && selectedAsset.status !== "Assigned") {
+        if ((newStatus === "Sold" || newStatus === "Sale") && selectedAsset.status !== "Assigned") {
           setShowStatusDialog(false);
           setUserName("");
           setEmployeeId("");
@@ -318,10 +309,14 @@ const fetchEmployee = async (id: string) => {
         await onUpdateAsset(selectedAsset.id, { 
           updated_at: new Date().toISOString(),
           received_by: newStatus === "Assigned" ? "" : receivedByInput || receivedBy,
-          return_date: newStatus === "Assigned" ? "" : new Date().toISOString()
+          return_date: newStatus === "Assigned" ? "" : new Date().toISOString(),
+          asset_value_recovery: statusesRequiringRecovery.includes(newStatus) ? assetValueRecovery || null : null,
+          assigned_to: selectedAsset.assigned_to,
+          employee_id: selectedAsset.employee_id
         });
         setShowStatusDialog(false);
         setNewStatus("");
+        setAssetValueRecovery("");
         setSelectedAsset(null);
         setError(null);
         toast.success("Status updated successfully");
@@ -347,6 +342,7 @@ const fetchEmployee = async (id: string) => {
         
         const finalReceivedBy = receivedByInput.trim() || receivedBy;
         const finalLocation = returnStatus !== "Available" ? (returnLocation || selectedAsset.location) : selectedAsset.location;
+        const assetValueRecoveryNum = assetValueRecovery ? parseFloat(assetValueRecovery) : null;
         
         await onUnassign(
           selectedAsset.id, 
@@ -355,14 +351,21 @@ const fetchEmployee = async (id: string) => {
           finalLocation,
           null,
           assetCondition || null,
-          returnStatus
+          returnStatus,
+          assetValueRecoveryNum?.toString() || null
         );
+        
+        await onUpdateAsset(selectedAsset.id, {
+          updated_at: new Date().toISOString(),
+          asset_value_recovery: statusesRequiringRecovery.includes(returnStatus) ? assetValueRecoveryNum : null
+        });
         
         setShowReturnDialog(false);
         setReturnRemarks("");
         setReturnLocation("");
         setReturnStatus("");
         setAssetCondition("");
+        setAssetValueRecovery("");
         setReceivedByInput("");
         setSelectedAsset(null);
         setError(null);
@@ -379,10 +382,12 @@ const fetchEmployee = async (id: string) => {
       try {
         await onUpdateLocation(selectedAsset.id, newLocation);
         await onUpdateAsset(selectedAsset.id, {
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          asset_value_recovery: statusesRequiringRecovery.includes(selectedAsset.status || '') ? selectedAsset.asset_value_recovery || null : null
         });
         setShowLocationDialog(false);
         setNewLocation("");
+        setAssetValueRecovery("");
         setSelectedAsset(null);
         setError(null);
         toast.success("Location updated successfully");
@@ -402,7 +407,8 @@ const fetchEmployee = async (id: string) => {
         try {
           await onUpdateAssetCheck(asset.id, "Matched");
           await onUpdateAsset(asset.id, {
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            asset_value_recovery: statusesRequiringRecovery.includes(asset.status || '') ? asset.asset_value_recovery || null : null
           });
           setCheckedAssets(prev => new Set([...prev, assetCheckId]));
           setAssetCheckId("");
@@ -422,7 +428,8 @@ const fetchEmployee = async (id: string) => {
     try {
       await onUpdateAssetCheck(assetId, "");
       await onUpdateAsset(assetId, {
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        asset_value_recovery: statusesRequiringRecovery.includes(assets.find(a => a.id === assetId)?.status || '') ? assets.find(a => a.id === assetId)?.asset_value_recovery || null : null
       });
       setCheckedAssets(prev => {
         const newSet = new Set(prev);
@@ -446,7 +453,8 @@ const fetchEmployee = async (id: string) => {
           if (asset.asset_check === "Matched") {
             await onUpdateAssetCheck(asset.id, "");
             await onUpdateAsset(asset.id, {
-              updated_at: new Date().toISOString()
+              updated_at: new Date().toISOString(),
+              asset_value_recovery: statusesRequiringRecovery.includes(asset.status || '') ? asset.asset_value_recovery || null : null
             });
           }
         }
@@ -455,7 +463,8 @@ const fetchEmployee = async (id: string) => {
           if (asset.asset_check === "Matched") {
             await onUpdateAssetCheck(asset.id, "");
             await onUpdateAsset(asset.id, {
-              updated_at: new Date().toISOString()
+              updated_at: new Date().toISOString(),
+            asset_value_recovery: statusesRequiringRecovery.includes(asset.status || '') ? (asset.asset_value_recovery || null) : null
             });
           }
         }
@@ -492,7 +501,7 @@ const fetchEmployee = async (id: string) => {
     const headers = [
       "Asset ID", "Asset Type", "Asset Name", "Brand", "Configuration",
       "Serial Number", "Status", "Asset Location", "Asset Check",
-      "Assigned Date", "Return Date", "Received By"
+      "Assigned Date", "Return Date", "Received By", "Asset Value Recovery"
     ];
 
     const escapeCsvField = (value: string | null | undefined): string => {
@@ -516,6 +525,7 @@ const fetchEmployee = async (id: string) => {
           escapeCsvField(asset.assigned_date),
           escapeCsvField(asset.return_date),
           escapeCsvField(asset.received_by),
+          escapeCsvField(asset.asset_value_recovery?.toString()),
         ].join(",")
       ),
     ].join("\n");
@@ -538,7 +548,9 @@ const fetchEmployee = async (id: string) => {
       case "Scrap/Damage":
         return <Badge variant="destructive">Scrap/Damage</Badge>;
       case "Sale":
-        return <Badge variant="default" className="bg-blue-500 text-white">Sale</Badge>;
+        return <Badge variant="destructive">Sale</Badge>;
+      case "Sold":
+        return <Badge variant="default" className="bg-blue-500 text-white">Sold</Badge>;
       case "Lost":
         return <Badge variant="default" className="bg-red-500 text-white">Lost</Badge>;
       case "Emp Damage":
@@ -771,6 +783,7 @@ const fetchEmployee = async (id: string) => {
                         <th className="p-2 w-[15%] text-left">Asset Details</th>
                         <th className="p-2 w-[15%] text-left">Specifications</th>
                         <th className="p-2 w-[10%] text-left">Serial Number</th>
+                        <th className="p-2 w-[8%] text-left">FAR Code</th>
                         <th className="p-2 w-[10%] text-left">Location</th>
                         <th className="p-2 w-[10%] text-left">Assigned To</th>
                         <th className="p-2 w-[10%] text-left">Received By</th>
@@ -846,6 +859,9 @@ const fetchEmployee = async (id: string) => {
                             <div className="text-left">{asset.serial_number || '-'}</div>
                           </td>
                           <td className="p-2 text-xs">
+                            <div className="text-left">{asset.far_code || '-'}</div>
+                          </td>
+                          <td className="p-2 text-xs">
                             <div className="text-left">{asset.location || '-'}</div>
                           </td>
                           <td className="p-2 text-xs">
@@ -885,23 +901,24 @@ const fetchEmployee = async (id: string) => {
                                   Assign
                                 </Button>
                               ) : asset.status === "Assigned" ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedAsset(asset);
-                        setReturnStatus("");
-                        setReturnLocation(asset.location || "");
-                        setReturnRemarks("");
-                        setAssetCondition("");
-                        setReceivedByInput("");
-                        setShowReturnDialog(true);
-                      }}
-                      className="text-xs h-6"
-                    >
-                      <UserMinus className="h-2 w-2 mr-1" />
-                      Return
-                    </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedAsset(asset);
+                                    setReturnStatus("");
+                                    setReturnLocation(asset.location || "");
+                                    setReturnRemarks("");
+                                    setAssetCondition("");
+                                    setAssetValueRecovery(statusesRequiringRecovery.includes(asset.status || '') ? (asset.asset_value_recovery?.toString() || "") : "");
+                                    setReceivedByInput("");
+                                    setShowReturnDialog(true);
+                                  }}
+                                  className="text-xs h-6"
+                                >
+                                  <UserMinus className="h-2 w-2 mr-1" />
+                                  Return
+                                </Button>
                               ) : null}
                               <Button
                                 size="sm"
@@ -930,6 +947,7 @@ const fetchEmployee = async (id: string) => {
                                     onClick={() => {
                                       setSelectedAsset(asset);
                                       setNewStatus(asset.status || '');
+                                      setAssetValueRecovery(statusesRequiringRecovery.includes(asset.status || '') ? (asset.asset_value_recovery?.toString() || "") : "");
                                       setShowStatusDialog(true);
                                     }}
                                   >
@@ -1186,11 +1204,10 @@ const fetchEmployee = async (id: string) => {
         )}
       </CardContent>
 
-      {/* Assign Dialog */}
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{newStatus === "Sale" ? "Assign Asset for Sale" : "Assign Asset"}</DialogTitle>
+            <DialogTitle>{newStatus === "Sold" || newStatus === "Sale" ? "Assign Asset for Sale/Sold" : "Assign Asset"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -1250,6 +1267,18 @@ const fetchEmployee = async (id: string) => {
                 disabled={isFetchingEmployee}
               />
             </div>
+            {(newStatus === "Sold" || newStatus === "Sale") && (
+              <div className="space-y-2">
+                <Label htmlFor="assetValueRecovery">Asset Value Recovery</Label>
+                <Input
+                  id="assetValueRecovery"
+                  value={assetValueRecovery}
+                  onChange={(e) => setAssetValueRecovery(e.target.value)}
+                  placeholder="Enter asset value recovery (optional)"
+                  className="text-sm"
+                />
+              </div>
+            )}
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -1260,6 +1289,7 @@ const fetchEmployee = async (id: string) => {
                   setEmployeeEmail("");
                   setSelectedAsset(null);
                   setNewStatus("");
+                  setAssetValueRecovery("");
                 }}
                 className="flex-1"
               >
@@ -1268,25 +1298,26 @@ const fetchEmployee = async (id: string) => {
               <Button
                 onClick={async () => {
                   await handleAssignAsset();
-                  if (newStatus === "Sale") {
-                    await onUpdateStatus(selectedAsset!.id, "Sale");
+                  if (newStatus === "Sold" || newStatus === "Sale") {
+                    await onUpdateStatus(selectedAsset!.id, newStatus);
                     await onUpdateAsset(selectedAsset!.id, {
-                      updated_at: new Date().toISOString()
+                      updated_at: new Date().toISOString(),
+                      asset_value_recovery: statusesRequiringRecovery.includes(newStatus) ? assetValueRecovery || null : null
                     });
                     setNewStatus("");
+                    setAssetValueRecovery("");
                   }
                 }}
                 disabled={!userName.trim() || !employeeId.trim() || !employeeEmail.trim() || !selectedAsset || isFetchingEmployee}
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
               >
-                {newStatus === "Sale" ? "Assign and Mark as Sale" : "Assign"}
+                {newStatus === "Sold" || newStatus === "Sale" ? "Assign and Mark as Sale/Sold" : "Assign"}
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Status Dialog */}
       <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1310,12 +1341,25 @@ const fetchEmployee = async (id: string) => {
                 </SelectContent>
               </Select>
             </div>
+            {statusesRequiringRecovery.includes(newStatus) && (
+              <div className="space-y-2">
+                <Label htmlFor="assetValueRecovery">Asset Value Recovery</Label>
+                <Input
+                  id="assetValueRecovery"
+                  value={assetValueRecovery}
+                  onChange={(e) => setAssetValueRecovery(e.target.value)}
+                  placeholder="Enter asset value recovery (optional)"
+                  className="text-sm"
+                />
+              </div>
+            )}
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 onClick={() => {
                   setShowStatusDialog(false);
                   setNewStatus("");
+                  setAssetValueRecovery("");
                   setSelectedAsset(null);
                 }}
                 className="flex-1"
@@ -1334,7 +1378,6 @@ const fetchEmployee = async (id: string) => {
         </DialogContent>
       </Dialog>
 
-      {/* Location Dialog */}
       <Dialog open={showLocationDialog} onOpenChange={setShowLocationDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1360,12 +1403,25 @@ const fetchEmployee = async (id: string) => {
                 </SelectContent>
               </Select>
             </div>
+            {selectedAsset && statusesRequiringRecovery.includes(selectedAsset.status || '') && (
+              <div className="space-y-2">
+                <Label htmlFor="assetValueRecovery">Asset Value Recovery</Label>
+                <Input
+                  id="assetValueRecovery"
+                  value={assetValueRecovery}
+                  onChange={(e) => setAssetValueRecovery(e.target.value)}
+                  placeholder="Enter asset value recovery (optional)"
+                  className="text-sm"
+                />
+              </div>
+            )}
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 onClick={() => {
                   setShowLocationDialog(false);
                   setNewLocation("");
+                  setAssetValueRecovery("");
                   setSelectedAsset(null);
                 }}
                 className="flex-1"
@@ -1384,7 +1440,6 @@ const fetchEmployee = async (id: string) => {
         </DialogContent>
       </Dialog>
 
-      {/* Return Dialog */}
       <Dialog open={showReturnDialog} onOpenChange={setShowReturnDialog}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1431,6 +1486,18 @@ const fetchEmployee = async (id: string) => {
                 placeholder="Enter asset condition (optional)"
               />
             </div>
+            {returnStatus && statusesRequiringRecovery.includes(returnStatus) && (
+              <div className="space-y-2">
+                <Label htmlFor="assetValueRecovery">Asset Value Recovery</Label>
+                <Input
+                  id="assetValueRecovery"
+                  value={assetValueRecovery}
+                  onChange={(e) => setAssetValueRecovery(e.target.value)}
+                  placeholder="Enter asset value recovery (optional)"
+                  className="text-sm"
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Received By</Label>
               <Input
@@ -1458,6 +1525,7 @@ const fetchEmployee = async (id: string) => {
                   setReturnLocation("");
                   setReturnStatus("");
                   setAssetCondition("");
+                  setAssetValueRecovery("");
                   setReceivedByInput("");
                   setSelectedAsset(null);
                 }}
@@ -1477,7 +1545,6 @@ const fetchEmployee = async (id: string) => {
         </DialogContent>
       </Dialog>
 
-      {/* Confirm Clear Dialog */}
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1493,7 +1560,6 @@ const fetchEmployee = async (id: string) => {
         </DialogContent>
       </Dialog>
 
-      {/* Status Check Dialog */}
       <Dialog open={showStatusCheckDialog} onOpenChange={setShowStatusCheckDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1515,7 +1581,6 @@ const fetchEmployee = async (id: string) => {
         </DialogContent>
       </Dialog>
 
-      {/* Sticker Dialog */}
       <Dialog open={showStickerDialog} onOpenChange={(open) => {
         setShowStickerDialog(open);
         if (!open) setSelectedAsset(null);
@@ -1537,7 +1602,6 @@ const fetchEmployee = async (id: string) => {
         </DialogContent>
       </Dialog>
 
-      {/* Scanners */}
       <EnhancedBarcodeScanner
         isOpen={showScanner}
         onClose={() => setShowScanner(false)}
@@ -1550,7 +1614,6 @@ const fetchEmployee = async (id: string) => {
         onScan={(result) => setAssetCheckId(result)}
       />
 
-      {/* Edit Dialog */}
       <EditAssetDialog
         asset={selectedAsset}
         assets={assets}
@@ -1562,7 +1625,6 @@ const fetchEmployee = async (id: string) => {
         onUpdate={onUpdateAsset}
       />
 
-      {/* Details Dialog */}
       <AssetDetailsDialog
         asset={selectedAsset}
         open={showDetailsDialog}
@@ -1576,51 +1638,66 @@ const fetchEmployee = async (id: string) => {
         showAssignedToOnly={showAssignedToOnly}
       />
 
-      {/* History Dialog */}
-      <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
-        <DialogContent className="max-w-2xl h-[80vh]">
-          <DialogHeader className="pb-0">
-            <DialogTitle className="mt-0">Edit History for {selectedAsset?.name || "N/A"}</DialogTitle>
+      <Dialog open={showHistoryDialog} onOpenChange={(open) => {
+        setShowHistoryDialog(open);
+        if (!open) setSelectedAsset(null);
+      }}>
+        <DialogContent className="max-w-2xl h-[80vh] sm:p-6 p-4">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="mt-0 text-lg font-semibold">
+              Edit History for {selectedAsset?.name || "N/A"}
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-1 pt-0">
+          <div className="space-y-2">
             <div>
-              <Label className="mt-0">Asset: {selectedAsset?.name || "N/A"}</Label>
+              <Label className="mt-0 font-medium">Asset: {selectedAsset?.name || "N/A"}</Label>
               <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id || "N/A"}</p>
             </div>
             {historyLoading ? (
-              <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <div className="text-center py-6">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" aria-label="Loading history"></div>
+                <span className="sr-only">Loading history...</span>
               </div>
             ) : history.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No edit history available.</p>
+              <p className="text-sm text-muted-foreground text-center py-6">No edit history available.</p>
             ) : (
               <div className="relative">
                 <div
-                  className="max-h-[65vh] overflow-y-auto"
+                  className="max-h-[60vh] overflow-y-auto rounded-md border border-border"
                   style={{ scrollBehavior: "smooth" }}
                 >
-                  <table className="w-full border-collapse">
+                  <table className="w-full border-collapse table-fixed">
                     <thead className="sticky top-0 bg-muted z-10">
                       <tr className="text-xs text-muted-foreground">
-                        <th className="p-2 text-left">Field</th>
-                        <th className="p-2 text-left">Old Value</th>
-                        <th className="p-2 text-left">New Value</th>
-                        <th className="p-2 text-left">Changed By</th>
-                        <th className="p-2 text-left">Updated At</th>
+                        <th className="p-2 text-left w-[20%] font-medium">Field</th>
+                        <th className="p-2 text-left w-[25%] font-medium">Old Value</th>
+                        <th className="p-2 text-left w-[25%] font-medium">New Value</th>
+                        <th className="p-2 text-left w-[15%] font-medium">Changed By</th>
+                        <th className="p-2 text-left w-[15%] font-medium">Updated At</th>
                       </tr>
                     </thead>
                     <tbody>
                       {[...history]
                         .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
                         .map((entry) => (
-                        <tr key={entry.id} className="border-b">
-                          <td className="p-2 text-xs">{entry.field_changed}</td>
-                          <td className="p-2 text-xs">{entry.old_value || "-"}</td>
-                          <td className="p-2 text-xs">{entry.new_value || "-"}</td>
-                          <td className="p-2 text-xs">{entry.changed_by}</td>
-                          <td className="p-2 text-xs">{formatDate(entry.updated_at)}</td>
-                        </tr>
-                      ))}
+                          <tr key={entry.id} className="border-b hover:bg-muted/50">
+                            <td className="p-2 text-xs whitespace-normal break-words overflow-wrap-break-word">
+                              {entry.field_changed || "-"}
+                            </td>
+                            <td className="p-2 text-xs whitespace-normal break-words overflow-wrap-break-word">
+                              {entry.old_value || "-"}
+                            </td>
+                            <td className="p-2 text-xs whitespace-normal break-words overflow-wrap-break-word">
+                              {entry.new_value || "-"}
+                            </td>
+                            <td className="p-2 text-xs whitespace-normal break-words overflow-wrap-break-word">
+                              {entry.changed_by || "-"}
+                            </td>
+                            <td className="p-2 text-xs whitespace-normal break-words overflow-wrap-break-word">
+                              {formatDate(entry.updated_at) || "-"}
+                            </td>
+                          </tr>
+                        ))}
                     </tbody>
                   </table>
                 </div>
