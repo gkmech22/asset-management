@@ -41,61 +41,66 @@ export const Dashboard = () => {
   const [showPendingRequests, setShowPendingRequests] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
 
-  useEffect(() => {
-    const fetchUserAndAuthorize = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.email) {
-          setCurrentUser(user.email);
-          const { data, error } = await supabase
-            .from('users')
-            .select('email, role')
-            .eq('email', user.email)
-            .single();
-          if (data && !error) {
-            setIsAuthorized(true);
-            setUserRole(data.role);
-          } else {
-            setIsAuthorized(false);
-            setUserRole(null);
-          }
+useEffect(() => {
+  const fetchUserAndAuthorize = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email) {
+        setCurrentUser(user.email);
+        const { data, error } = await supabase
+          .from('users')
+          .select('email, role')
+          .eq('email', user.email)
+          .single();
+        if (data && !error) {
+          setIsAuthorized(true);
+          setUserRole(data.role);
         } else {
-          toast.error("Failed to fetch user data. Access denied.");
           setIsAuthorized(false);
           setUserRole(null);
         }
-      } catch (error) {
-        toast.error("Error fetching user data. Access denied.");
-        console.error("Supabase auth error:", error);
+      } else {
+        toast.error("Failed to fetch user data. Access denied.");
         setIsAuthorized(false);
         setUserRole(null);
       }
-    };
-    fetchUserAndAuthorize();
-    fetchPendingCount();
+    } catch (error) {
+      toast.error("Error fetching user data. Access denied.");
+      console.error("Supabase auth error:", error);
+      setIsAuthorized(false);
+      setUserRole(null);
+    }
+  };
 
-    // Real-time subscription for assets
-    const assetsSubscription = supabase
-      .channel('assets-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'assets' }, (payload) => {
-        refetch();
-      })
-      .subscribe();
+  fetchUserAndAuthorize();
+  fetchPendingCount();
 
-    // Real-time subscription for pending requests
-    const pendingRequestsSubscription = supabase
-      .channel('pending-requests-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pending_requests' }, () => {
-        fetchPendingCount();
-      })
-      .subscribe();
+  // Set up interval to refresh pending count every second
+  const intervalId = setInterval(fetchPendingCount, 1000);
 
-    // Cleanup subscriptions on unmount
-    return () => {
-      assetsSubscription.unsubscribe();
-      pendingRequestsSubscription.unsubscribe();
-    };
-  }, []);
+  // Real-time subscription for assets
+  const assetsSubscription = supabase
+    .channel('assets-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'assets' }, (payload) => {
+      refetch();
+    })
+    .subscribe();
+
+  // Real-time subscription for pending requests
+  const pendingRequestsSubscription = supabase
+    .channel('pending-requests-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pending_requests' }, () => {
+      fetchPendingCount();
+    })
+    .subscribe();
+
+  // Cleanup subscriptions and interval on unmount
+  return () => {
+    assetsSubscription.unsubscribe();
+    pendingRequestsSubscription.unsubscribe();
+    clearInterval(intervalId); // Clear the interval to prevent memory leaks
+  };
+}, []);
 
   const fetchPendingCount = async () => {
     const { count } = await supabase
