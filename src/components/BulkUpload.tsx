@@ -137,6 +137,7 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }) => {
       "Brand",
       "Configuration",
       "Serial Number",
+      "FAR Code",
       "Provider",
       "Warranty Start",
       "Warranty End",
@@ -146,9 +147,9 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }) => {
     ];
 
     const sampleRows = [
-      ["AST-001", "MacBook Pro 16\"", "Laptop", "Apple", "16GB RAM, 512GB SSD", "MBP16-2023-001", "Amazon@Tech", "2023-01-01", "2025-01-01", "Mumbai Office", "EMP001", "John Doe"],
-      ["AST-002", "ThinkPad X1", "Laptop", "Lenovo", "8GB RAM, 256GB SSD", "TPX1-2023-002", "Dell~Direct", "", "", "Hyderabad WH", "", ""],
-      ["AST-003", "iPad Pro", "Tablet", "Apple", "8GB RAM, 256GB SSD", "IPAD-2023-003", "Best&Buy", "", "", "Bangalore Office", "EMP002", "Jane Smith"],
+      ["AST-001", "MacBook Pro 16\"", "Laptop", "Apple", "16GB RAM, 512GB SSD", "MBP16-2023-001", "FAR-001", "Amazon@Tech", "2023-01-01", "2025-01-01", "Mumbai Office", "EMP001", "John Doe"],
+      ["AST-002", "ThinkPad X1", "Laptop", "Lenovo", "8GB RAM, 256GB SSD", "TPX1-2023-002", "", "Dell~Direct", "", "", "Hyderabad WH", "", ""],
+      ["AST-003", "iPad Pro", "Tablet", "Apple", "8GB RAM, 256GB SSD", "IPAD-2023-003", "FAR-002", "Best&Buy", "", "", "Bangalore Office", "EMP002", "Jane Smith"],
     ];
 
     const escapeCsvValue = (value) => {
@@ -258,9 +259,10 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }) => {
                 <AlertDescription className="text-blue-800">
                   <div className="space-y-1">
                     <p><strong>Required columns:</strong> Asset ID, Asset Name, Asset Type, Brand, Serial Number, Location</p>
-                    <p><strong>Optional columns:</strong> Configuration, Provider, Warranty Start, Warranty End, Employee ID, Employee Name</p>
+                    <p><strong>Optional columns:</strong> Configuration, FAR Code, Provider, Warranty Start, Warranty End, Employee ID, Employee Name</p>
                     <p className="text-sm"><em>Fields with commas (e.g., "16GB RAM, 512GB SSD") are automatically handled as single fields, even without quotes. For best results, enclose such fields in double quotes in the CSV.</em></p>
                     <p className="text-sm"><em>Status is set automatically: "Assigned" if both Employee Name and Employee ID are provided, otherwise "Available".</em></p>
+                    <p className="text-sm text-amber-600"><strong>Update existing:</strong> If a serial number already exists, the row will update that asset with new details from the CSV.</p>
                   </div>
                 </AlertDescription>
               </Alert>
