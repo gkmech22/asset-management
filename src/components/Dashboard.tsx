@@ -306,7 +306,6 @@ export const Dashboard = () => {
           return_status: status || 'Available',
           asset_condition: assetCondition,
           received_by: receivedBy || currentUser,
-          configuration: configuration !== undefined ? configuration : asset.configuration,
         });
         
         toast.success("Return request sent for approval");
@@ -319,7 +318,6 @@ export const Dashboard = () => {
         remarks,
         receivedBy: receivedBy || currentUser,
         location,
-        configuration,
         assetCondition,
         status,
       });
