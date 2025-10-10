@@ -188,38 +188,39 @@ export const Dashboard = () => {
       return null;
     }
 
+    dateStr = dateStr.trim().toLowerCase();
     const formats = [
-      { pattern: /^(\d{4})-(\d{2})-(\d{2})$/, order: [1, 2, 3] }, // YYYY-MM-DD
-      { pattern: /^(\d{2})[-/](\d{2})[-/](\d{4})$/, order: [3, 2, 1] }, // DD-MM-YYYY or DD/MM/YYYY
-      { pattern: /^(\d{2})[-/](\d{2})[-/](\d{2})$/, order: [3, 2, 1], adjustYear: true }, // DD-MM-YY or DD/MM/YY
-      { pattern: /^(\d{1,2})[-/]([a-zA-Z]+)[-/](\d{4})$/, order: [3, 2, 1] }, // DD-MMM-YYYY or DD/MMM/YYYY
-      { pattern: /^(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})$/, order: [3, 2, 1] }, // DD MMM YYYY
-      { pattern: /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/, order: [1, 2, 3] }, // YYYY/MM/DD or YYYY-MM-DD
+      { pattern: /^(\d{4})-(\d{2})-(\d{2})$/, format: "YYYY-MM-DD" }, // YYYY-MM-DD
+      { pattern: /^(\d{2})[-/](\d{2})[-/](\d{4})$/, format: "DD-MM-YYYY" }, // DD-MM-YYYY or DD/MM/YYYY
+      { pattern: /^(\d{2})[-/](\d{2})[-/](\d{2})$/, format: "DD-MM-YY", adjustYear: true }, // DD-MM-YY or DD/MM/YY
+      { pattern: /^(\d{1,2})[-/]([a-zA-Z]+)[-/](\d{4})$/, format: "DD-MMM-YYYY" }, // DD-MMM-YYYY or DD/MMM/YYYY
+      { pattern: /^(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})$/, format: "DD MMM YYYY" }, // DD MMM YYYY
+      { pattern: /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/, format: "YYYY/MM/DD" }, // YYYY/MM/DD or YYYY-MM-DD
     ];
 
-    dateStr = dateStr.trim();
     for (const format of formats) {
       const match = dateStr.match(format.pattern);
       if (match) {
-        let [yearStr, monthStr, dayStr] = format.order.map(i => match[i]);
+        let [dayStr, monthStr, yearStr] = format.order
+          ? format.order.map(i => match[i])
+          : [match[1], match[2], match[3]];
+
         let year = parseInt(yearStr, 10);
-        let month = monthNames[monthStr.toLowerCase()] || parseInt(monthStr, 10);
+        let month = monthNames[monthStr] || parseInt(monthStr, 10);
         let day = parseInt(dayStr, 10);
 
         if (format.adjustYear && year < 100) {
           year += year < 50 ? 2000 : 1900;
         }
+
         if (isNaN(year) || isNaN(month) || isNaN(day) || month < 1 || month > 12 || day < 1 || day > 31) {
           console.warn(`Invalid date components: year=${year}, month=${month}, day=${day} for ${dateStr}`);
           return null;
         }
 
-        const date = new Date(year, month - 1, day);
-        if (isNaN(date.getTime())) {
-          console.warn(`Invalid date: ${dateStr}`);
-          return null;
-        }
-        return date.toISOString().split("T")[0];
+        // Construct date string to avoid timezone shift
+        const normalizedDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        return normalizedDateStr; // Return as YYYY-MM-DD without timezone adjustment
       }
     }
     console.warn(`Unsupported date format: ${dateStr}`);
