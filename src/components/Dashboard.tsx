@@ -177,38 +177,44 @@ export const Dashboard = () => {
   };
 
   const monthNames: { [key: string]: number } = {
-    jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2, apr: 3, april: 3, may: 4,
-    jun: 5, june: 5, jul: 6, july: 6, aug: 7, august: 7, sep: 8, september: 8, oct: 9,
-    october: 9, nov: 10, november: 10, dec: 11, december: 11,
+    jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3, apr: 4, april: 4, may: 5,
+    jun: 6, june: 6, jul: 7, july: 7, aug: 8, august: 8, sep: 9, september: 9, oct: 10,
+    october: 10, nov: 11, november: 11, dec: 12, december: 12,
   };
 
   const parseDate = (dateStr: string): string | null => {
-    if (!dateStr || typeof dateStr !== 'string') {
+    if (!dateStr || typeof dateStr !== 'string' || dateStr.trim() === '') {
+      console.warn(`Invalid or empty date: ${dateStr}`);
       return null;
     }
 
     const formats = [
       { pattern: /^(\d{4})-(\d{2})-(\d{2})$/, order: [1, 2, 3] }, // YYYY-MM-DD
-      { pattern: /^(\d{2})[-/](\d{2})[-/](\d{4})$/, order: [3, 1, 2] }, // DD-MM-YYYY or DD/MM/YYYY
-      { pattern: /^(\d{2})[-/](\d{2})[-/](\d{2})$/, order: [3, 1, 2], adjustYear: true }, // DD-MM-YY or DD/MM/YY
+      { pattern: /^(\d{2})[-/](\d{2})[-/](\d{4})$/, order: [3, 2, 1] }, // DD-MM-YYYY or DD/MM/YYYY
+      { pattern: /^(\d{2})[-/](\d{2})[-/](\d{2})$/, order: [3, 2, 1], adjustYear: true }, // DD-MM-YY or DD/MM/YY
       { pattern: /^(\d{1,2})[-/]([a-zA-Z]+)[-/](\d{4})$/, order: [3, 2, 1] }, // DD-MMM-YYYY or DD/MMM/YYYY
+      { pattern: /^(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})$/, order: [3, 2, 1] }, // DD MMM YYYY
+      { pattern: /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/, order: [1, 2, 3] }, // YYYY/MM/DD or YYYY-MM-DD
     ];
 
+    dateStr = dateStr.trim();
     for (const format of formats) {
-      const match = dateStr.trim().match(format.pattern);
+      const match = dateStr.match(format.pattern);
       if (match) {
         let [yearStr, monthStr, dayStr] = format.order.map(i => match[i]);
         let year = parseInt(yearStr, 10);
-        let month = format.order[1] === 2 ? monthNames[monthStr.toLowerCase()] : parseInt(monthStr, 10) - 1;
+        let month = monthNames[monthStr.toLowerCase()] || parseInt(monthStr, 10);
         let day = parseInt(dayStr, 10);
 
-        if (format.adjustYear && year < 100) year += year < 50 ? 2000 : 1900;
-        if (isNaN(year) || isNaN(month) || isNaN(day) || month < 0 || month > 11 || day < 1 || day > 31) {
-          console.warn(`Invalid date components: year=${year}, month=${month}, day=${day}`);
+        if (format.adjustYear && year < 100) {
+          year += year < 50 ? 2000 : 1900;
+        }
+        if (isNaN(year) || isNaN(month) || isNaN(day) || month < 1 || month > 12 || day < 1 || day > 31) {
+          console.warn(`Invalid date components: year=${year}, month=${month}, day=${day} for ${dateStr}`);
           return null;
         }
 
-        const date = new Date(year, month, day);
+        const date = new Date(year, month - 1, day);
         if (isNaN(date.getTime())) {
           console.warn(`Invalid date: ${dateStr}`);
           return null;
@@ -247,10 +253,9 @@ export const Dashboard = () => {
       };
 
       const requiredFields = ["asset_id", "name", "type", "brand", "serial_number", "location"];
-      const assetsToInsert: any[] = [];
       const skippedRows: { row: string[], error: string }[] = [];
 
-      dataRows.forEach((row, index) => {
+      for (const [index, row] of dataRows.entries()) {
         try {
           console.log(`Processing row ${index + 2}:`, row);
           const asset: any = {};
@@ -261,10 +266,13 @@ export const Dashboard = () => {
             }
           });
 
-          // Validate required fields
-          for (const field of requiredFields) {
-            if (!asset[field] || asset[field].trim() === "") {
-              throw new Error(`Missing or empty required field: ${field}`);
+          // Validate required fields only for new assets
+          const existingAsset = assets.find(a => a.serial_number === asset.serial_number);
+          if (!existingAsset) {
+            for (const field of requiredFields) {
+              if (!asset[field] || asset[field].trim() === "") {
+                throw new Error(`Missing or empty required field: ${field}`);
+              }
             }
           }
 
@@ -273,80 +281,89 @@ export const Dashboard = () => {
             throw new Error(`Invalid location: ${asset.location}`);
           }
 
-          // Parse and validate dates (set to null if invalid)
-          if (asset.warranty_start) {
+          // Force parse and update warranty dates
+          if (asset.warranty_start !== undefined) {
             const parsedStart = parseDate(asset.warranty_start);
-            if (!parsedStart) {
-              console.warn(`Row ${index + 2}: Invalid warranty start date: ${asset.warranty_start}. Setting to null.`);
-              asset.warranty_start = null;
-            } else {
-              asset.warranty_start = parsedStart;
-            }
+            console.log(`Row ${index + 2}: Parsed warranty_start "${asset.warranty_start}" to ${parsedStart}`);
+            asset.warranty_start = parsedStart;
           }
-          if (asset.warranty_end) {
+          if (asset.warranty_end !== undefined) {
             const parsedEnd = parseDate(asset.warranty_end);
-            if (!parsedEnd) {
-              console.warn(`Row ${index + 2}: Invalid warranty end date: ${asset.warranty_end}. Setting to null.`);
-              asset.warranty_end = null;
-            } else {
-              asset.warranty_end = parsedEnd;
-            }
+            console.log(`Row ${index + 2}: Parsed warranty_end "${asset.warranty_end}" to ${parsedEnd}`);
+            asset.warranty_end = parsedEnd;
           }
 
-          // Validate uniqueness
-          const validationError = validateAssetUniqueness(asset.asset_id, asset.serial_number);
-          if (validationError) {
-            throw new Error(validationError);
-          }
-
-          // Set default fields
+          // Set derived fields
           const isAssigned = asset.employee_id && asset.assigned_to;
-          asset.status = isAssigned ? "Assigned" : "Available";
-          asset.assigned_date = isAssigned ? new Date().toISOString() : null;
+          asset.status = isAssigned ? "Assigned" : existingAsset?.status || "Available";
+          asset.assigned_date = isAssigned ? new Date().toISOString() : existingAsset?.assigned_date || null;
           asset.warranty_status = asset.warranty_end
             ? new Date(asset.warranty_end) >= new Date()
               ? "In Warranty"
               : "Out of Warranty"
-            : "Out of Warranty";
-          asset.created_by = currentUser;
-          asset.created_at = new Date().toISOString();
+            : existingAsset?.warranty_status || "Out of Warranty";
           asset.updated_by = currentUser;
           asset.updated_at = new Date().toISOString();
-          asset.received_by = null;
-          asset.return_date = null;
-          asset.remarks = null;
-          asset.asset_check = "";
-          asset.asset_value_recovery = null;
-          asset.asset_condition = null;
+          asset.received_by = asset.received_by || existingAsset?.received_by || null;
+          asset.return_date = asset.return_date || existingAsset?.return_date || null;
+          asset.remarks = asset.remarks || existingAsset?.remarks || null;
+          asset.asset_check = asset.asset_check || existingAsset?.asset_check || "";
+          asset.asset_value_recovery = asset.asset_value_recovery || existingAsset?.asset_value_recovery || null;
+          asset.asset_condition = asset.asset_condition || existingAsset?.asset_condition || null;
 
-          assetsToInsert.push(asset);
+          if (existingAsset) {
+            // Update existing asset with all provided fields
+            console.log(`Updating existing asset with serial_number: ${asset.serial_number}`);
+            const validationError = validateAssetUniqueness(asset.asset_id, asset.serial_number, existingAsset.id);
+            if (validationError) {
+              throw new Error(validationError);
+            }
+
+            const updates = { ...asset };
+            delete updates.created_by;
+            delete updates.created_at;
+
+            await updateAssetMutation.mutateAsync({
+              id: existingAsset.id,
+              ...updates,
+            });
+
+            // Log changes
+            for (const [field, newValue] of Object.entries(updates)) {
+              const oldValue = existingAsset[field as keyof typeof existingAsset];
+              if (oldValue !== newValue) {
+                await logEditHistory(existingAsset.id, field, oldValue?.toString() ?? null, newValue?.toString() ?? null);
+              }
+            }
+
+            toast.success(`Asset with serial ${asset.serial_number} updated successfully`);
+          } else {
+            // Insert new asset
+            console.log(`Inserting new asset with serial_number: ${asset.serial_number}`);
+            const validationError = validateAssetUniqueness(asset.asset_id, asset.serial_number);
+            if (validationError) {
+              throw new Error(validationError);
+            }
+
+            asset.created_by = currentUser;
+            asset.created_at = new Date().toISOString();
+
+            const { data } = await supabase.from('assets').insert([asset]).select().single();
+            await logEditHistory(data.id, "created", null, "Asset Created");
+            for (const [field, value] of Object.entries(asset)) {
+              if (value !== null && value !== "" && field !== "id" && field !== "created_by" && field !== "created_at" && field !== "updated_by" && field !== "updated_at") {
+                await logEditHistory(data.id, field, null, value?.toString() ?? null);
+              }
+            }
+
+            toast.success(`Asset with serial ${asset.serial_number} created successfully`);
+          }
         } catch (error) {
           console.warn(`Row ${index + 2}: Skipped due to error: ${error.message}`);
           skippedRows.push({ row, error: error.message });
         }
-      });
-
-      if (assetsToInsert.length === 0 && skippedRows.length > 0) {
-        console.error("No valid rows to insert.");
-        throw new Error("No valid rows to insert. All rows were skipped due to errors.");
       }
 
-      if (assetsToInsert.length > 0) {
-        console.log("Inserting assets:", assetsToInsert);
-        const { data, error } = await supabase.from('assets').insert(assetsToInsert).select();
-        if (error) {
-          console.error("Supabase insert error:", error);
-          throw new Error(`Failed to insert assets: ${error.message}`);
-        }
-        console.log("Inserted assets:", data);
-
-        // Log edit history for each inserted asset
-        for (const insertedAsset of data) {
-          await logEditHistory(insertedAsset.id, "created", null, "Asset Created");
-        }
-      }
-
-      // Generate CSV for skipped rows if any
       if (skippedRows.length > 0) {
         const csvHeaders = [...headers, "Error"];
         const csvRows = skippedRows.map(({ row, error }) => [
@@ -363,7 +380,7 @@ export const Dashboard = () => {
       }
 
       refetch();
-      toast.success(`Successfully inserted ${assetsToInsert.length} assets.`);
+      toast.success(`Bulk upload completed.`);
       if (skippedRows.length > 0) {
         toast.warning(`Skipped ${skippedRows.length} rows due to errors. You can download the list of skipped rows.`);
       }
@@ -601,7 +618,11 @@ export const Dashboard = () => {
         }
       }
 
-      if (updates.warranty_end) {
+      if (updates.warranty_start !== undefined) {
+        updates.warranty_start = parseDate(updates.warranty_start);
+      }
+      if (updates.warranty_end !== undefined) {
+        updates.warranty_end = parseDate(updates.warranty_end);
         const warrantyStatus = updates.warranty_end
           ? new Date(updates.warranty_end) >= new Date()
             ? "In Warranty"
