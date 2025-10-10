@@ -382,7 +382,7 @@ const handleUpdateAsset = async (assetId: string, updatedAsset: any) => {
       warranty_end: updatedAsset.warrantyEnd,
       provider: updatedAsset.provider,
       warranty_status: warrantyStatus,
-      recovery_amount: updatedAsset.recoveryAmount || null,
+      asset_value_recovery: updatedAsset.assetValueRecovery ? parseFloat(updatedAsset.assetValueRecovery) : null,
       far_code: updatedAsset.farCode,
       updated_by: currentUser,
       updated_at: new Date().toISOString(),

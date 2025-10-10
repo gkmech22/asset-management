@@ -87,6 +87,7 @@ export const AssetList = ({
   const [showAssetCheckScanner, setShowAssetCheckScanner] = React.useState(false);
   const [showAssignedToOnly, setShowAssignedToOnly] = React.useState(false);
   const [isFetchingEmployee, setIsFetchingEmployee] = React.useState(false);
+  const [showAssetConditionDialog, setShowAssetConditionDialog] = React.useState(false);
 
   const { data: history = [], isLoading: historyLoading } = useAssetHistory(selectedAsset?.id);
 
@@ -260,13 +261,14 @@ export const AssetList = ({
         }
 
         await onAssign(selectedAsset.id, userName.trim(), employeeId.trim());
+        const assetValueRecoveryNum = assetValueRecovery ? parseFloat(assetValueRecovery) : null;
         await onUpdateAsset(selectedAsset.id, { 
           status: "Assigned", 
-          received_by: "", 
-          return_date: "",
+          received_by: null, 
+          return_date: null,
           assigned_date: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          asset_value_recovery: statusesRequiringRecovery.includes(newStatus) ? assetValueRecovery || null : null
+          asset_value_recovery: null
         });
         setShowAssignDialog(false);
         setUserName("");
@@ -306,13 +308,14 @@ export const AssetList = ({
         }
 
         await onUpdateStatus(selectedAsset.id, newStatus);
+        const assetValueRecoveryNum = assetValueRecovery ? parseFloat(assetValueRecovery) : null;
         await onUpdateAsset(selectedAsset.id, { 
           updated_at: new Date().toISOString(),
-          received_by: newStatus === "Assigned" ? "" : receivedByInput || receivedBy,
-          return_date: newStatus === "Assigned" ? "" : new Date().toISOString(),
-          asset_value_recovery: statusesRequiringRecovery.includes(newStatus) ? assetValueRecovery || null : null,
-          assigned_to: selectedAsset.assigned_to,
-          employee_id: selectedAsset.employee_id
+          received_by: newStatus === "Assigned" || newStatus === "Sold" ? "" : receivedByInput || receivedBy,
+          return_date: newStatus === "Assigned" || newStatus === "Sold" ? "" : new Date().toISOString(),
+          asset_value_recovery: statusesRequiringRecovery.includes(newStatus) ? assetValueRecoveryNum : null,
+          assigned_to: (newStatus === "Assigned" || newStatus === "Sold") ? selectedAsset.assigned_to : null,
+          employee_id: (newStatus === "Assigned" || newStatus === "Sold") ? selectedAsset.employee_id : null
         });
         setShowStatusDialog(false);
         setNewStatus("");
@@ -352,7 +355,7 @@ export const AssetList = ({
           null,
           assetCondition || null,
           returnStatus,
-          assetValueRecoveryNum?.toString() || null
+          assetValueRecoveryNum !== null ? assetValueRecoveryNum.toString() : null
         );
         
         await onUpdateAsset(selectedAsset.id, {
@@ -866,13 +869,17 @@ export const AssetList = ({
                           </td>
                           <td className="p-2 text-xs">
                             <div className="text-left">
-                              <div style={{ color: '#1E90FF' }}>{asset.assigned_to || "-"}</div>
-                              <div className="text-muted-foreground">{asset.employee_id || "-"}</div>
+                              <div style={{ color: '#1E90FF' }}>
+                                {(asset.status === "Assigned" || asset.status === "Sold") ? (asset.assigned_to || "-") : "-"}
+                              </div>
+                              <div className="text-muted-foreground">
+                                {(asset.status === "Assigned" || asset.status === "Sold") ? (asset.employee_id || "-") : "-"}
+                              </div>
                             </div>
                           </td>
                           <td className="p-2 text-xs">
                             <div className="text-left">
-                              {asset.status === "Assigned" ? "-" : (asset.received_by || "-")}
+                              {(asset.status === "Assigned" || asset.status === "Sold") ? "-" : (asset.received_by || "-")}
                             </div>
                           </td>
                           <td className="p-2 text-xs">
@@ -964,6 +971,15 @@ export const AssetList = ({
                                       Location
                                     </DropdownMenuItem>
                                   )}
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setSelectedAsset(asset);
+                                      setAssetCondition(asset.asset_condition || "");
+                                      setShowAssetConditionDialog(true);
+                                    }}
+                                  >
+                                    Asset Condition
+                                  </DropdownMenuItem>
                                   <DropdownMenuItem
                                     onClick={() => {
                                       setSelectedAsset(asset);
@@ -1431,6 +1447,65 @@ export const AssetList = ({
               <Button
                 onClick={handleUpdateLocation}
                 disabled={!newLocation || !selectedAsset}
+                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
+              >
+                Update
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAssetConditionDialog} onOpenChange={setShowAssetConditionDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Update Asset Condition</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Asset: {selectedAsset?.name || "N/A"}</Label>
+              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id || "N/A"}</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Asset Condition</Label>
+              <Input
+                value={assetCondition}
+                onChange={(e) => setAssetCondition(e.target.value)}
+                placeholder="Enter asset condition"
+                className="text-sm"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowAssetConditionDialog(false);
+                  setAssetCondition("");
+                  setSelectedAsset(null);
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (selectedAsset) {
+                    try {
+                      await onUpdateAsset(selectedAsset.id, {
+                        asset_condition: assetCondition || null,
+                        updated_at: new Date().toISOString(),
+                      });
+                      setShowAssetConditionDialog(false);
+                      setAssetCondition("");
+                      setSelectedAsset(null);
+                      toast.success("Asset condition updated successfully");
+                    } catch (error) {
+                      console.error("Failed to update asset condition:", error);
+                      toast.error("Failed to update asset condition");
+                    }
+                  }
+                }}
+                disabled={!selectedAsset}
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
               >
                 Update
