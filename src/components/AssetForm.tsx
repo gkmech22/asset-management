@@ -55,6 +55,7 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
         configuration: "",
         provider: "",
         location: "",
+        farCode: "", // Reset farCode when type changes
       }));
       setCustomName("");
       setCustomBrand("");
@@ -128,6 +129,9 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
       !formData.location
     ) {
       return "Please fill in all required fields: Asset ID, Name, Type, Brand, Serial Number, and Location.";
+    }
+    if ((formData.type === "Laptop" || formData.type === "Tablet") && !formData.farCode) {
+      return "FAR Code is required for Laptop and Tablet asset types.";
     }
     if (formData.employeeId && !formData.employeeName) {
       return "Employee Name is required if Employee ID is provided.";
@@ -273,7 +277,7 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
             <Select
               value={formData.name}
               onValueChange={(value) => setFormData({ ...formData, name: value })}
-              disabled={!formData.type} // Disable until type is selected
+              disabled={!formData.type}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select Model" />
@@ -316,7 +320,7 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
             <Select
               value={formData.brand}
               onValueChange={(value) => setFormData({ ...formData, brand: value })}
-              disabled={!formData.type} // Disable until type is selected
+              disabled={!formData.type}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select brand" />
@@ -359,7 +363,7 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
             <Select
               value={formData.configuration}
               onValueChange={(value) => setFormData({ ...formData, configuration: value })}
-              disabled={!formData.type} // Disable until type is selected
+              disabled={!formData.type}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select configuration" />
@@ -413,7 +417,7 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
             <Select
               value={formData.provider}
               onValueChange={(value) => setFormData({ ...formData, provider: value })}
-              disabled={!formData.type} // Disable until type is selected
+              disabled={!formData.type}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select provider" />
@@ -456,7 +460,7 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
             <Select
               value={formData.location}
               onValueChange={(value) => setFormData({ ...formData, location: value })}
-              disabled={!formData.type} // Disable until type is selected
+              disabled={!formData.type}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select location" />
@@ -515,12 +519,13 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="farCode">FAR Code</Label>
+            <Label htmlFor="farCode">FAR Code {formData.type === "Laptop" || formData.type === "Tablet" ? "*" : ""}</Label>
             <Input
               id="farCode"
               value={formData.farCode}
               onChange={(e) => setFormData({ ...formData, farCode: e.target.value })}
-              placeholder="e.g., FAR-001 (Optional)"
+              placeholder="e.g., FAR-001"
+              required={formData.type === "Laptop" || formData.type === "Tablet"}
             />
           </div>
 
@@ -613,7 +618,8 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
                 !formData.location ||
                 (formData.location === "custom" && !customLocation) ||
                 (formData.employeeId && !formData.employeeName) ||
-                (formData.employeeName && !formData.employeeId)
+                (formData.employeeName && !formData.employeeId) ||
+                ((formData.type === "Laptop" || formData.type === "Tablet") && !formData.farCode)
               }
             >
               {initialData ? "Update Asset" : "Add Asset"}
