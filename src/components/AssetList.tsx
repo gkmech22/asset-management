@@ -70,6 +70,10 @@ export const AssetList = ({
   const [returnRemarks, setReturnRemarks] = React.useState("");
   const [returnLocation, setReturnLocation] = React.useState("");
   const [returnStatus, setReturnStatus] = React.useState("");
+  const [returnUserName, setReturnUserName] = React.useState("");
+  const [returnEmployeeId, setReturnEmployeeId] = React.useState("");
+  const [returnEmployeeEmail, setReturnEmployeeEmail] = React.useState("");
+  const [returnIsFetchingEmployee, setReturnIsFetchingEmployee] = React.useState(false);
   const [assetCondition, setAssetCondition] = React.useState("");
   const [assetValueRecovery, setAssetValueRecovery] = React.useState<string>("");
   const [newStatus, setNewStatus] = React.useState("");
@@ -170,6 +174,41 @@ export const AssetList = ({
     }
   };
 
+  const fetchReturnEmployee = async (id: string) => {
+    if (!id || id.length < 3) {
+      setReturnUserName('');
+      setReturnEmployeeEmail('');
+      return;
+    }
+
+    try {
+      setReturnIsFetchingEmployee(true);
+      const normalizedId = id.replace(/^lbpl/i, '').toUpperCase();
+      const { data, error } = await supabase
+        .from('employees')
+        .select('employee_name, email')
+        .eq('employee_id', `LBPL${normalizedId}`)
+        .single();
+
+      if (data && !error) {
+        setReturnUserName(data.employee_name || '');
+        setReturnEmployeeEmail(data.email || '');
+        toast.success('Buyer details loaded successfully');
+      } else {
+        setReturnUserName('');
+        setReturnEmployeeEmail('');
+        toast.error('Buyer not found');
+      }
+    } catch (error) {
+      console.error('Error fetching buyer:', error);
+      setReturnUserName('');
+      setReturnEmployeeEmail('');
+      toast.error('Failed to fetch buyer details');
+    } finally {
+      setReturnIsFetchingEmployee(false);
+    }
+  };
+
   const filteredAssets = React.useMemo(() => {
     return assets.filter((asset) => {
       if (!asset) return false;
@@ -255,11 +294,6 @@ export const AssetList = ({
           return;
         }
 
-        if (selectedAsset.status !== "Available") {
-          setError("This asset is not available for assignment. Please update the status to 'Available' first.");
-          return;
-        }
-
         await onAssign(selectedAsset.id, userName.trim(), employeeId.trim());
         const assetValueRecoveryNum = assetValueRecovery ? parseFloat(assetValueRecovery) : null;
         await onUpdateAsset(selectedAsset.id, { 
@@ -337,32 +371,54 @@ export const AssetList = ({
           setError("Please select a status");
           return;
         }
-        
-        if (returnStatus !== "Available" && !returnLocation) {
-          setError("Location is required for this status");
-          return;
+
+        if (returnStatus === "Sold") {
+          if (!returnUserName.trim() || !returnEmployeeId.trim() || !returnEmployeeEmail.trim()) {
+            setError("Please enter Buyer ID, Name, and Email");
+            return;
+          }
+
+          await onAssign(selectedAsset.id, returnUserName.trim(), returnEmployeeId.trim());
+          await onUpdateStatus(selectedAsset.id, "Sold");
+          const assetValueRecoveryNum = assetValueRecovery ? parseFloat(assetValueRecovery) : null;
+          await onUpdateAsset(selectedAsset.id, { 
+            status: "Sold", 
+            received_by: null, 
+            return_date: null,
+            assigned_date: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            asset_value_recovery: null,
+            location: returnLocation || selectedAsset.location,
+            asset_condition: assetCondition || null,
+            remarks: returnRemarks || null
+          });
+        } else {
+          if (returnStatus !== "Available" && !returnLocation) {
+            setError("Location is required for this status");
+            return;
+          }
+          
+          const finalReceivedBy = receivedByInput.trim() || receivedBy;
+          const finalLocation = returnStatus !== "Available" ? (returnLocation || selectedAsset.location) : selectedAsset.location;
+          const assetValueRecoveryNum = assetValueRecovery ? parseFloat(assetValueRecovery) : null;
+          
+          await onUnassign(
+            selectedAsset.id, 
+            returnRemarks, 
+            finalReceivedBy, 
+            finalLocation,
+            null,
+            assetCondition || null,
+            returnStatus,
+            assetValueRecoveryNum !== null ? assetValueRecoveryNum.toString() : null
+          );
+          
+          await onUpdateAsset(selectedAsset.id, {
+            updated_at: new Date().toISOString(),
+            asset_value_recovery: statusesRequiringRecovery.includes(returnStatus) ? assetValueRecoveryNum : null
+          });
         }
-        
-        const finalReceivedBy = receivedByInput.trim() || receivedBy;
-        const finalLocation = returnStatus !== "Available" ? (returnLocation || selectedAsset.location) : selectedAsset.location;
-        const assetValueRecoveryNum = assetValueRecovery ? parseFloat(assetValueRecovery) : null;
-        
-        await onUnassign(
-          selectedAsset.id, 
-          returnRemarks, 
-          finalReceivedBy, 
-          finalLocation,
-          null,
-          assetCondition || null,
-          returnStatus,
-          assetValueRecoveryNum !== null ? assetValueRecoveryNum.toString() : null
-        );
-        
-        await onUpdateAsset(selectedAsset.id, {
-          updated_at: new Date().toISOString(),
-          asset_value_recovery: statusesRequiringRecovery.includes(returnStatus) ? assetValueRecoveryNum : null
-        });
-        
+
         setShowReturnDialog(false);
         setReturnRemarks("");
         setReturnLocation("");
@@ -370,6 +426,9 @@ export const AssetList = ({
         setAssetCondition("");
         setAssetValueRecovery("");
         setReceivedByInput("");
+        setReturnUserName("");
+        setReturnEmployeeId("");
+        setReturnEmployeeEmail("");
         setSelectedAsset(null);
         setError(null);
         toast.success("Asset returned successfully");
@@ -917,8 +976,11 @@ export const AssetList = ({
                                     setReturnLocation(asset.location || "");
                                     setReturnRemarks("");
                                     setAssetCondition("");
-                                    setAssetValueRecovery(statusesRequiringRecovery.includes(asset.status || '') ? (asset.asset_value_recovery?.toString() || "") : "");
+                                    setAssetValueRecovery("");
                                     setReceivedByInput("");
+                                    setReturnUserName(asset.assigned_to || "");
+                                    setReturnEmployeeId(asset.employee_id || "");
+                                    setReturnEmployeeEmail("");
                                     setShowReturnDialog(true);
                                   }}
                                   className="text-xs h-6"
@@ -1538,6 +1600,63 @@ export const AssetList = ({
                 </SelectContent>
               </Select>
             </div>
+            {returnStatus === "Sold" && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="returnEmployeeId">Buyer ID *</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="returnEmployeeId"
+                      value={returnEmployeeId}
+                      onChange={(e) => {
+                        setReturnEmployeeId(e.target.value);
+                        setReturnUserName("");
+                        setReturnEmployeeEmail("");
+                      }}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && returnEmployeeId.trim()) {
+                          fetchReturnEmployee(returnEmployeeId.trim());
+                        }
+                      }}
+                      placeholder="Enter buyer ID"
+                      className="text-sm flex-1"
+                      disabled={returnIsFetchingEmployee}
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => fetchReturnEmployee(returnEmployeeId.trim())}
+                      disabled={!returnEmployeeId.trim() || returnIsFetchingEmployee}
+                      className="h-9"
+                    >
+                      {returnIsFetchingEmployee ? "Fetching..." : "Fetch"}
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="returnUserName">Buyer Name *</Label>
+                  <Input
+                    id="returnUserName"
+                    value={returnUserName}
+                    onChange={(e) => setReturnUserName(e.target.value)}
+                    placeholder="Enter buyer name"
+                    className="text-sm"
+                    disabled={returnIsFetchingEmployee}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="returnEmployeeEmail">Buyer Email *</Label>
+                  <Input
+                    id="returnEmployeeEmail"
+                    type="email"
+                    value={returnEmployeeEmail}
+                    onChange={(e) => setReturnEmployeeEmail(e.target.value)}
+                    placeholder="Enter buyer email"
+                    className="text-sm"
+                    disabled={returnIsFetchingEmployee}
+                  />
+                </div>
+              </>
+            )}
             <div className="space-y-2">
               <Label>Location</Label>
               <Select value={returnLocation} onValueChange={setReturnLocation}>
@@ -1602,6 +1721,9 @@ export const AssetList = ({
                   setAssetCondition("");
                   setAssetValueRecovery("");
                   setReceivedByInput("");
+                  setReturnUserName("");
+                  setReturnEmployeeId("");
+                  setReturnEmployeeEmail("");
                   setSelectedAsset(null);
                 }}
                 className="flex-1"
@@ -1610,7 +1732,7 @@ export const AssetList = ({
               </Button>
               <Button
                 onClick={handleReturnAsset}
-                disabled={!selectedAsset || !returnStatus}
+                disabled={!selectedAsset || !returnStatus || (returnStatus === "Sold" && (!returnUserName.trim() || !returnEmployeeId.trim() || !returnEmployeeEmail.trim()))}
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
               >
                 Return

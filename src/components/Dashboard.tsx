@@ -41,66 +41,66 @@ export const Dashboard = () => {
   const [showPendingRequests, setShowPendingRequests] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
 
-useEffect(() => {
-  const fetchUserAndAuthorize = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email) {
-        setCurrentUser(user.email);
-        const { data, error } = await supabase
-          .from('users')
-          .select('email, role')
-          .eq('email', user.email)
-          .single();
-        if (data && !error) {
-          setIsAuthorized(true);
-          setUserRole(data.role);
+  useEffect(() => {
+    const fetchUserAndAuthorize = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.email) {
+          setCurrentUser(user.email);
+          const { data, error } = await supabase
+            .from('users')
+            .select('email, role')
+            .eq('email', user.email)
+            .single();
+          if (data && !error) {
+            setIsAuthorized(true);
+            setUserRole(data.role);
+          } else {
+            setIsAuthorized(false);
+            setUserRole(null);
+          }
         } else {
+          toast.error("Failed to fetch user data. Access denied.");
           setIsAuthorized(false);
           setUserRole(null);
         }
-      } else {
-        toast.error("Failed to fetch user data. Access denied.");
+      } catch (error) {
+        toast.error("Error fetching user data. Access denied.");
+        console.error("Supabase auth error:", error);
         setIsAuthorized(false);
         setUserRole(null);
       }
-    } catch (error) {
-      toast.error("Error fetching user data. Access denied.");
-      console.error("Supabase auth error:", error);
-      setIsAuthorized(false);
-      setUserRole(null);
-    }
-  };
+    };
 
-  fetchUserAndAuthorize();
-  fetchPendingCount();
+    fetchUserAndAuthorize();
+    fetchPendingCount();
 
-  // Set up interval to refresh pending count every second
-  const intervalId = setInterval(fetchPendingCount, 1000);
+    // Set up interval to refresh pending count every second
+    const intervalId = setInterval(fetchPendingCount, 1000);
 
-  // Real-time subscription for assets
-  const assetsSubscription = supabase
-    .channel('assets-changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'assets' }, (payload) => {
-      refetch();
-    })
-    .subscribe();
+    // Real-time subscription for assets
+    const assetsSubscription = supabase
+      .channel('assets-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'assets' }, (payload) => {
+        refetch();
+      })
+      .subscribe();
 
-  // Real-time subscription for pending requests
-  const pendingRequestsSubscription = supabase
-    .channel('pending-requests-changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'pending_requests' }, () => {
-      fetchPendingCount();
-    })
-    .subscribe();
+    // Real-time subscription for pending requests
+    const pendingRequestsSubscription = supabase
+      .channel('pending-requests-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pending_requests' }, () => {
+        fetchPendingCount();
+      })
+      .subscribe();
 
-  // Cleanup subscriptions and interval on unmount
-  return () => {
-    assetsSubscription.unsubscribe();
-    pendingRequestsSubscription.unsubscribe();
-    clearInterval(intervalId); // Clear the interval to prevent memory leaks
-  };
-}, []);
+    // Cleanup subscriptions and interval on unmount
+    return () => {
+      assetsSubscription.unsubscribe();
+      pendingRequestsSubscription.unsubscribe();
+      clearInterval(intervalId); // Clear the interval to prevent memory leaks
+    };
+  }, []);
 
   const fetchPendingCount = async () => {
     const { count } = await supabase
@@ -228,7 +228,7 @@ useEffect(() => {
         asset_check: "",
         provider: newAsset.provider,
         warranty_status: warrantyStatus,
-        recovery_amount: newAsset.recoveryAmount || null,
+        asset_value_recovery: newAsset.recoveryAmount || null,
       };
       
       const data = await createAssetMutation.mutateAsync(asset);
@@ -290,7 +290,7 @@ useEffect(() => {
     }
   };
 
-  const handleUnassignAsset = async (assetId: string, remarks?: string, receivedBy?: string, location?: string, configuration?: string | null, assetCondition?: string | null, status?: string) => {
+  const handleUnassignAsset = async (assetId: string, remarks?: string, receivedBy?: string, location?: string, configuration?: string | null, assetCondition?: string | null, status?: string, assetValueRecovery?: string | null) => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
       toast.error("Unauthorized: Insufficient permissions.");
       return;
@@ -312,6 +312,7 @@ useEffect(() => {
           return_status: status || 'Available',
           asset_condition: assetCondition,
           received_by: receivedBy || currentUser,
+          asset_value_recovery: assetValueRecovery,
         });
         
         toast.success("Return request sent for approval");
@@ -328,6 +329,17 @@ useEffect(() => {
         status,
       });
       
+      if (assetValueRecovery !== undefined) {
+        const recoveryNum = assetValueRecovery ? parseFloat(assetValueRecovery) : null;
+        await updateAssetMutation.mutateAsync({
+          id: assetId,
+          asset_value_recovery: recoveryNum,
+          updated_at: new Date().toISOString(),
+          updated_by: currentUser,
+        });
+        await logEditHistory(assetId, "asset_value_recovery", asset?.asset_value_recovery?.toString() || null, assetValueRecovery);
+      }
+      
       await logEditHistory(assetId, "assigned_to", asset?.assigned_to || null, null);
       await logEditHistory(assetId, "employee_id", asset?.employee_id || null, null);
       await logEditHistory(assetId, "status", asset?.status || null, status || "Available");
@@ -340,6 +352,9 @@ useEffect(() => {
       if (remarks) {
         await logEditHistory(assetId, "remarks", asset?.remarks || null, remarks);
       }
+      if (assetCondition) {
+        await logEditHistory(assetId, "asset_condition", asset?.asset_condition || null, assetCondition);
+      }
       refetch(); // Update assets state immediately
       toast.success("Asset returned successfully");
     } catch (error: any) {
@@ -347,86 +362,74 @@ useEffect(() => {
     }
   };
 
-const handleUpdateAsset = async (assetId: string, updatedAsset: any) => {
-  if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
-    toast.error("Unauthorized: Insufficient permissions.");
-    return;
-  }
-
-  try {
-    const asset = assets.find((a) => a.id === assetId);
-    if (!asset) {
-      throw new Error("Asset not found.");
-    }
-    
-    const validationError = validateAssetUniqueness(updatedAsset.assetId, updatedAsset.serialNumber, assetId);
-    if (validationError) {
-      throw new Error(validationError);
+  const handleUpdateAsset = async (assetId: string, updates: any) => {
+    if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
+      toast.error("Unauthorized: Insufficient permissions.");
+      return;
     }
 
-    const warrantyStatus = updatedAsset.warrantyEnd
-      ? new Date(updatedAsset.warrantyEnd) >= new Date()
-        ? "In Warranty"
-        : "Out of Warranty"
-      : "Out of Warranty";
+    try {
+      const asset = assets.find((a) => a.id === assetId);
+      if (!asset) {
+        throw new Error("Asset not found.");
+      }
       
-    await updateAssetMutation.mutateAsync({
-      id: assetId,
-      asset_id: updatedAsset.assetId,
-      name: updatedAsset.name,
-      type: updatedAsset.type,
-      brand: updatedAsset.brand,
-      configuration: updatedAsset.configuration,
-      serial_number: updatedAsset.serialNumber,
-      warranty_start: updatedAsset.warrantyStart,
-      warranty_end: updatedAsset.warrantyEnd,
-      provider: updatedAsset.provider,
-      warranty_status: warrantyStatus,
-      asset_value_recovery: updatedAsset.assetValueRecovery ? parseFloat(updatedAsset.assetValueRecovery) : null,
-      far_code: updatedAsset.farCode,
-      updated_by: currentUser,
-      updated_at: new Date().toISOString(),
-    });
+      // Validate uniqueness if changing asset_id or serial_number
+      if (updates.asset_id || updates.serial_number) {
+        const validationError = validateAssetUniqueness(
+          updates.asset_id ?? asset.asset_id,
+          updates.serial_number ?? asset.serial_number,
+          assetId
+        );
+        if (validationError) {
+          throw new Error(validationError);
+        }
+      }
 
-    if (asset?.asset_id !== updatedAsset.assetId) {
-      await logEditHistory(assetId, "asset_id", asset?.asset_id || null, updatedAsset.assetId);
+      // Calculate warranty_status if warranty_end provided
+      if (updates.warranty_end) {
+        const warrantyStatus = updates.warranty_end
+          ? new Date(updates.warranty_end) >= new Date()
+            ? "In Warranty"
+            : "Out of Warranty"
+          : "Out of Warranty";
+        updates.warranty_status = warrantyStatus;
+      }
+
+      // Parse asset_value_recovery if provided
+      if (updates.asset_value_recovery !== undefined) {
+        updates.asset_value_recovery = updates.asset_value_recovery ? parseFloat(updates.asset_value_recovery) : null;
+      }
+
+      // Always update updated_by and updated_at unless overridden
+      if (!updates.updated_at) {
+        updates.updated_at = new Date().toISOString();
+      }
+      if (!updates.updated_by) {
+        updates.updated_by = currentUser;
+      }
+
+      await updateAssetMutation.mutateAsync({
+        id: assetId,
+        ...updates,
+      });
+
+      // Log changes
+      for (const [field, newValue] of Object.entries(updates)) {
+        if (field !== 'id' && field !== 'updated_by' && field !== 'updated_at') {
+          const oldValue = asset[field as keyof typeof asset];
+          if (oldValue !== newValue) {
+            await logEditHistory(assetId, field, oldValue?.toString() ?? null, newValue?.toString() ?? null);
+          }
+        }
+      }
+
+      refetch(); // Update assets state immediately
+      toast.success("Asset updated successfully");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update asset.");
     }
-    if (asset?.name !== updatedAsset.name) {
-      await logEditHistory(assetId, "name", asset?.name || null, updatedAsset.name);
-    }
-    if (asset?.type !== updatedAsset.type) {
-      await logEditHistory(assetId, "type", asset?.type || null, updatedAsset.type);
-    }
-    if (asset?.brand !== updatedAsset.brand) {
-      await logEditHistory(assetId, "brand", asset?.brand || null, updatedAsset.brand);
-    }
-    if (asset?.configuration !== updatedAsset.configuration) {
-      await logEditHistory(assetId, "configuration", asset?.configuration || null, updatedAsset.configuration);
-    }
-    if (asset?.serial_number !== updatedAsset.serialNumber) {
-      await logEditHistory(assetId, "serial_number", asset?.serial_number || null, updatedAsset.serialNumber);
-    }
-    if (asset?.warranty_start !== updatedAsset.warrantyStart) {
-      await logEditHistory(assetId, "warranty_start", asset?.warranty_start || null, updatedAsset.warrantyStart);
-    }
-    if (asset?.warranty_end !== updatedAsset.warrantyEnd) {
-      await logEditHistory(assetId, "warranty_end", asset?.warranty_end || null, updatedAsset.warrantyEnd);
-    }
-    if (asset?.provider !== updatedAsset.provider) {
-      await logEditHistory(assetId, "provider", asset?.provider || null, updatedAsset.provider);
-    }
-    if (asset?.warranty_status !== warrantyStatus) {
-      await logEditHistory(assetId, "warranty_status", asset?.warranty_status || null, warrantyStatus);
-    }
-    if (asset?.far_code !== updatedAsset.farCode) {
-      await logEditHistory(assetId, "far_code", asset?.far_code || null, updatedAsset.farCode);
-    }
-    refetch(); // Update assets state immediately
-    toast.success("Asset updated successfully");
-  } catch (error: any) {
-    toast.error(error.message || "Failed to update asset.");
-  }
-};
+  };
 
   const handleUpdateStatus = async (assetId: string, status: string) => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
@@ -503,45 +506,45 @@ const handleUpdateAsset = async (assetId: string, updatedAsset: any) => {
     }
   };
 
-const handleDeleteAsset = async (assetId: string) => {
-  if (userRole !== 'Super Admin' && userRole !== 'Admin') {
-    toast.error("Unauthorized: Only Super Admin and Admin can delete assets.");
-    return;
-  }
-
-  try {
-    // Verify asset exists before attempting deletion
-    const asset = assets.find((a) => a.id === assetId);
-    if (!asset) {
-      throw new Error(`Asset with ID ${assetId} not found.`);
+  const handleDeleteAsset = async (assetId: string) => {
+    if (userRole !== 'Super Admin' && userRole !== 'Admin') {
+      toast.error("Unauthorized: Only Super Admin and Admin can delete assets.");
+      return;
     }
 
-    // Delete related records in asset_edit_history to avoid foreign key constraint violation
-    const { error: historyError } = await supabase
-      .from('asset_edit_history')
-      .delete()
-      .eq('asset_id', assetId);
-    
-    if (historyError) {
-      throw new Error(`Failed to delete related asset edit history: ${historyError.message}`);
+    try {
+      // Verify asset exists before attempting deletion
+      const asset = assets.find((a) => a.id === assetId);
+      if (!asset) {
+        throw new Error(`Asset with ID ${assetId} not found.`);
+      }
+
+      // Delete related records in asset_edit_history to avoid foreign key constraint violation
+      const { error: historyError } = await supabase
+        .from('asset_edit_history')
+        .delete()
+        .eq('asset_id', assetId);
+      
+      if (historyError) {
+        throw new Error(`Failed to delete related asset edit history: ${historyError.message}`);
+      }
+
+      // Now delete the asset
+      await deleteAssetMutation.mutateAsync(assetId);
+
+      refetch(); // Update assets state immediately
+      toast.success("Asset deleted successfully");
+    } catch (error: any) {
+      console.error("Error deleting asset:", error); // Log error for debugging
+      toast.error(error.message || "Failed to delete asset. Please check the console for details.");
     }
-
-    // Now delete the asset
-    await deleteAssetMutation.mutateAsync(assetId);
-
-    refetch(); // Update assets state immediately
-    toast.success("Asset deleted successfully");
-  } catch (error: any) {
-    console.error("Error deleting asset:", error); // Log error for debugging
-    toast.error(error.message || "Failed to delete asset. Please check the console for details.");
-  }
-};
+  };
   const handleDownload = () => {
     const headers = [
       "asset_id", "name", "type", "brand", "configuration", "serial_number","far_code", "status", "location",
       "assigned_to", "employee_id", "assigned_date", "received_by", "return_date", "remarks",
       "created_by", "created_at", "updated_by", "updated_at", "warranty_start", "warranty_end",
-      "asset_check", "provider", "warranty_status", "asset_value_recovery"
+      "asset_check", "provider", "warranty_status", "asset_value_recovery", "asset_condition"
     ];
 
     const csvContent = [
