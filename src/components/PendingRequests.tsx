@@ -122,37 +122,44 @@ export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
     }
   };
 
-  // Fetch pending requests from Supabase
-  const fetchRequests = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('pending_requests')
-        .select(`
-          *,
-          assets (
-            asset_id,
-            name,
-            type,
-            brand,
-            serial_number,
-            configuration,
-            location,
-            status,
-            assigned_to,
-            employee_id
-          )
-        `)
-        .order('requested_at', { ascending: false });
+// Fetch pending requests from Supabase
+const fetchRequests = async () => {
+  setLoading(true);
+  try {
+    let query = supabase
+      .from('pending_requests')
+      .select(`
+        *,
+        assets (
+          asset_id,
+          name,
+          type,
+          brand,
+          serial_number,
+          configuration,
+          location,
+          status,
+          assigned_to,
+          employee_id
+        )
+      `)
+      .order('requested_at', { ascending: false });
 
-      if (error) throw error;
-      setRequests((data || []) as PendingRequest[]);
-    } catch (error: any) {
-      console.error('Error fetching requests:', error);
-      toast.error(`Failed to fetch requests: ${error.message || 'Unknown error'}`);
-    } finally {
-      setLoading(false);
+    // Filter requests for all roles except Super Admin and Admin
+    if (userRole && user?.email && userRole !== 'Super Admin' && userRole !== 'Admin') {
+      query = query.eq('requested_by', user.email);
     }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    setRequests((data || []) as PendingRequest[]);
+  } catch (error: any) {
+    console.error('Error fetching requests:', error);
+    toast.error(`Failed to fetch requests: ${error.message || 'Unknown error'}`);
+  } finally {
+    setLoading(false);
+  };
   };
 
   // Handle viewing request details
