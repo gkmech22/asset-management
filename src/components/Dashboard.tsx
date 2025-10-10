@@ -1,9 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Menu, Upload, Plus, Bell } from "lucide-react";
+import { Menu, Upload, Plus, Bell, Download } from "lucide-react";
 import { UserProfile } from "@/components/auth/UserProfile";
 import { AssetForm } from "./AssetForm";
 import { BulkUpload } from "./BulkUpload";
@@ -18,7 +16,7 @@ import SummaryView from "./SummaryView";
 import EmployeeDetails from "./EmployeeDetails";
 import { PendingRequests } from "./PendingRequests";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const locations = [
   "Mumbai Office", "Hyderabad WH", "Ghaziabad WH", "Bhiwandi WH", "Patiala WH",
@@ -29,6 +27,9 @@ const locations = [
 export const Dashboard = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
+  const [showSkippedRowsDialog, setShowSkippedRowsDialog] = useState(false);
+  const [skippedRowsCsv, setSkippedRowsCsv] = useState<string | null>(null);
+  const [showPendingRequests, setShowPendingRequests] = useState(false);
   const { data: assets = [], isLoading, error, refetch } = useAssets();
   const createAssetMutation = useCreateAsset();
   const updateAssetMutation = useUpdateAsset();
@@ -38,35 +39,60 @@ export const Dashboard = () => {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState<'dashboard' | 'audit' | 'amcs' | 'summary' | 'employees'>('dashboard');
-  const [showPendingRequests, setShowPendingRequests] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+
+  // Debug logging for component state
+  useEffect(() => {
+    console.log("Dashboard state:", { isAuthorized, userRole, currentUser, currentPage, isLoading, error, assetsLength: assets.length });
+  }, [isAuthorized, userRole, currentUser, currentPage, isLoading, error, assets]);
 
   useEffect(() => {
     const fetchUserAndAuthorize = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        console.log("Fetching user data...");
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError) {
+          console.error("Supabase auth error:", authError);
+          toast.error("Authentication error: " + authError.message);
+          setIsAuthorized(false);
+          setUserRole(null);
+          return;
+        }
+
         if (user?.email) {
+          console.log("User email:", user.email);
           setCurrentUser(user.email);
           const { data, error } = await supabase
             .from('users')
             .select('email, role')
             .eq('email', user.email)
             .single();
-          if (data && !error) {
+          if (error) {
+            console.error("Supabase users table error:", error);
+            toast.error("Failed to fetch user role: " + error.message);
+            setIsAuthorized(false);
+            setUserRole(null);
+            return;
+          }
+          if (data) {
+            console.log("User data:", data);
             setIsAuthorized(true);
             setUserRole(data.role);
           } else {
+            console.error("No user data found for email:", user.email);
+            toast.error("User not found in database.");
             setIsAuthorized(false);
             setUserRole(null);
           }
         } else {
-          toast.error("Failed to fetch user data. Access denied.");
+          console.error("No user email found");
+          toast.error("No user logged in.");
           setIsAuthorized(false);
           setUserRole(null);
         }
       } catch (error) {
-        toast.error("Error fetching user data. Access denied.");
-        console.error("Supabase auth error:", error);
+        console.error("Unexpected error in fetchUserAndAuthorize:", error);
+        toast.error("Unexpected error during authentication: " + (error.message || "Unknown error"));
         setIsAuthorized(false);
         setUserRole(null);
       }
@@ -75,39 +101,47 @@ export const Dashboard = () => {
     fetchUserAndAuthorize();
     fetchPendingCount();
 
-    // Set up interval to refresh pending count every second
     const intervalId = setInterval(fetchPendingCount, 1000);
 
-    // Real-time subscription for assets
     const assetsSubscription = supabase
       .channel('assets-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'assets' }, (payload) => {
+        console.log("Real-time update received:", payload);
         refetch();
       })
       .subscribe();
 
-    // Real-time subscription for pending requests
     const pendingRequestsSubscription = supabase
       .channel('pending-requests-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pending_requests' }, () => {
+        console.log("Pending requests update received");
         fetchPendingCount();
       })
       .subscribe();
 
-    // Cleanup subscriptions and interval on unmount
     return () => {
+      console.log("Cleaning up subscriptions and interval");
       assetsSubscription.unsubscribe();
       pendingRequestsSubscription.unsubscribe();
-      clearInterval(intervalId); // Clear the interval to prevent memory leaks
+      clearInterval(intervalId);
     };
   }, []);
 
   const fetchPendingCount = async () => {
-    const { count } = await supabase
-      .from('pending_requests')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'pending');
-    setPendingCount(count || 0);
+    try {
+      const { count, error } = await supabase
+        .from('pending_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+      if (error) {
+        console.error("Error fetching pending count:", error);
+        return;
+      }
+      console.log("Pending count:", count);
+      setPendingCount(count || 0);
+    } catch (error) {
+      console.error("Unexpected error in fetchPendingCount:", error);
+    }
   };
 
   const logEditHistory = async (assetId: string, field: string, oldValue: string | null, newValue: string | null) => {
@@ -154,9 +188,10 @@ export const Dashboard = () => {
     }
 
     const formats = [
-      { pattern: /^(\d{4})-(\d{2})-(\d{2})$/, order: [1, 2, 3] },
-      { pattern: /^(\d{2})[-/](\d{2})[-/](\d{4})$/, order: [3, 1, 2] },
-      { pattern: /^(\d{2})[-/](\d{2})[-/](\d{2})$/, order: [3, 1, 2], adjustYear: true },
+      { pattern: /^(\d{4})-(\d{2})-(\d{2})$/, order: [1, 2, 3] }, // YYYY-MM-DD
+      { pattern: /^(\d{2})[-/](\d{2})[-/](\d{4})$/, order: [3, 1, 2] }, // DD-MM-YYYY or DD/MM/YYYY
+      { pattern: /^(\d{2})[-/](\d{2})[-/](\d{2})$/, order: [3, 1, 2], adjustYear: true }, // DD-MM-YY or DD/MM/YY
+      { pattern: /^(\d{1,2})[-/]([a-zA-Z]+)[-/](\d{4})$/, order: [3, 2, 1] }, // DD-MMM-YYYY or DD/MMM/YYYY
     ];
 
     for (const format of formats) {
@@ -169,21 +204,193 @@ export const Dashboard = () => {
 
         if (format.adjustYear && year < 100) year += year < 50 ? 2000 : 1900;
         if (isNaN(year) || isNaN(month) || isNaN(day) || month < 0 || month > 11 || day < 1 || day > 31) {
+          console.warn(`Invalid date components: year=${year}, month=${month}, day=${day}`);
           return null;
         }
 
         const date = new Date(year, month, day);
         if (isNaN(date.getTime())) {
+          console.warn(`Invalid date: ${dateStr}`);
           return null;
         }
         return date.toISOString().split("T")[0];
       }
     }
+    console.warn(`Unsupported date format: ${dateStr}`);
     return null;
+  };
+
+  const handleBulkUpload = async ({ headers, dataRows }) => {
+    if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
+      console.error("Unauthorized: Insufficient permissions for bulk upload.");
+      toast.error("Unauthorized: Insufficient permissions.");
+      return;
+    }
+
+    try {
+      console.log("Processing bulk upload with headers:", headers, "and", dataRows.length, "rows");
+
+      const fieldMap = {
+        "asset id": "asset_id",
+        "asset name": "name",
+        "asset type": "type",
+        "brand": "brand",
+        "configuration": "configuration",
+        "serial number": "serial_number",
+        "far code": "far_code",
+        "provider": "provider",
+        "warranty start": "warranty_start",
+        "warranty end": "warranty_end",
+        "location": "location",
+        "employee id": "employee_id",
+        "employee name": "assigned_to",
+      };
+
+      const requiredFields = ["asset_id", "name", "type", "brand", "serial_number", "location"];
+      const assetsToInsert: any[] = [];
+      const skippedRows: { row: string[], error: string }[] = [];
+
+      dataRows.forEach((row, index) => {
+        try {
+          console.log(`Processing row ${index + 2}:`, row);
+          const asset: any = {};
+          headers.forEach((header, i) => {
+            const normalizedHeader = header.trim().toLowerCase();
+            if (fieldMap[normalizedHeader]) {
+              asset[fieldMap[normalizedHeader]] = row[i] ? row[i].toString().trim() : null;
+            }
+          });
+
+          // Validate required fields
+          for (const field of requiredFields) {
+            if (!asset[field] || asset[field].trim() === "") {
+              throw new Error(`Missing or empty required field: ${field}`);
+            }
+          }
+
+          // Validate location
+          if (asset.location && !locations.includes(asset.location)) {
+            throw new Error(`Invalid location: ${asset.location}`);
+          }
+
+          // Parse and validate dates (set to null if invalid)
+          if (asset.warranty_start) {
+            const parsedStart = parseDate(asset.warranty_start);
+            if (!parsedStart) {
+              console.warn(`Row ${index + 2}: Invalid warranty start date: ${asset.warranty_start}. Setting to null.`);
+              asset.warranty_start = null;
+            } else {
+              asset.warranty_start = parsedStart;
+            }
+          }
+          if (asset.warranty_end) {
+            const parsedEnd = parseDate(asset.warranty_end);
+            if (!parsedEnd) {
+              console.warn(`Row ${index + 2}: Invalid warranty end date: ${asset.warranty_end}. Setting to null.`);
+              asset.warranty_end = null;
+            } else {
+              asset.warranty_end = parsedEnd;
+            }
+          }
+
+          // Validate uniqueness
+          const validationError = validateAssetUniqueness(asset.asset_id, asset.serial_number);
+          if (validationError) {
+            throw new Error(validationError);
+          }
+
+          // Set default fields
+          const isAssigned = asset.employee_id && asset.assigned_to;
+          asset.status = isAssigned ? "Assigned" : "Available";
+          asset.assigned_date = isAssigned ? new Date().toISOString() : null;
+          asset.warranty_status = asset.warranty_end
+            ? new Date(asset.warranty_end) >= new Date()
+              ? "In Warranty"
+              : "Out of Warranty"
+            : "Out of Warranty";
+          asset.created_by = currentUser;
+          asset.created_at = new Date().toISOString();
+          asset.updated_by = currentUser;
+          asset.updated_at = new Date().toISOString();
+          asset.received_by = null;
+          asset.return_date = null;
+          asset.remarks = null;
+          asset.asset_check = "";
+          asset.asset_value_recovery = null;
+          asset.asset_condition = null;
+
+          assetsToInsert.push(asset);
+        } catch (error) {
+          console.warn(`Row ${index + 2}: Skipped due to error: ${error.message}`);
+          skippedRows.push({ row, error: error.message });
+        }
+      });
+
+      if (assetsToInsert.length === 0 && skippedRows.length > 0) {
+        console.error("No valid rows to insert.");
+        throw new Error("No valid rows to insert. All rows were skipped due to errors.");
+      }
+
+      if (assetsToInsert.length > 0) {
+        console.log("Inserting assets:", assetsToInsert);
+        const { data, error } = await supabase.from('assets').insert(assetsToInsert).select();
+        if (error) {
+          console.error("Supabase insert error:", error);
+          throw new Error(`Failed to insert assets: ${error.message}`);
+        }
+        console.log("Inserted assets:", data);
+
+        // Log edit history for each inserted asset
+        for (const insertedAsset of data) {
+          await logEditHistory(insertedAsset.id, "created", null, "Asset Created");
+        }
+      }
+
+      // Generate CSV for skipped rows if any
+      if (skippedRows.length > 0) {
+        const csvHeaders = [...headers, "Error"];
+        const csvRows = skippedRows.map(({ row, error }) => [
+          ...row.map(value => `"${(value || "").toString().replace(/"/g, '""')}"`),
+          `"${error.replace(/"/g, '""')}"`
+        ]);
+        const csvContent = [
+          csvHeaders.join(","),
+          ...csvRows.map(row => row.join(","))
+        ].join("\n");
+        setSkippedRowsCsv(csvContent);
+        setShowSkippedRowsDialog(true);
+        console.log("Skipped rows CSV generated:", csvContent);
+      }
+
+      refetch();
+      toast.success(`Successfully inserted ${assetsToInsert.length} assets.`);
+      if (skippedRows.length > 0) {
+        toast.warning(`Skipped ${skippedRows.length} rows due to errors. You can download the list of skipped rows.`);
+      }
+    } catch (error) {
+      console.error("Bulk upload error:", error);
+      toast.error(error.message || "Failed to process bulk upload.");
+    }
+  };
+
+  const handleDownloadSkippedRows = () => {
+    if (!skippedRowsCsv) return;
+    console.log("Downloading skipped rows CSV");
+    const blob = new Blob([skippedRowsCsv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `skipped_assets_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setShowSkippedRowsDialog(false);
+    setSkippedRowsCsv(null);
+    toast.success("Skipped rows CSV downloaded successfully!");
   };
 
   const handleAddAsset = async (newAsset: any) => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
+      console.error("Unauthorized: Insufficient permissions for add asset.");
       toast.error("Unauthorized: Insufficient permissions.");
       return;
     }
@@ -191,6 +398,7 @@ export const Dashboard = () => {
     try {
       const validationError = validateAssetUniqueness(newAsset.assetId, newAsset.serialNumber);
       if (validationError) {
+        console.error("Validation error:", validationError);
         toast.error(validationError);
         return;
       }
@@ -223,26 +431,29 @@ export const Dashboard = () => {
         created_at: new Date().toISOString(),
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
-        warranty_start: newAsset.warrantyStart,
-        warranty_end: newAsset.warrantyEnd,
+        warranty_start: newAsset.warrantyStart ? parseDate(newAsset.warrantyStart) : null,
+        warranty_end: newAsset.warrantyEnd ? parseDate(newAsset.warrantyEnd) : null,
         asset_check: "",
         provider: newAsset.provider,
         warranty_status: warrantyStatus,
         asset_value_recovery: newAsset.recoveryAmount || null,
       };
       
+      console.log("Adding asset:", asset);
       const data = await createAssetMutation.mutateAsync(asset);
       await logEditHistory(data.id, "created", null, "Asset Created");
-      refetch(); // Update assets state immediately
+      refetch();
       toast.success("Asset created successfully");
       setShowAddForm(false);
     } catch (error: any) {
+      console.error("Error adding asset:", error);
       toast.error(error.message || "Failed to create asset.");
     }
   };
 
   const handleAssignAsset = async (assetId: string, userName: string, employeeId: string) => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
+      console.error("Unauthorized: Insufficient permissions for assign asset.");
       toast.error("Unauthorized: Insufficient permissions.");
       return;
     }
@@ -283,15 +494,17 @@ export const Dashboard = () => {
       await logEditHistory(assetId, "assigned_to", asset?.assigned_to || null, userName);
       await logEditHistory(assetId, "employee_id", asset?.employee_id || null, employeeId);
       await logEditHistory(assetId, "status", asset?.status || null, "Assigned");
-      refetch(); // Update assets state immediately
+      refetch();
       toast.success("Asset assigned successfully");
     } catch (error: any) {
+      console.error("Error assigning asset:", error);
       toast.error(error.message || "Failed to assign asset.");
     }
   };
 
   const handleUnassignAsset = async (assetId: string, remarks?: string, receivedBy?: string, location?: string, configuration?: string | null, assetCondition?: string | null, status?: string, assetValueRecovery?: string | null) => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
+      console.error("Unauthorized: Insufficient permissions for unassign asset.");
       toast.error("Unauthorized: Insufficient permissions.");
       return;
     }
@@ -355,15 +568,17 @@ export const Dashboard = () => {
       if (assetCondition) {
         await logEditHistory(assetId, "asset_condition", asset?.asset_condition || null, assetCondition);
       }
-      refetch(); // Update assets state immediately
+      refetch();
       toast.success("Asset returned successfully");
     } catch (error: any) {
+      console.error("Error unassigning asset:", error);
       toast.error(error.message || "Failed to return asset.");
     }
   };
 
   const handleUpdateAsset = async (assetId: string, updates: any) => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
+      console.error("Unauthorized: Insufficient permissions for update asset.");
       toast.error("Unauthorized: Insufficient permissions.");
       return;
     }
@@ -374,7 +589,6 @@ export const Dashboard = () => {
         throw new Error("Asset not found.");
       }
       
-      // Validate uniqueness if changing asset_id or serial_number
       if (updates.asset_id || updates.serial_number) {
         const validationError = validateAssetUniqueness(
           updates.asset_id ?? asset.asset_id,
@@ -382,11 +596,11 @@ export const Dashboard = () => {
           assetId
         );
         if (validationError) {
+          console.error("Validation error:", validationError);
           throw new Error(validationError);
         }
       }
 
-      // Calculate warranty_status if warranty_end provided
       if (updates.warranty_end) {
         const warrantyStatus = updates.warranty_end
           ? new Date(updates.warranty_end) >= new Date()
@@ -396,12 +610,10 @@ export const Dashboard = () => {
         updates.warranty_status = warrantyStatus;
       }
 
-      // Parse asset_value_recovery if provided
       if (updates.asset_value_recovery !== undefined) {
         updates.asset_value_recovery = updates.asset_value_recovery ? parseFloat(updates.asset_value_recovery) : null;
       }
 
-      // Always update updated_by and updated_at unless overridden
       if (!updates.updated_at) {
         updates.updated_at = new Date().toISOString();
       }
@@ -414,7 +626,6 @@ export const Dashboard = () => {
         ...updates,
       });
 
-      // Log changes
       for (const [field, newValue] of Object.entries(updates)) {
         if (field !== 'id' && field !== 'updated_by' && field !== 'updated_at') {
           const oldValue = asset[field as keyof typeof asset];
@@ -424,15 +635,17 @@ export const Dashboard = () => {
         }
       }
 
-      refetch(); // Update assets state immediately
+      refetch();
       toast.success("Asset updated successfully");
     } catch (error: any) {
+      console.error("Error updating asset:", error);
       toast.error(error.message || "Failed to update asset.");
     }
   };
 
   const handleUpdateStatus = async (assetId: string, status: string) => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
+      console.error("Unauthorized: Insufficient permissions for update status.");
       toast.error("Unauthorized: Insufficient permissions.");
       return;
     }
@@ -451,15 +664,17 @@ export const Dashboard = () => {
       });
 
       await logEditHistory(assetId, "status", asset?.status || null, status);
-      refetch(); // Update assets state immediately
+      refetch();
       toast.success("Asset status updated");
     } catch (error: any) {
+      console.error("Error updating status:", error);
       toast.error(error.message || "Failed to update status.");
     }
   };
 
   const handleUpdateLocation = async (assetId: string, location: string) => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
+      console.error("Unauthorized: Insufficient permissions for update location.");
       toast.error("Unauthorized: Insufficient permissions.");
       return;
     }
@@ -478,9 +693,10 @@ export const Dashboard = () => {
       });
 
       await logEditHistory(assetId, "location", asset?.location || null, location);
-      refetch(); // Update assets state immediately
+      refetch();
       toast.success("Location updated");
     } catch (error: any) {
+      console.error("Error updating location:", error);
       toast.error(error.message || "Failed to update location.");
     }
   };
@@ -500,7 +716,7 @@ export const Dashboard = () => {
       });
 
       await logEditHistory(assetId, "asset_check", asset?.asset_check || null, assetCheck);
-      refetch(); // Update assets state immediately
+      refetch();
     } catch (error: any) {
       console.error("Failed to update asset check:", error);
     }
@@ -508,18 +724,17 @@ export const Dashboard = () => {
 
   const handleDeleteAsset = async (assetId: string) => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin') {
+      console.error("Unauthorized: Only Super Admin and Admin can delete assets.");
       toast.error("Unauthorized: Only Super Admin and Admin can delete assets.");
       return;
     }
 
     try {
-      // Verify asset exists before attempting deletion
       const asset = assets.find((a) => a.id === assetId);
       if (!asset) {
         throw new Error(`Asset with ID ${assetId} not found.`);
       }
 
-      // Delete related records in asset_edit_history to avoid foreign key constraint violation
       const { error: historyError } = await supabase
         .from('asset_edit_history')
         .delete()
@@ -529,19 +744,18 @@ export const Dashboard = () => {
         throw new Error(`Failed to delete related asset edit history: ${historyError.message}`);
       }
 
-      // Now delete the asset
       await deleteAssetMutation.mutateAsync(assetId);
-
-      refetch(); // Update assets state immediately
+      refetch();
       toast.success("Asset deleted successfully");
     } catch (error: any) {
-      console.error("Error deleting asset:", error); // Log error for debugging
-      toast.error(error.message || "Failed to delete asset. Please check the console for details.");
+      console.error("Error deleting asset:", error);
+      toast.error(error.message || "Failed to delete asset.");
     }
   };
+
   const handleDownload = () => {
     const headers = [
-      "asset_id", "name", "type", "brand", "configuration", "serial_number","far_code", "status", "location",
+      "asset_id", "name", "type", "brand", "configuration", "serial_number", "far_code", "status", "location",
       "assigned_to", "employee_id", "assigned_date", "received_by", "return_date", "remarks",
       "created_by", "created_at", "updated_by", "updated_at", "warranty_start", "warranty_end",
       "asset_check", "provider", "warranty_status", "asset_value_recovery", "asset_condition"
@@ -566,16 +780,18 @@ export const Dashboard = () => {
     URL.revokeObjectURL(url);
   };
 
-  if (!isAuthorized) {
+  // Fallback UI for debugging
+  if (!isAuthorized && !isLoading && !error) {
+    console.log("Rendering access denied UI");
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="flex items-center justify-center min-h-screen bg-gray-100">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="text-center">Access Denied</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-center text-muted-foreground">
-              You are not authorized to access this application.
+            <p className="text-center text-gray-500">
+              You are not authorized to access this application. Please check your login credentials.
             </p>
           </CardContent>
         </Card>
@@ -584,14 +800,31 @@ export const Dashboard = () => {
   }
 
   if (error) {
+    console.log("Rendering error UI:", error.message);
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="flex items-center justify-center min-h-screen bg-gray-100">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="text-center text-red-600">Error</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-center text-muted-foreground">{error.message}</p>
+            <p className="text-center text-gray-500">{error.message || "An error occurred while loading data."}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    console.log("Rendering loading UI");
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-center">Loading...</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-center text-gray-500">Please wait while the dashboard loads.</p>
           </CardContent>
         </Card>
       </div>
@@ -599,81 +832,89 @@ export const Dashboard = () => {
   }
 
   const renderContent = () => {
-    switch (currentPage) {
-      case 'dashboard':
-        return (
-          <DashboardView
-            assets={assets}
-            isLoading={isLoading}
-            onAssign={handleAssignAsset}
-            onUnassign={handleUnassignAsset}
-            onUpdateAsset={handleUpdateAsset}
-            onUpdateStatus={handleUpdateStatus}
-            onUpdateLocation={handleUpdateLocation}
-            onUpdateAssetCheck={handleUpdateAssetCheck}
-            onDelete={handleDeleteAsset}
-            userRole={userRole}
-          />
-        );
-      case 'audit':
-        return (
-          <AuditView
-            assets={assets}
-            onAssign={handleAssignAsset}
-            onUnassign={handleUnassignAsset}
-            onUpdateAsset={handleUpdateAsset}
-            onUpdateStatus={handleUpdateStatus}
-            onUpdateLocation={handleUpdateLocation}
-            onUpdateAssetCheck={handleUpdateAssetCheck}
-            onDelete={handleDeleteAsset}
-            userRole={userRole}
-          />
-        );
-      case 'amcs':
-        return (
-          <AmcsView
-            assets={assets}
-            onAssign={handleAssignAsset}
-            onUnassign={handleUnassignAsset}
-            onUpdateAsset={handleUpdateAsset}
-            onUpdateStatus={handleUpdateStatus}
-            onUpdateLocation={handleUpdateLocation}
-            onUpdateAssetCheck={handleUpdateAssetCheck}
-            onDelete={handleDeleteAsset}
-            userRole={userRole}
-          />
-        );
-      case 'summary':
-        return (
-          <SummaryView 
-            assets={assets}
-            onAssign={handleAssignAsset}
-            onUnassign={handleUnassignAsset}
-            onUpdateAsset={handleUpdateAsset}
-            onUpdateStatus={handleUpdateStatus}
-            onUpdateLocation={handleUpdateLocation}
-            onUpdateAssetCheck={handleUpdateAssetCheck}
-            onDelete={handleDeleteAsset}
-            userRole={userRole}
-          />
-        );
-      case 'employees':
-        return <EmployeeDetails />;
-      default:
-        return null;
+    console.log("Rendering content for page:", currentPage);
+    try {
+      switch (currentPage) {
+        case 'dashboard':
+          return (
+            <DashboardView
+              assets={assets}
+              isLoading={isLoading}
+              onAssign={handleAssignAsset}
+              onUnassign={handleUnassignAsset}
+              onUpdateAsset={handleUpdateAsset}
+              onUpdateStatus={handleUpdateStatus}
+              onUpdateLocation={handleUpdateLocation}
+              onUpdateAssetCheck={handleUpdateAssetCheck}
+              onDelete={handleDeleteAsset}
+              userRole={userRole}
+            />
+          );
+        case 'audit':
+          return (
+            <AuditView
+              assets={assets}
+              onAssign={handleAssignAsset}
+              onUnassign={handleUnassignAsset}
+              onUpdateAsset={handleUpdateAsset}
+              onUpdateStatus={handleUpdateStatus}
+              onUpdateLocation={handleUpdateLocation}
+              onUpdateAssetCheck={handleUpdateAssetCheck}
+              onDelete={handleDeleteAsset}
+              userRole={userRole}
+            />
+          );
+        case 'amcs':
+          return (
+            <AmcsView
+              assets={assets}
+              onAssign={handleAssignAsset}
+              onUnassign={handleUnassignAsset}
+              onUpdateAsset={handleUpdateAsset}
+              onUpdateStatus={handleUpdateStatus}
+              onUpdateLocation={handleUpdateLocation}
+              onUpdateAssetCheck={handleUpdateAssetCheck}
+              onDelete={handleDeleteAsset}
+              userRole={userRole}
+            />
+          );
+        case 'summary':
+          return (
+            <SummaryView 
+              assets={assets}
+              onAssign={handleAssignAsset}
+              onUnassign={handleUnassignAsset}
+              onUpdateAsset={handleUpdateAsset}
+              onUpdateStatus={handleUpdateStatus}
+              onUpdateLocation={handleUpdateLocation}
+              onUpdateAssetCheck={handleUpdateAssetCheck}
+              onDelete={handleDeleteAsset}
+              userRole={userRole}
+            />
+          );
+        case 'employees':
+          return <EmployeeDetails />;
+        default:
+          console.warn("Invalid currentPage value:", currentPage);
+          return <div className="text-center text-gray-500">Invalid page selected.</div>;
+      }
+    } catch (error) {
+      console.error("Error in renderContent:", error);
+      return <div className="text-center text-red-600">Error rendering content: {error.message}</div>;
     }
   };
 
+  console.log("Rendering main Dashboard UI");
   return (
-    <div className="min-h-screen bg-background">
-      <div className="border-b bg-card sticky top-0 z-50">
+    <div className="min-h-screen bg-gray-100">
+      <div className="border-b bg-white sticky top-0 z-50">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-4">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm">
-                    <Menu className="h-0 w-0 mr-0" />
+                    <Menu className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
@@ -684,8 +925,8 @@ export const Dashboard = () => {
                   <DropdownMenuItem onClick={() => setCurrentPage('employees')}>Employee Details</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <img src="/logo.png" alt="LEAD GROUP" className="h-10" />
-              <span className="text-2xl font-bold text-primary">Asset Management System</span>
+              <img src="/logo.png" alt="LEAD GROUP" className="h-10" onError={() => console.error("Logo image failed to load")} />
+              <span className="text-2xl font-bold text-blue-600">Asset Management System</span>
             </div>
 
             <div className="flex items-center gap-3">
@@ -735,10 +976,9 @@ export const Dashboard = () => {
         />
       )}
 
-            {/* Footer */}
-      <footer className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t shadow-card py-2">
+      <footer className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t shadow-sm py-2">
         <div className="container mx-auto px-4">
-          <p className="text-[14px] text-muted-foreground">
+          <p className="text-[14px] text-gray-500">
             Crafted by 🤓 IT Infra minds, for IT Infra needs
           </p>
         </div>
@@ -748,20 +988,52 @@ export const Dashboard = () => {
         <BulkUpload
           open={showBulkUpload}
           onOpenChange={setShowBulkUpload}
-          onUpload={() => {
-            setShowBulkUpload(false);
-            refetch(); // Update assets state after bulk upload
-            toast.success("Assets uploaded successfully");
-          }}
+          onUpload={handleBulkUpload}
           onDownload={handleDownload}
         />
       )}
 
-      <Dialog open={showPendingRequests} onOpenChange={setShowPendingRequests}>
-        <DialogContent className="m-0 max-w-screen max-h-screen overflow-y-auto">
-          <PendingRequests onRefresh={refetch} />
-        </DialogContent>
-      </Dialog>
+      {showPendingRequests && (
+        <Dialog open={showPendingRequests} onOpenChange={setShowPendingRequests}>
+          <DialogContent className="m-0 max-w-screen max-h-screen overflow-y-auto">
+            <PendingRequests onRefresh={refetch} />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {showSkippedRowsDialog && (
+        <Dialog open={showSkippedRowsDialog} onOpenChange={setShowSkippedRowsDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Download Skipped Rows</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <p className="text-sm text-gray-500">
+                Some rows were skipped due to errors. Would you like to download a CSV file containing the skipped rows and their error messages?
+              </p>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  console.log("Cancelled skipped rows download");
+                  setShowSkippedRowsDialog(false);
+                  setSkippedRowsCsv(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDownloadSkippedRows}
+                className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
