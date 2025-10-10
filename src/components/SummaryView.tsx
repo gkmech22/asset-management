@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Calendar, Search, RotateCcw } from "lucide-react";
 
 interface SummaryViewProps {
   assets: Asset[];
@@ -33,12 +34,23 @@ const SummaryView = ({
   const [brandFilter, setBrandFilter] = React.useState("All");
   const [statusFilter, setStatusFilter] = React.useState("All");
   const [locationFilter, setLocationFilter] = React.useState("All");
+  const [conditionFilter, setConditionFilter] = React.useState("All");
+  const [configFilter, setConfigFilter] = React.useState("All");
+  const [warrantyFilter, setWarrantyFilter] = React.useState("All");
+  const [assetCheckFilter, setAssetCheckFilter] = React.useState("All");
+  const [searchTerm, setSearchTerm] = React.useState("");
+  const [dateFrom, setDateFrom] = React.useState<string | null>(null);
+  const [dateTo, setDateTo] = React.useState<string | null>(null);
   const [currentPage, setCurrentPage] = React.useState(1);
   const rowsPerPage = 15;
   const [searchQueryType, setSearchQueryType] = React.useState("");
   const [searchQueryBrand, setSearchQueryBrand] = React.useState("");
   const [searchQueryStatus, setSearchQueryStatus] = React.useState("");
   const [searchQueryLocation, setSearchQueryLocation] = React.useState("");
+  const [searchQueryCondition, setSearchQueryCondition] = React.useState("");
+  const [searchQueryConfig, setSearchQueryConfig] = React.useState("");
+  const [searchQueryWarranty, setSearchQueryWarranty] = React.useState("");
+  const [searchQueryAssetCheck, setSearchQueryAssetCheck] = React.useState("");
 
   // Define possible locations
   const locations = [
@@ -57,32 +69,83 @@ const SummaryView = ({
     "Jaipur WH",
   ];
 
-  // Get unique asset types, brands, and statuses
+  // Get unique asset types
   const assetTypes = React.useMemo(() => {
     const types = new Set(assets.map(asset => asset.type));
     return ["All", ...Array.from(types).sort()];
   }, [assets]);
 
-  const brands = React.useMemo(() => {
-    const brandSet = new Set(assets.map(asset => asset.brand));
+  // Get unique brands based on typeFilter
+  const filteredBrands = React.useMemo(() => {
+    const brandSet = new Set(
+      assets
+        .filter(asset => typeFilter === "All" || asset.type === typeFilter)
+        .map(asset => asset.brand)
+    );
     return ["All", ...Array.from(brandSet).sort()];
-  }, [assets]);
+  }, [assets, typeFilter]);
+
+  // Get unique configurations based on typeFilter
+  const filteredConfigurations = React.useMemo(() => {
+    const configSet = new Set(
+      assets
+        .filter(asset => typeFilter === "All" || asset.type === typeFilter)
+        .map(asset => asset.configuration || "Unknown")
+    );
+    return ["All", ...Array.from(configSet).sort()];
+  }, [assets, typeFilter]);
+
+  // Reset brand and config filters when type changes
+  React.useEffect(() => {
+    setBrandFilter("All");
+    setConfigFilter("All");
+  }, [typeFilter]);
 
   const statuses = React.useMemo(() => {
     const statusSet = new Set(assets.map(asset => asset.status));
-    return [...Array.from(statusSet).sort(), "Others"];
+    return [...Array.from(statusSet).sort()];
   }, [assets]);
 
-  // Filter assets based on selected filters
+  const conditions = React.useMemo(() => {
+    const conditionSet = new Set(assets.map(asset => asset.asset_condition || "Unknown"));
+    return ["All", ...Array.from(conditionSet).sort()];
+  }, [assets]);
+
+  const warrantyStatuses = React.useMemo(() => {
+    const warrantySet = new Set(assets.map(asset => asset.warranty_status || "Unknown"));
+    return ["All", ...Array.from(warrantySet).sort()];
+  }, [assets]);
+
+  const assetChecks = React.useMemo(() => {
+    const checkSet = new Set(assets.map(asset => asset.asset_check || "Unknown"));
+    return ["All", ...Array.from(checkSet).sort()];
+  }, [assets]);
+
+  // Filter assets based on selected filters and search
   const filteredAssets = React.useMemo(() => {
     return assets.filter((asset) => {
       const matchesType = typeFilter === "All" || asset.type === typeFilter;
       const matchesBrand = brandFilter === "All" || asset.brand === brandFilter;
       const matchesStatus = statusFilter === "All" || asset.status === statusFilter;
       const matchesLocation = locationFilter === "All" || asset.location === locationFilter;
-      return matchesType && matchesBrand && matchesStatus && matchesLocation;
+      const matchesCondition = conditionFilter === "All" || asset.asset_condition === conditionFilter;
+      const matchesConfig = configFilter === "All" || asset.configuration === configFilter;
+      const matchesWarranty = warrantyFilter === "All" || asset.warranty_status === warrantyFilter;
+      const matchesAssetCheck = assetCheckFilter === "All" || asset.asset_check === assetCheckFilter;
+      const matchesSearch = !searchTerm || 
+        (asset.employee_id && asset.employee_id.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (asset.assigned_to && asset.assigned_to.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        Object.values(asset).some(val => val && val.toString().toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchesDate = (!dateFrom || !asset.assigned_date || new Date(asset.assigned_date) >= new Date(dateFrom)) &&
+        (!dateTo || !asset.assigned_date || new Date(asset.assigned_date) <= new Date(dateTo));
+      return matchesType && matchesBrand && matchesStatus && matchesLocation && matchesCondition && matchesConfig && matchesWarranty && matchesAssetCheck && matchesSearch && matchesDate;
     });
-  }, [assets, typeFilter, brandFilter, statusFilter, locationFilter]);
+  }, [assets, typeFilter, brandFilter, statusFilter, locationFilter, conditionFilter, configFilter, warrantyFilter, assetCheckFilter, searchTerm, dateFrom, dateTo]);
+
+  // Calculate sum of asset_value_recovery
+  const totalRecovery = React.useMemo(() => {
+    return filteredAssets.reduce((sum, asset) => sum + (asset.asset_value_recovery || 0), 0);
+  }, [filteredAssets]);
 
   // Group assets by Asset Type and Brand, counting each status
   const summaryData = filteredAssets.reduce((acc, asset) => {
@@ -96,8 +159,6 @@ const SummaryView = ({
     }
     if (statuses.includes(asset.status)) {
       acc[key].counts[asset.status] += 1;
-    } else {
-      acc[key].counts["Others"] += 1;
     }
     return acc;
   }, {} as Record<string, { assetType: string; brand: string; counts: Record<string, number> }>);
@@ -113,7 +174,7 @@ const SummaryView = ({
     return totals;
   }, [summaryData, statuses]);
 
-  // Sort by assetType alphabeticAlly
+  // Sort by assetType alphabetically
   const tableData = Object.values(summaryData).sort((a, b) => a.assetType.localeCompare(b.assetType));
 
   // Pagination calculations
@@ -148,21 +209,51 @@ const SummaryView = ({
     Assigned: "bg-yellow-600",
     "Scrap/Damage": "bg-red-600",
     Sold: "bg-blue-800",
-    Others: "bg-gray-600",
-    // Add fAllback for new statuses
+    // Add fallback for new statuses
   };
 
   const getStatusColor = (status: string) => {
     return statusColors[status] || `bg-gray-${Math.floor(Math.random() * 4 + 5)}00`; // Random gray shade for new statuses
   };
 
+  const clearFilters = () => {
+    setTypeFilter("All");
+    setBrandFilter("All");
+    setStatusFilter("All");
+    setLocationFilter("All");
+    setConditionFilter("All");
+    setConfigFilter("All");
+    setWarrantyFilter("All");
+    setAssetCheckFilter("All");
+    setSearchTerm("");
+    setDateFrom(null);
+    setDateTo(null);
+  };
+
   return (
     <Card className="shadow-card">
       <CardHeader>
-        <CardTitle className="text-xl flex items-center gap-2">
-          Asset Summary ({tableData.length} items)
-        </CardTitle>
-        <div className="flex flex-wrap gap-4 mt-4">
+        <div className="flex justify-between items-center">
+          <CardTitle className="text-xl flex items-center gap-2">
+            Asset Summary ({filteredAssets.length} items)
+          </CardTitle>
+          <div className="text-sm font-medium text-primary">
+            Asset Value Recovery = Rs. {totalRecovery.toLocaleString()}
+          </div>
+        </div>
+        <div className="flex gap-4 mt-4 overflow-x-auto">
+          <div className="flex items-center gap-2">
+            <Label className="text-sm font-medium"></Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 w-64 h-9 text-sm"
+              />
+            </div>
+          </div>
           <div className="flex items-center gap-2">
             <Label className="text-sm font-medium">Asset Type:</Label>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
@@ -211,7 +302,7 @@ const SummaryView = ({
                     className="w-full h-6 text-xs"
                   />
                 </div>
-                {brands
+                {filteredBrands
                   .filter((brand) =>
                     brand.toLowerCase().includes(searchQueryBrand.toLowerCase())
                   )
@@ -283,10 +374,163 @@ const SummaryView = ({
               </SelectContent>
             </Select>
           </div>
+          <div className="flex items-center gap-2">
+            <Label className="text-sm font-medium">Asset Condition:</Label>
+            <Select value={conditionFilter} onValueChange={setConditionFilter}>
+              <SelectTrigger className="w-48 h-9">
+                <SelectValue placeholder="Select condition" />
+              </SelectTrigger>
+              <SelectContent>
+                <div className="p-2">
+                  <Input
+                    type="text"
+                    placeholder="Type to search..."
+                    value={searchQueryCondition}
+                    onChange={(e) => setSearchQueryCondition(e.target.value)}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    autoFocus
+                    className="w-full h-6 text-xs"
+                  />
+                </div>
+                {conditions
+                  .filter((condition) =>
+                    condition.toLowerCase().includes(searchQueryCondition.toLowerCase())
+                  )
+                  .map((condition) => (
+                    <SelectItem key={condition} value={condition}>
+                      {condition}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <Label className="text-sm font-medium">Configuration:</Label>
+            <Select value={configFilter} onValueChange={setConfigFilter}>
+              <SelectTrigger className="w-48 h-9">
+                <SelectValue placeholder="Select configuration" />
+              </SelectTrigger>
+              <SelectContent>
+                <div className="p-2">
+                  <Input
+                    type="text"
+                    placeholder="Type to search..."
+                    value={searchQueryConfig}
+                    onChange={(e) => setSearchQueryConfig(e.target.value)}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    autoFocus
+                    className="w-full h-6 text-xs"
+                  />
+                </div>
+                {filteredConfigurations
+                  .filter((config) =>
+                    config.toLowerCase().includes(searchQueryConfig.toLowerCase())
+                  )
+                  .map((config) => (
+                    <SelectItem key={config} value={config}>
+                      {config}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <Label className="text-sm font-medium">Warranty Status:</Label>
+            <Select value={warrantyFilter} onValueChange={setWarrantyFilter}>
+              <SelectTrigger className="w-48 h-9">
+                <SelectValue placeholder="Select warranty status" />
+              </SelectTrigger>
+              <SelectContent>
+                <div className="p-2">
+                  <Input
+                    type="text"
+                    placeholder="Type to search..."
+                    value={searchQueryWarranty}
+                    onChange={(e) => setSearchQueryWarranty(e.target.value)}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    autoFocus
+                    className="w-full h-6 text-xs"
+                  />
+                </div>
+                {warrantyStatuses
+                  .filter((warranty) =>
+                    warranty.toLowerCase().includes(searchQueryWarranty.toLowerCase())
+                  )
+                  .map((warranty) => (
+                    <SelectItem key={warranty} value={warranty}>
+                      {warranty}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <Label className="text-sm font-medium">Asset Check:</Label>
+            <Select value={assetCheckFilter} onValueChange={setAssetCheckFilter}>
+              <SelectTrigger className="w-48 h-9">
+                <SelectValue placeholder="Select asset check" />
+              </SelectTrigger>
+              <SelectContent>
+                <div className="p-2">
+                  <Input
+                    type="text"
+                    placeholder="Type to search..."
+                    value={searchQueryAssetCheck}
+                    onChange={(e) => setSearchQueryAssetCheck(e.target.value)}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    autoFocus
+                    className="w-full h-6 text-xs"
+                  />
+                </div>
+                {assetChecks
+                  .filter((check) =>
+                    check.toLowerCase().includes(searchQueryAssetCheck.toLowerCase())
+                  )
+                  .map((check) => (
+                    <SelectItem key={check} value={check}>
+                      {check}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <Label className="text-sm font-medium">From:</Label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="date"
+                value={dateFrom || ""}
+                onChange={(e) => setDateFrom(e.target.value || null)}
+                className="pl-10 w-48 h-9 text-sm"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Label className="text-sm font-medium">To:</Label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="date"
+                value={dateTo || ""}
+                onChange={(e) => setDateTo(e.target.value || null)}
+                className="pl-10 w-48 h-9 text-sm"
+              />
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={clearFilters}
+            className="h-9"
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Clear Filters
+          </Button>
         </div>
       </CardHeader>
       <CardContent>
-        {tableData.length === 0 ? (
+        {filteredAssets.length === 0 ? (
           <div className="text-center py-12">
             <h3 className="text-lg font-semibold text-muted-foreground mb-2">
               No Assets Found
@@ -304,7 +548,7 @@ const SummaryView = ({
                     <th className="p-2 text-left bg-blue-600">Asset Type</th>
                     <th className="p-2 text-left bg-blue-600">Brand</th>
                     {statuses.map((status) => (
-                      <th key={status} className={`p-2 text-left ${getStatusColor(status)}`}>
+                      <th key={status} className="p-2 text-left bg-blue-600">
                         {status}
                       </th>
                     ))}

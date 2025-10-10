@@ -45,13 +45,43 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
   const [searchQueryProvider, setSearchQueryProvider] = React.useState("");
   const [searchQueryLocation, setSearchQueryLocation] = React.useState("");
 
-  // Extract unique values for select options
+  // Reset dependent fields when Asset Type changes
+  React.useEffect(() => {
+    if (formData.type && formData.type !== initialData?.type) {
+      setFormData((prev) => ({
+        ...prev,
+        name: "",
+        brand: "",
+        configuration: "",
+        provider: "",
+        location: "",
+      }));
+      setCustomName("");
+      setCustomBrand("");
+      setCustomConfiguration("");
+      setCustomProvider("");
+      setCustomLocation("");
+      setSearchQueryName("");
+      setSearchQueryBrand("");
+      setSearchQueryConfiguration("");
+      setSearchQueryProvider("");
+      setSearchQueryLocation("");
+    }
+  }, [formData.type, initialData?.type]);
+
+  // Filter unique values based on selected Asset Type
+  const filteredAssets = formData.type
+    ? assets.filter((a) => a.type === formData.type || formData.type === "custom")
+    : assets;
+
   const uniqueTypes = Array.from(new Set(assets.map((a) => a.type).filter(Boolean)));
-  const uniqueBrands = Array.from(new Set(assets.map((a) => a.brand).filter(Boolean)));
-  const uniqueProviders = Array.from(new Set(assets.map((a) => a.provider).filter(Boolean)));
-  const uniqueNames = Array.from(new Set(assets.map((a) => a.name).filter(Boolean)));
-  const uniqueConfigurations = Array.from(new Set(assets.map((a) => a.configuration).filter(Boolean)));
-  const uniqueLocations = Array.from(new Set(assets.map((a) => a.location).filter(Boolean)));
+  const uniqueNames = Array.from(new Set(filteredAssets.map((a) => a.name).filter(Boolean)));
+  const uniqueBrands = Array.from(new Set(filteredAssets.map((a) => a.brand).filter(Boolean)));
+  const uniqueConfigurations = Array.from(
+    new Set(filteredAssets.map((a) => a.configuration).filter(Boolean))
+  );
+  const uniqueProviders = Array.from(new Set(filteredAssets.map((a) => a.provider).filter(Boolean)));
+  const uniqueLocations = Array.from(new Set(filteredAssets.map((a) => a.location).filter(Boolean)));
 
   const validateUniqueness = () => {
     const existingAssetWithId = assets.find(
@@ -197,48 +227,6 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="name">Model *</Label>
-            <Select
-              value={formData.name}
-              onValueChange={(value) => setFormData({ ...formData, name: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select Model" />
-              </SelectTrigger>
-              <SelectContent>
-                <div className="p-2">
-                  <Input
-                    type="text"
-                    placeholder="Type to search..."
-                    value={searchQueryName}
-                    onChange={(e) => setSearchQueryName(e.target.value)}
-                    onKeyDown={(e) => e.stopPropagation()}
-                    autoFocus
-                    className="w-full h-6 text-xs"
-                  />
-                </div>
-                {uniqueNames
-                  .filter((name) =>
-                    name.toLowerCase().includes(searchQueryName.toLowerCase())
-                  )
-                  .map((name) => (
-                    <SelectItem key={name} value={name}>{name}</SelectItem>
-                  ))}
-                <SelectItem value="custom">Custom</SelectItem>
-              </SelectContent>
-            </Select>
-            {formData.name === "custom" && (
-              <Input
-                value={customName}
-                onChange={(e) => setCustomName(e.target.value)}
-                placeholder="Enter custom asset name"
-                className="mt-2"
-                required
-              />
-            )}
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="type">Asset Type *</Label>
             <Select
               value={formData.type}
@@ -281,10 +269,54 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="name">Model *</Label>
+            <Select
+              value={formData.name}
+              onValueChange={(value) => setFormData({ ...formData, name: value })}
+              disabled={!formData.type} // Disable until type is selected
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select Model" />
+              </SelectTrigger>
+              <SelectContent>
+                <div className="p-2">
+                  <Input
+                    type="text"
+                    placeholder="Type to search..."
+                    value={searchQueryName}
+                    onChange={(e) => setSearchQueryName(e.target.value)}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    autoFocus
+                    className="w-full h-6 text-xs"
+                  />
+                </div>
+                {uniqueNames
+                  .filter((name) =>
+                    name.toLowerCase().includes(searchQueryName.toLowerCase())
+                  )
+                  .map((name) => (
+                    <SelectItem key={name} value={name}>{name}</SelectItem>
+                  ))}
+                <SelectItem value="custom">Custom</SelectItem>
+              </SelectContent>
+            </Select>
+            {formData.name === "custom" && (
+              <Input
+                value={customName}
+                onChange={(e) => setCustomName(e.target.value)}
+                placeholder="Enter custom asset name"
+                className="mt-2"
+                required
+              />
+            )}
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="brand">Brand *</Label>
             <Select
               value={formData.brand}
               onValueChange={(value) => setFormData({ ...formData, brand: value })}
+              disabled={!formData.type} // Disable until type is selected
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select brand" />
@@ -327,6 +359,7 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
             <Select
               value={formData.configuration}
               onValueChange={(value) => setFormData({ ...formData, configuration: value })}
+              disabled={!formData.type} // Disable until type is selected
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select configuration" />
@@ -380,6 +413,7 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
             <Select
               value={formData.provider}
               onValueChange={(value) => setFormData({ ...formData, provider: value })}
+              disabled={!formData.type} // Disable until type is selected
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select provider" />
@@ -422,6 +456,7 @@ export const AssetForm = ({ onSubmit, onCancel, initialData, assets = [] }: Asse
             <Select
               value={formData.location}
               onValueChange={(value) => setFormData({ ...formData, location: value })}
+              disabled={!formData.type} // Disable until type is selected
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select location" />

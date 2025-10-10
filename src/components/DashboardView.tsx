@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -22,20 +22,35 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
   const [searchQueryLocation, setSearchQueryLocation] = useState("");
   const [searchQueryStatus, setSearchQueryStatus] = useState("");
 
-  const assetTypes = [...new Set(assets.map((asset) => asset.type))];
-  const assetBrands = [...new Set(assets.map((asset) => asset.brand))];
-  const assetConfigurations = [...new Set(assets.map((asset) => asset.configuration).filter(Boolean))];
-  const assetLocations = [...new Set(assets.map((asset) => asset.location))];
-  const assetStatuses = [...new Set(assets.map((asset) => asset.status))];
+  // Compute filtered assets based on all active filters except the one being computed
+  const getFilteredAssets = (excludeFilter: string) => {
+    return assets.filter((asset: any) => {
+      const typeMatch = excludeFilter === "type" || typeFilter === "all" || asset.type === typeFilter;
+      const brandMatch = excludeFilter === "brand" || brandFilter === "all" || asset.brand === brandFilter;
+      const configMatch = excludeFilter === "config" || configFilter === "all" || asset.configuration === configFilter;
+      const locationMatch = excludeFilter === "location" || locationFilter === "all" || asset.location === locationFilter;
+      const statusMatch = excludeFilter === "status" || !statusFilter || statusFilter === "all" || asset.status === statusFilter;
 
-  const filteredAssets = assets.filter((asset) => {
+      return typeMatch && brandMatch && configMatch && locationMatch && statusMatch;
+    });
+  };
+
+  // Compute options for each dropdown based on filtered assets
+  const assetTypes = [...new Set(getFilteredAssets("type").map((asset: any) => asset.type))];
+  const assetBrands = [...new Set(getFilteredAssets("brand").map((asset: any) => asset.brand))];
+  const assetConfigurations = [...new Set(getFilteredAssets("config").map((asset: any) => asset.configuration).filter(Boolean))];
+  const assetLocations = [...new Set(getFilteredAssets("location").map((asset: any) => asset.location))];
+  const assetStatuses = [...new Set(getFilteredAssets("status").map((asset: any) => asset.status))];
+
+  // Assets filtered by all active filters for display
+  const filteredAssets = assets.filter((asset: any) => {
     const typeMatch = typeFilter === "all" || asset.type === typeFilter;
     const brandMatch = brandFilter === "all" || asset.brand === brandFilter;
     const configMatch = configFilter === "all" || asset.configuration === configFilter;
     const locationMatch = locationFilter === "all" || asset.location === locationFilter;
     const statusMatch = !statusFilter || statusFilter === "all" || asset.status === statusFilter;
 
-    const searchMatch = searchQuery.trim() === "" || 
+    const searchMatch = searchQuery.trim() === "" ||
       [
         asset.asset_id || "",
         asset.name || "",
@@ -62,9 +77,9 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
   });
 
   const totalInventory = filteredAssets.length;
-  const allocatedAssets = filteredAssets.filter((asset) => asset.status === "Assigned").length;
-  const currentStock = filteredAssets.filter((asset) => asset.status === "Available").length;
-  const scrapDamageAssets = filteredAssets.filter((asset) => asset.status === "Scrap/Damage").length;
+  const allocatedAssets = filteredAssets.filter((asset: any) => asset.status === "Assigned").length;
+  const currentStock = filteredAssets.filter((asset: any) => asset.status === "Available").length;
+  const scrapDamageAssets = filteredAssets.filter((asset: any) => asset.status === "Scrap/Damage").length;
 
   const getAssetTypeCounts = (status: string) => {
     return (assetTypes as string[]).reduce((acc, type) => {
@@ -87,6 +102,16 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
     setSearchQueryLocation("");
     setSearchQueryStatus("");
   };
+
+  // Reset dependent filters when any filter changes to ensure valid selections
+  useEffect(() => {
+    // Check if current filter values are still valid
+    if (typeFilter !== "all" && !assetTypes.includes(typeFilter)) setTypeFilter("all");
+    if (brandFilter !== "all" && !assetBrands.includes(brandFilter)) setBrandFilter("all");
+    if (configFilter !== "all" && !assetConfigurations.includes(configFilter)) setConfigFilter("all");
+    if (locationFilter !== "all" && !assetLocations.includes(locationFilter)) setLocationFilter("all");
+    if (statusFilter !== "all" && statusFilter && !assetStatuses.includes(statusFilter)) setStatusFilter("");
+  }, [typeFilter, brandFilter, configFilter, locationFilter, statusFilter, assets]);
 
   return (
     <>

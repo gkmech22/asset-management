@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -21,15 +21,15 @@ interface AmcsViewProps {
   userRole: string | null;
 }
 
-const AmcsView = ({ 
-  assets, 
-  onAssign, 
-  onUnassign, 
-  onUpdateAsset, 
-  onUpdateStatus, 
+const AmcsView = ({
+  assets,
+  onAssign,
+  onUnassign,
+  onUpdateAsset,
+  onUpdateStatus,
   onUpdateLocation,
   onUpdateAssetCheck,
-  onDelete 
+  onDelete,
 }: AmcsViewProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -44,12 +44,26 @@ const AmcsView = ({
   const [searchQueryLocation, setSearchQueryLocation] = useState("");
   const [searchQueryStatus, setSearchQueryStatus] = useState("");
 
-  const assetTypes = [...new Set(assets.map((asset) => asset.type))];
-  const assetBrands = [...new Set(assets.map((asset) => asset.brand))];
-  const assetConfigurations = [...new Set(assets.map((asset) => asset.configuration).filter(Boolean))];
-  const assetLocations = [...new Set(assets.map((asset) => asset.location))];
-  const assetStatuses = [...new Set(assets.map((asset) => asset.status))];
+  // Compute filtered assets based on all active filters except the one being computed
+  const getFilteredAssets = (excludeFilter: string) => {
+    return assets.filter((asset) => {
+      const typeMatch = excludeFilter === "type" || typeFilter === "all" || asset.type === typeFilter;
+      const brandMatch = excludeFilter === "brand" || brandFilter === "all" || asset.brand === brandFilter;
+      const configMatch = excludeFilter === "config" || configFilter === "all" || asset.configuration === configFilter;
+      const locationMatch = excludeFilter === "location" || locationFilter === "all" || asset.location === locationFilter;
+      const statusMatch = excludeFilter === "status" || !statusFilter || statusFilter === "all" || asset.status === statusFilter;
+      return typeMatch && brandMatch && configMatch && locationMatch && statusMatch;
+    });
+  };
 
+  // Compute options for each dropdown based on filtered assets
+  const assetTypes = [...new Set(getFilteredAssets("type").map((asset) => asset.type))];
+  const assetBrands = [...new Set(getFilteredAssets("brand").map((asset) => asset.brand))];
+  const assetConfigurations = [...new Set(getFilteredAssets("config").map((asset) => asset.configuration).filter(Boolean))];
+  const assetLocations = [...new Set(getFilteredAssets("location").map((asset) => asset.location))];
+  const assetStatuses = [...new Set(getFilteredAssets("status").map((asset) => asset.status))];
+
+  // Assets filtered by all active filters for display
   const filteredAssets = assets.filter((asset) => {
     const typeMatch = typeFilter === "all" || asset.type === typeFilter;
     const brandMatch = brandFilter === "all" || asset.brand === brandFilter;
@@ -57,7 +71,7 @@ const AmcsView = ({
     const locationMatch = locationFilter === "all" || asset.location === locationFilter;
     const statusMatch = !statusFilter || statusFilter === "all" || asset.status === statusFilter;
 
-    const searchMatch = searchQuery.trim() === "" || 
+    const searchMatch = searchQuery.trim() === "" ||
       [
         asset.asset_id,
         asset.name,
@@ -94,6 +108,15 @@ const AmcsView = ({
     setSearchQueryLocation("");
     setSearchQueryStatus("");
   };
+
+  // Reset invalid filter selections
+  useEffect(() => {
+    if (typeFilter !== "all" && !assetTypes.includes(typeFilter)) setTypeFilter("all");
+    if (brandFilter !== "all" && !assetBrands.includes(brandFilter)) setBrandFilter("all");
+    if (configFilter !== "all" && !assetConfigurations.includes(configFilter)) setConfigFilter("all");
+    if (locationFilter !== "all" && !assetLocations.includes(locationFilter)) setLocationFilter("all");
+    if (statusFilter !== "all" && statusFilter && !assetStatuses.includes(statusFilter)) setStatusFilter("");
+  }, [typeFilter, brandFilter, configFilter, locationFilter, statusFilter, assets]);
 
   return (
     <>
