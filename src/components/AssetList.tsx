@@ -29,10 +29,11 @@ interface AssetListProps {
   onUpdateAssetCheck: (assetId: string, assetCheck: string) => Promise<void>;
   onDelete: (assetId: string) => Promise<void>;
   dateRange?: { from?: Date; to?: Date };
-  typeFilter?: string;
-  brandFilter?: string;
-  configFilter?: string;
-  statusFilter?: string;
+  typeFilter?: string[];
+  brandFilter?: string[];
+  configFilter?: string[];
+  locationFilter?: string[];
+  statusFilter?: string[];
   defaultRowsPerPage?: number;
   viewType?: 'dashboard' | 'audit' | 'amcs' | 'summary';
 }
@@ -47,10 +48,11 @@ export const AssetList = ({
   onUpdateAssetCheck,
   onDelete,
   dateRange,
-  typeFilter = "all",
-  brandFilter = "all",
-  configFilter = "all",
-  statusFilter = "all",
+  typeFilter = [],
+  brandFilter = [],
+  configFilter = [],
+  locationFilter = [],
+  statusFilter = [],
   defaultRowsPerPage = 100,
   viewType = 'dashboard',
 }: AssetListProps) => {
@@ -245,12 +247,13 @@ export const AssetList = ({
         (new Date(asset.assigned_date) >= new Date(dateRange.from) &&
          new Date(asset.assigned_date) <= new Date(dateRange.to));
 
-      const matchesType = typeFilter === "all" || typeFilter.split(",").some(t => t === asset.type);
-      const matchesBrand = brandFilter === "all" || asset.brand === brandFilter;
-      const matchesConfig = configFilter === "all" || asset.configuration === configFilter;
-      const matchesStatus = statusFilter === "all" || asset.status === statusFilter;
+      const matchesType = typeFilter.length === 0 || typeFilter.some(t => t === asset.type);
+      const matchesBrand = brandFilter.length === 0 || brandFilter.some(b => b === asset.brand);
+      const matchesConfig = configFilter.length === 0 || configFilter.some(c => c === asset.configuration);
+      const matchesLocation = locationFilter.length === 0 || locationFilter.some(l => l === asset.location);
+      const matchesStatus = statusFilter.length === 0 || statusFilter.some(s => s === asset.status);
 
-      return matchesSearch && matchesDateRange && matchesType && matchesBrand && matchesConfig && matchesStatus;
+      return matchesSearch && matchesDateRange && matchesType && matchesBrand && matchesConfig && matchesLocation && matchesStatus;
     }).sort((a, b) => {
       if (a.status === "Available" && b.status !== "Available") return -1;
       if (a.status !== "Available" && b.status === "Available") return 1;
@@ -258,7 +261,7 @@ export const AssetList = ({
       const dateB = b.assigned_date ? new Date(b.assigned_date).getTime() : 0;
       return dateB - dateA;
     });
-  }, [assets, searchTerm, dateRange, typeFilter, brandFilter, configFilter, statusFilter, filterCheckStatus, viewType]);
+  }, [assets, searchTerm, dateRange, typeFilter, brandFilter, configFilter, locationFilter, statusFilter, filterCheckStatus, viewType]);
 
   React.useEffect(() => {
     const newTotalPages = Math.ceil(filteredAssets.length / rowsPerPage);
@@ -510,7 +513,7 @@ export const AssetList = ({
 
   const handleAssetCheckClear = async () => {
     try {
-      const isFiltered = searchTerm || typeFilter !== "all" || brandFilter !== "all" || configFilter !== "all" || statusFilter !== "all" || filterCheckStatus;
+      const isFiltered = searchTerm || typeFilter.length > 0 || brandFilter.length > 0 || configFilter.length > 0 || locationFilter.length > 0 || statusFilter.length > 0 || filterCheckStatus;
 
       if (isFiltered) {
         for (const asset of filteredAssets) {
