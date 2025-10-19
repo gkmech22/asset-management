@@ -66,33 +66,33 @@ export const AssetSticker: React.FC<AssetStickerProps> = ({ asset }) => {
 
       console.log("AssetSticker: Rendering sticker with dimensions", { width: canvas.width, height: canvas.height });
 
-      // Label dimensions: 60 mm x 40 mm at 600 DPI
-      const dpi = 600;
+      // Label dimensions: 60 mm x 40 mm at 300 DPI for better compatibility
+      const dpi = 300;
       const mmToInches = 25.4;
-      const widthPx = (60 / mmToInches) * dpi; // 60 mm to inches * 600 DPI ≈ 1417 px
-      const heightPx = (40 / mmToInches) * dpi; // 40 mm to inches * 600 DPI ≈ 945 px
+      const widthPx = (60 / mmToInches) * dpi; // 60 mm to inches * 300 DPI ≈ 709 px
+      const heightPx = (40 / mmToInches) * dpi; // 40 mm to inches * 300 DPI ≈ 472 px
 
-      // Set canvas size to full resolution (scaled by CSS transform)
-      canvas.width = Math.round(widthPx); // ~1417 px
-      canvas.height = Math.round(heightPx); // ~945 px
+      // Set canvas size to full resolution
+      canvas.width = Math.round(widthPx);
+      canvas.height = Math.round(heightPx);
 
       // Clear canvas with white background
       ctx.fillStyle = "white";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Adjust for high DPI
+      // Adjust for DPI
       ctx.scale(dpi / 96, dpi / 96);
 
       // Optimize for barcode printer
       ctx.imageSmoothingEnabled = false;
       ctx.textRendering = "optimizeLegibility";
 
-      // Content dimensions
-      const headerFontSize = 12;
-      const barcodeHeight = 25;
-      const serialFontSize = 10;
-      const assetIdFontSize = 10;
-      const spacing = 3;
+      // Content dimensions - adjusted for better layout
+      const headerFontSize = 14;
+      const barcodeHeight = 30;
+      const serialFontSize = 11;
+      const assetIdFontSize = 11;
+      const spacing = 4;
       const totalContentHeight = headerFontSize + barcodeHeight + serialFontSize + assetIdFontSize + 4 * spacing;
 
       // Position content vertically
@@ -243,27 +243,23 @@ export const AssetSticker: React.FC<AssetStickerProps> = ({ asset }) => {
   }
 
   return (
-    <div
-      className="flex flex-col items-center w-full max-w-[1000px] p-2"
-      style={{ transform: "scale(1.1)", transformOrigin: "center top" }}
-    >
+    <div className="flex flex-col items-center w-full max-w-[700px] p-4">
       <canvas
         ref={canvasRef}
-        className="border-2 border-red-500 bg-gray-100"
+        className="border-2 border-gray-300 bg-white shadow-md rounded"
         style={{
-          width: "100%",
-          height: "auto",
-          maxWidth: "1000px",
-          maxHeight: "500px",
-          imageRendering: "pixelated",
+          width: "600px",
+          height: "400px",
+          imageRendering: "auto",
         }}
       />
       <Button
         onClick={handlePrintSticker}
-        className="mt-2 bg-white border border-gray-300 hover:bg-gray-100 transition-smooth p-2"
+        className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2"
         aria-label="Print sticker"
       >
-        <Printer className="h-6 w-6 text-black" />
+        <Printer className="h-5 w-5 mr-2" />
+        Print Sticker
       </Button>
     </div>
   );

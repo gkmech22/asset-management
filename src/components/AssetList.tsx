@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { UserPlus, UserMinus, Search, Calendar, MoreVertical, ScanBarcode, Tag } from "lucide-react";
+import { UserPlus, UserMinus, Search, Calendar, MoreVertical, ScanBarcode, Tag, Mail } from "lucide-react";
 import { EditAssetDialog } from "./EditAssetDialog";
 import { AssetDetailsDialog } from "./AssetDetailsDialog";
 import { AssetSticker } from "./AssetSticker";
@@ -17,6 +17,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { EnhancedBarcodeScanner } from "./EnhancedBarcodeScanner";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { generateDispatchEmailSubject, generateDispatchEmailBody, generateReceiveEmailSubject, generateReceiveEmailBody, openGmailCompose } from "@/lib/emailTemplates";
 
 interface AssetListProps {
   assets: Asset[];
@@ -92,6 +93,7 @@ export const AssetList = ({
   const [showAssignedToOnly, setShowAssignedToOnly] = React.useState(false);
   const [isFetchingEmployee, setIsFetchingEmployee] = React.useState(false);
   const [showAssetConditionDialog, setShowAssetConditionDialog] = React.useState(false);
+  const [showEmailDialog, setShowEmailDialog] = React.useState(false);
 
   const { data: history = [], isLoading: historyLoading } = useAssetHistory(selectedAsset?.id);
 
@@ -243,7 +245,7 @@ export const AssetList = ({
         (new Date(asset.assigned_date) >= new Date(dateRange.from) &&
          new Date(asset.assigned_date) <= new Date(dateRange.to));
 
-      const matchesType = typeFilter === "all" || asset.type === typeFilter;
+      const matchesType = typeFilter === "all" || typeFilter.split(",").some(t => t === asset.type);
       const matchesBrand = brandFilter === "all" || asset.brand === brandFilter;
       const matchesConfig = configFilter === "all" || asset.configuration === configFilter;
       const matchesStatus = statusFilter === "all" || asset.status === statusFilter;
@@ -996,6 +998,17 @@ export const AssetList = ({
                                 className="text-xs h-6 w-6 p-0"
                               >
                                 <Tag className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedAsset(asset);
+                                  setShowEmailDialog(true);
+                                }}
+                                className="text-xs h-6 w-6 p-0"
+                              >
+                                <Mail className="h-4 w-4" />
                               </Button>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -1810,6 +1823,49 @@ export const AssetList = ({
         onClose={() => setShowAssetCheckScanner(false)}
         onScan={(result) => setAssetCheckId(result)}
       />
+
+      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send Email</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Asset: {selectedAsset?.name || "N/A"}</Label>
+              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id || "N/A"}</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Button
+                onClick={() => {
+                  if (selectedAsset) {
+                    const subject = generateDispatchEmailSubject(selectedAsset);
+                    const body = generateDispatchEmailBody(selectedAsset);
+                    openGmailCompose(subject, body);
+                    setShowEmailDialog(false);
+                  }
+                }}
+                className="w-full"
+              >
+                Dispatch (Assign)
+              </Button>
+              <Button
+                onClick={() => {
+                  if (selectedAsset) {
+                    const subject = generateReceiveEmailSubject(selectedAsset);
+                    const body = generateReceiveEmailBody(selectedAsset);
+                    openGmailCompose(subject, body);
+                    setShowEmailDialog(false);
+                  }
+                }}
+                variant="outline"
+                className="w-full"
+              >
+                Receive (Received)
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <EditAssetDialog
         asset={selectedAsset}

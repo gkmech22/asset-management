@@ -144,7 +144,7 @@ const SummaryView = ({
 
   // Calculate sum of asset_value_recovery
   const totalRecovery = React.useMemo(() => {
-    return filteredAssets.reduce((sum, asset) => sum + (asset.asset_value_recovery || 0), 0);
+    return filteredAssets.reduce((sum, asset) => sum + (Number(asset.asset_value_recovery) || 0), 0);
   }, [filteredAssets]);
 
   // Group assets by Asset Type and Brand, counting each status

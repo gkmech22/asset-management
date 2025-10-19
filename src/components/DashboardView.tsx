@@ -7,11 +7,13 @@ import { Filter, Search, Package, Users } from "lucide-react";
 import { AssetList } from "./AssetList";
 import { DatePickerWithRange } from "./DatePickerWithRange";
 import { DateRange } from "react-day-picker";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus, onUpdateLocation, onUpdateAssetCheck, onDelete, userRole }: any) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [brandFilter, setBrandFilter] = useState<string>("all");
   const [configFilter, setConfigFilter] = useState<string>("all");
   const [locationFilter, setLocationFilter] = useState<string>("all");
@@ -25,7 +27,7 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
   // Compute filtered assets based on all active filters except the one being computed
   const getFilteredAssets = (excludeFilter: string) => {
     return assets.filter((asset: any) => {
-      const typeMatch = excludeFilter === "type" || typeFilter === "all" || asset.type === typeFilter;
+      const typeMatch = excludeFilter === "type" || typeFilter.length === 0 || typeFilter.includes(asset.type);
       const brandMatch = excludeFilter === "brand" || brandFilter === "all" || asset.brand === brandFilter;
       const configMatch = excludeFilter === "config" || configFilter === "all" || asset.configuration === configFilter;
       const locationMatch = excludeFilter === "location" || locationFilter === "all" || asset.location === locationFilter;
@@ -44,7 +46,7 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
 
   // Assets filtered by all active filters for display
   const filteredAssets = assets.filter((asset: any) => {
-    const typeMatch = typeFilter === "all" || asset.type === typeFilter;
+    const typeMatch = typeFilter.length === 0 || typeFilter.includes(asset.type);
     const brandMatch = brandFilter === "all" || asset.brand === brandFilter;
     const configMatch = configFilter === "all" || asset.configuration === configFilter;
     const locationMatch = locationFilter === "all" || asset.location === locationFilter;
@@ -89,7 +91,7 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
   };
 
   const clearFilters = () => {
-    setTypeFilter("all");
+    setTypeFilter([]);
     setBrandFilter("all");
     setConfigFilter("all");
     setLocationFilter("all");
@@ -106,7 +108,8 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
   // Reset dependent filters when any filter changes to ensure valid selections
   useEffect(() => {
     // Check if current filter values are still valid
-    if (typeFilter !== "all" && !assetTypes.includes(typeFilter)) setTypeFilter("all");
+    const validTypes = typeFilter.filter(t => assetTypes.includes(t));
+    if (validTypes.length !== typeFilter.length) setTypeFilter(validTypes);
     if (brandFilter !== "all" && !assetBrands.includes(brandFilter)) setBrandFilter("all");
     if (configFilter !== "all" && !assetConfigurations.includes(configFilter)) setConfigFilter("all");
     if (locationFilter !== "all" && !assetLocations.includes(locationFilter)) setLocationFilter("all");
@@ -255,34 +258,48 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
           <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
             <div className="space-y-1">
               <label className="text-xs font-medium">Asset Type</label>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="text-xs h-7">
-                  <SelectValue placeholder="All Types" />
-                </SelectTrigger>
-                <SelectContent>
-                  <div className="p-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="text-xs h-7 w-full justify-between">
+                    {typeFilter.length === 0 ? "All Types" : `${typeFilter.length} selected`}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-0">
+                  <div className="p-2 border-b">
                     <Input
                       type="text"
                       placeholder="Type to search..."
                       value={searchQueryType}
                       onChange={(e) => setSearchQueryType(e.target.value)}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      autoFocus
                       className="w-full h-6 text-xs"
                     />
                   </div>
-                  <SelectItem value="all">All Types</SelectItem>
-                  {(assetTypes as string[])
-                    .filter((type: string) =>
-                      type.toLowerCase().includes(searchQueryType.toLowerCase())
-                    )
-                    .map((type: string) => (
-                      <SelectItem key={type} value={type} className="text-xs">
-                        {type}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+                  <div className="max-h-64 overflow-y-auto p-2">
+                    {(assetTypes as string[])
+                      .filter((type: string) =>
+                        type.toLowerCase().includes(searchQueryType.toLowerCase())
+                      )
+                      .map((type: string) => (
+                        <div key={type} className="flex items-center space-x-2 py-1">
+                          <Checkbox
+                            id={`type-${type}`}
+                            checked={typeFilter.includes(type)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setTypeFilter([...typeFilter, type]);
+                              } else {
+                                setTypeFilter(typeFilter.filter(t => t !== type));
+                              }
+                            }}
+                          />
+                          <label htmlFor={`type-${type}`} className="text-xs cursor-pointer flex-1">
+                            {type}
+                          </label>
+                        </div>
+                      ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium">Brand</label>
@@ -426,7 +443,7 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
         onUpdateAssetCheck={onUpdateAssetCheck}
         onDelete={onDelete}
         dateRange={dateRange}
-        typeFilter={typeFilter}
+        typeFilter={typeFilter.length === 0 ? "all" : typeFilter.join(",")}
         brandFilter={brandFilter}
         configFilter={configFilter}
         defaultRowsPerPage={10}
