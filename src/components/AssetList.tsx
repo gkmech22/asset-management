@@ -1773,24 +1773,24 @@ export const AssetList = ({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showStatusCheckDialog} onOpenChange={setShowStatusCheckDialog}>
-        <DialogContent className="max-w-md">
+      <Dialog open={showStickerDialog} onOpenChange={(open) => {
+        setShowStickerDialog(open);
+        if (!open) setSelectedAsset(null);
+      }}>
+        <DialogContent className="w-auto max-w-[90vw] max-h-[90vh] p-4 overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Asset Check Status</DialogTitle>
+            <DialogTitle>Asset Sticker</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <p>
-              {unmatchedCount === 0 ? (
-                <span className="text-green-600">All assets are matched.</span>
-              ) : (
-                <span className="text-red-600">{unmatchedCount} Asset{unmatchedCount === 1 ? '' : 's'} not matched.</span>
-              )}
-            </p>
-            <div className="flex gap-2">
-              <Button onClick={handleGenerateReport} variant="outline" className="flex-1">Generate Report</Button>
-              <Button variant="outline" onClick={() => setShowStatusCheckDialog(false)} className="flex-1">Close</Button>
+          {selectedAsset ? (
+            <>
+              <p className="text-sm text-muted-foreground">Generating sticker for {selectedAsset.asset_id}</p>
+              <AssetSticker asset={selectedAsset} />
+            </>
+          ) : (
+            <div className="text-center py-4 text-destructive">
+              No asset selected for sticker generation.
             </div>
-          </div>
+          )}
         </DialogContent>
       </Dialog>
 
