@@ -1,22 +1,21 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Filter, Search, Package, Users } from "lucide-react";
 import { AssetList } from "./AssetList";
 import { DatePickerWithRange } from "./DatePickerWithRange";
 import { DateRange } from "react-day-picker";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Input } from "@/components/ui/input";
 
 const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus, onUpdateLocation, onUpdateAssetCheck, onDelete, userRole }: any) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [typeFilter, setTypeFilter] = useState<string[]>([]);
-  const [brandFilter, setBrandFilter] = useState<string[]>([]);
-  const [configFilter, setConfigFilter] = useState<string[]>([]);
-  const [locationFilter, setLocationFilter] = useState<string[]>([]);
-  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [brandFilter, setBrandFilter] = useState<string>("all");
+  const [configFilter, setConfigFilter] = useState<string>("all");
+  const [locationFilter, setLocationFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("");
   const [searchQueryType, setSearchQueryType] = useState("");
   const [searchQueryBrand, setSearchQueryBrand] = useState("");
   const [searchQueryConfig, setSearchQueryConfig] = useState("");
@@ -26,29 +25,30 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
   // Compute filtered assets based on all active filters except the one being computed
   const getFilteredAssets = (excludeFilter: string) => {
     return assets.filter((asset: any) => {
-      const typeMatch = excludeFilter === "type" || typeFilter.length === 0 || typeFilter.includes(asset.type);
-      const brandMatch = excludeFilter === "brand" || brandFilter.length === 0 || brandFilter.includes(asset.brand);
-      const configMatch = excludeFilter === "config" || configFilter.length === 0 || (asset.configuration && configFilter.includes(asset.configuration));
-      const locationMatch = excludeFilter === "location" || locationFilter.length === 0 || locationFilter.includes(asset.location);
-      const statusMatch = excludeFilter === "status" || statusFilter.length === 0 || statusFilter.includes(asset.status);
+      const typeMatch = excludeFilter === "type" || typeFilter === "all" || asset.type === typeFilter;
+      const brandMatch = excludeFilter === "brand" || brandFilter === "all" || asset.brand === brandFilter;
+      const configMatch = excludeFilter === "config" || configFilter === "all" || asset.configuration === configFilter;
+      const locationMatch = excludeFilter === "location" || locationFilter === "all" || asset.location === locationFilter;
+      const statusMatch = excludeFilter === "status" || !statusFilter || statusFilter === "all" || asset.status === statusFilter;
+
       return typeMatch && brandMatch && configMatch && locationMatch && statusMatch;
     });
   };
 
   // Compute options for each dropdown based on filtered assets
-  const assetTypes = [...new Set(assets.map((asset: any) => asset.type).filter(Boolean))].sort();
-  const assetBrands = [...new Set(assets.map((asset: any) => asset.brand).filter(Boolean))].sort();
-  const assetConfigurations = [...new Set(assets.map((asset: any) => asset.configuration).filter(Boolean))].sort();
-  const assetLocations = [...new Set(assets.map((asset: any) => asset.location).filter(Boolean))].sort();
-  const assetStatuses = [...new Set(assets.map((asset: any) => asset.status).filter(Boolean))].sort();
+  const assetTypes = [...new Set(getFilteredAssets("type").map((asset: any) => asset.type))];
+  const assetBrands = [...new Set(getFilteredAssets("brand").map((asset: any) => asset.brand))];
+  const assetConfigurations = [...new Set(getFilteredAssets("config").map((asset: any) => asset.configuration).filter(Boolean))];
+  const assetLocations = [...new Set(getFilteredAssets("location").map((asset: any) => asset.location))];
+  const assetStatuses = [...new Set(getFilteredAssets("status").map((asset: any) => asset.status))];
 
   // Assets filtered by all active filters for display
   const filteredAssets = assets.filter((asset: any) => {
-    const typeMatch = typeFilter.length === 0 || typeFilter.includes(asset.type);
-    const brandMatch = brandFilter.length === 0 || brandFilter.includes(asset.brand);
-    const configMatch = configFilter.length === 0 || (asset.configuration && configFilter.includes(asset.configuration));
-    const locationMatch = locationFilter.length === 0 || locationFilter.includes(asset.location);
-    const statusMatch = statusFilter.length === 0 || statusFilter.includes(asset.status);
+    const typeMatch = typeFilter === "all" || asset.type === typeFilter;
+    const brandMatch = brandFilter === "all" || asset.brand === brandFilter;
+    const configMatch = configFilter === "all" || asset.configuration === configFilter;
+    const locationMatch = locationFilter === "all" || asset.location === locationFilter;
+    const statusMatch = !statusFilter || statusFilter === "all" || asset.status === statusFilter;
 
     const searchMatch = searchQuery.trim() === "" ||
       [
@@ -73,12 +73,7 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
         asset.asset_check || "",
       ].some((field) => field.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    const dateMatch = !dateRange?.from || !dateRange?.to ||
-      ((asset.assigned_date || asset.return_date) &&
-        new Date(asset.assigned_date || asset.return_date) >= new Date(dateRange.from) &&
-        new Date(asset.assigned_date || asset.return_date) <= new Date(dateRange.to));
-
-    return typeMatch && brandMatch && configMatch && locationMatch && statusMatch && searchMatch && dateMatch;
+    return typeMatch && brandMatch && configMatch && locationMatch && statusMatch && searchMatch;
   });
 
   const totalInventory = filteredAssets.length;
@@ -87,18 +82,18 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
   const scrapDamageAssets = filteredAssets.filter((asset: any) => asset.status === "Scrap/Damage").length;
 
   const getAssetTypeCounts = (status: string) => {
-    return assetTypes.reduce((acc, type) => {
-      acc[type] = filteredAssets.filter((asset: any) => asset.type === type && (status === "all" || asset.status === status)).length;
+    return (assetTypes as string[]).reduce((acc, type) => {
+      acc[type as string] = filteredAssets.filter((asset: any) => asset.type === type && (status === "all" || asset.status === status)).length;
       return acc;
     }, {} as Record<string, number>);
   };
 
   const clearFilters = () => {
-    setTypeFilter([]);
-    setBrandFilter([]);
-    setConfigFilter([]);
-    setLocationFilter([]);
-    setStatusFilter([]);
+    setTypeFilter("all");
+    setBrandFilter("all");
+    setConfigFilter("all");
+    setLocationFilter("all");
+    setStatusFilter("");
     setDateRange(undefined);
     setSearchQuery("");
     setSearchQueryType("");
@@ -108,14 +103,15 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
     setSearchQueryStatus("");
   };
 
-  // Reset invalid filter selections
+  // Reset dependent filters when any filter changes to ensure valid selections
   useEffect(() => {
-    setTypeFilter(typeFilter.filter(t => assetTypes.includes(t)));
-    setBrandFilter(brandFilter.filter(b => assetBrands.includes(b)));
-    setConfigFilter(configFilter.filter(c => assetConfigurations.includes(c)));
-    setLocationFilter(locationFilter.filter(l => assetLocations.includes(l)));
-    setStatusFilter(statusFilter.filter(s => assetStatuses.includes(s)));
-  }, [assets]);
+    // Check if current filter values are still valid
+    if (typeFilter !== "all" && !assetTypes.includes(typeFilter)) setTypeFilter("all");
+    if (brandFilter !== "all" && !assetBrands.includes(brandFilter)) setBrandFilter("all");
+    if (configFilter !== "all" && !assetConfigurations.includes(configFilter)) setConfigFilter("all");
+    if (locationFilter !== "all" && !assetLocations.includes(locationFilter)) setLocationFilter("all");
+    if (statusFilter !== "all" && statusFilter && !assetStatuses.includes(statusFilter)) setStatusFilter("");
+  }, [typeFilter, brandFilter, configFilter, locationFilter, statusFilter, assets]);
 
   return (
     <>
@@ -259,14 +255,12 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
           <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
             <div className="space-y-1">
               <label className="text-xs font-medium">Asset Type</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="text-xs h-7 w-full justify-between">
-                    {typeFilter.length === 0 ? "All Types" : `${typeFilter.length} selected`}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56 p-0">
-                  <div className="p-2 border-b">
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="text-xs h-7">
+                  <SelectValue placeholder="All Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="p-2">
                     <Input
                       type="text"
                       placeholder="Type to search..."
@@ -277,39 +271,27 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                       className="w-full h-6 text-xs"
                     />
                   </div>
-                  <div className="max-h-64 overflow-y-auto p-2">
-                    {assetTypes
-                      .filter((type: string) => type.toLowerCase().includes(searchQueryType.toLowerCase()))
-                      .map((type: string) => (
-                        <div key={type} className="flex items-center space-x-2 py-1">
-                          <Checkbox
-                            id={`type-${type}`}
-                            checked={typeFilter.includes(type)}
-                            onCheckedChange={(checked) => {
-                              setTypeFilter((prev) =>
-                                checked ? [...prev, type] : prev.filter((t) => t !== type)
-                              );
-                            }}
-                          />
-                          <label htmlFor={`type-${type}`} className="text-xs cursor-pointer flex-1">
-                            {type}
-                          </label>
-                        </div>
-                      ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
+                  <SelectItem value="all">All Types</SelectItem>
+                  {(assetTypes as string[])
+                    .filter((type: string) =>
+                      type.toLowerCase().includes(searchQueryType.toLowerCase())
+                    )
+                    .map((type: string) => (
+                      <SelectItem key={type} value={type} className="text-xs">
+                        {type}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium">Brand</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="text-xs h-7 w-full justify-between">
-                    {brandFilter.length === 0 ? "All Brands" : `${brandFilter.length} selected`}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56 p-0">
-                  <div className="p-2 border-b">
+              <Select value={brandFilter} onValueChange={setBrandFilter}>
+                <SelectTrigger className="text-xs h-7">
+                  <SelectValue placeholder="All Brands" />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="p-2">
                     <Input
                       type="text"
                       placeholder="Type to search..."
@@ -320,39 +302,27 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                       className="w-full h-6 text-xs"
                     />
                   </div>
-                  <div className="max-h-64 overflow-y-auto p-2">
-                    {assetBrands
-                      .filter((brand: string) => brand.toLowerCase().includes(searchQueryBrand.toLowerCase()))
-                      .map((brand: string) => (
-                        <div key={brand} className="flex items-center space-x-2 py-1">
-                          <Checkbox
-                            id={`brand-${brand}`}
-                            checked={brandFilter.includes(brand)}
-                            onCheckedChange={(checked) => {
-                              setBrandFilter((prev) =>
-                                checked ? [...prev, brand] : prev.filter((b) => b !== brand)
-                              );
-                            }}
-                          />
-                          <label htmlFor={`brand-${brand}`} className="text-xs cursor-pointer flex-1">
-                            {brand}
-                          </label>
-                        </div>
-                      ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
+                  <SelectItem value="all">All Brands</SelectItem>
+                  {(assetBrands as string[])
+                    .filter((brand: string) =>
+                      brand.toLowerCase().includes(searchQueryBrand.toLowerCase())
+                    )
+                    .map((brand: string) => (
+                      <SelectItem key={brand} value={brand} className="text-xs">
+                        {brand}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium">Configuration</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="text-xs h-7 w-full justify-between">
-                    {configFilter.length === 0 ? "All Configurations" : `${configFilter.length} selected`}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56 p-0">
-                  <div className="p-2 border-b">
+              <Select value={configFilter} onValueChange={setConfigFilter}>
+                <SelectTrigger className="text-xs h-7">
+                  <SelectValue placeholder="All Configurations" />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="p-2">
                     <Input
                       type="text"
                       placeholder="Type to search..."
@@ -363,39 +333,27 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                       className="w-full h-6 text-xs"
                     />
                   </div>
-                  <div className="max-h-64 overflow-y-auto p-2">
-                    {assetConfigurations
-                      .filter((config: string) => config.toLowerCase().includes(searchQueryConfig.toLowerCase()))
-                      .map((config: string) => (
-                        <div key={config} className="flex items-center space-x-2 py-1">
-                          <Checkbox
-                            id={`config-${config}`}
-                            checked={configFilter.includes(config)}
-                            onCheckedChange={(checked) => {
-                              setConfigFilter((prev) =>
-                                checked ? [...prev, config] : prev.filter((c) => c !== config)
-                              );
-                            }}
-                          />
-                          <label htmlFor={`config-${config}`} className="text-xs cursor-pointer flex-1">
-                            {config}
-                          </label>
-                        </div>
-                      ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
+                  <SelectItem value="all">All Configurations</SelectItem>
+                  {(assetConfigurations as string[])
+                    .filter((config: string) =>
+                      config.toLowerCase().includes(searchQueryConfig.toLowerCase())
+                    )
+                    .map((config: string) => (
+                      <SelectItem key={config} value={config} className="text-xs">
+                        {config}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium">Asset Location</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="text-xs h-7 w-full justify-between">
-                    {locationFilter.length === 0 ? "All Locations" : `${locationFilter.length} selected`}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56 p-0">
-                  <div className="p-2 border-b">
+              <Select value={locationFilter} onValueChange={setLocationFilter}>
+                <SelectTrigger className="text-xs h-7">
+                  <SelectValue placeholder="All Locations" />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="p-2">
                     <Input
                       type="text"
                       placeholder="Type to search..."
@@ -406,39 +364,27 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                       className="w-full h-6 text-xs"
                     />
                   </div>
-                  <div className="max-h-64 overflow-y-auto p-2">
-                    {assetLocations
-                      .filter((location: string) => location.toLowerCase().includes(searchQueryLocation.toLowerCase()))
-                      .map((location: string) => (
-                        <div key={location} className="flex items-center space-x-2 py-1">
-                          <Checkbox
-                            id={`location-${location}`}
-                            checked={locationFilter.includes(location)}
-                            onCheckedChange={(checked) => {
-                              setLocationFilter((prev) =>
-                                checked ? [...prev, location] : prev.filter((l) => l !== location)
-                              );
-                            }}
-                          />
-                          <label htmlFor={`location-${location}`} className="text-xs cursor-pointer flex-1">
-                            {location}
-                          </label>
-                        </div>
-                      ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
+                  <SelectItem value="all">All Locations</SelectItem>
+                  {(assetLocations as string[])
+                    .filter((location: string) =>
+                      location.toLowerCase().includes(searchQueryLocation.toLowerCase())
+                    )
+                    .map((location: string) => (
+                      <SelectItem key={location} value={location} className="text-xs">
+                        {location}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium">Status</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="text-xs h-7 w-full justify-between">
-                    {statusFilter.length === 0 ? "All Statuses" : `${statusFilter.length} selected`}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56 p-0">
-                  <div className="p-2 border-b">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="text-xs h-7">
+                  <SelectValue placeholder="Select Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="p-2">
                     <Input
                       type="text"
                       placeholder="Type to search..."
@@ -449,31 +395,21 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                       className="w-full h-6 text-xs"
                     />
                   </div>
-                  <div className="max-h-64 overflow-y-auto p-2">
-                    {assetStatuses
-                      .filter((status: string) => status.toLowerCase().includes(searchQueryStatus.toLowerCase()))
-                      .map((status: string) => (
-                        <div key={status} className="flex items-center space-x-2 py-1">
-                          <Checkbox
-                            id={`status-${status}`}
-                            checked={statusFilter.includes(status)}
-                            onCheckedChange={(checked) => {
-                              setStatusFilter((prev) =>
-                                checked ? [...prev, status] : prev.filter((s) => s !== status)
-                              );
-                            }}
-                          />
-                          <label htmlFor={`status-${status}`} className="text-xs cursor-pointer flex-1">
-                            {status}
-                          </label>
-                        </div>
-                      ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
+                  <SelectItem value="all">All</SelectItem>
+                  {(assetStatuses as string[])
+                    .filter((status: string) =>
+                      status.toLowerCase().includes(searchQueryStatus.toLowerCase())
+                    )
+                    .map((status: string) => (
+                      <SelectItem key={status} value={status} className="text-xs">
+                        {status}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium">Date Range (Assigned/Returned)</label>
+              <label className="text-xs font-medium">Allocation Date Range</label>
               <DatePickerWithRange date={dateRange} setDate={setDateRange} className="h-7" />
             </div>
           </div>
@@ -493,8 +429,6 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
         typeFilter={typeFilter}
         brandFilter={brandFilter}
         configFilter={configFilter}
-        locationFilter={locationFilter}
-        statusFilter={statusFilter}
         defaultRowsPerPage={10}
         viewType="dashboard"
       />

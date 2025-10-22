@@ -66,86 +66,95 @@ export const AssetSticker: React.FC<AssetStickerProps> = ({ asset }) => {
 
       console.log("AssetSticker: Rendering sticker with dimensions", { width: canvas.width, height: canvas.height });
 
-      // Label dimensions: 60 mm x 40 mm at 300 DPI
-      const dpi = 300;
+      // Label dimensions: 60 mm x 40 mm at 600 DPI
+      const dpi = 600;
       const mmToInches = 25.4;
-      const widthPx = Math.round((60 / mmToInches) * dpi); // 709 px
-      const heightPx = Math.round((40 / mmToInches) * dpi); // 472 px
+      const widthPx = (60 / mmToInches) * dpi; // 60 mm to inches * 600 DPI ≈ 1417 px
+      const heightPx = (40 / mmToInches) * dpi; // 40 mm to inches * 600 DPI ≈ 945 px
 
-      // Set canvas size to full resolution
-      canvas.width = widthPx;
-      canvas.height = heightPx;
+      // Set canvas size to full resolution (scaled by CSS transform)
+      canvas.width = Math.round(widthPx); // ~1417 px
+      canvas.height = Math.round(heightPx); // ~945 px
 
       // Clear canvas with white background
       ctx.fillStyle = "white";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Optimize for sharpness
+      // Adjust for high DPI
+      ctx.scale(dpi / 96, dpi / 96);
+
+      // Optimize for barcode printer
       ctx.imageSmoothingEnabled = false;
-      ctx.textRendering = "geometricPrecision";
+      ctx.textRendering = "optimizeLegibility";
 
-      // Adjusted dimensions to fit 300 DPI canvas
-      const headerFontSize = 40; // Reduced to fit within height
-      const barcodeHeight = 100; // Adjusted to fit within height
-      const serialFontSize = 30; // Reduced to fit
-      const assetIdFontSize = 30; // Reduced to fit
-      const spacing = 20; // Adjusted spacing
-      const totalContentHeight = headerFontSize + barcodeHeight + serialFontSize + assetIdFontSize + 5 * spacing;
+      // Content dimensions
+      const headerFontSize = 12;
+      const barcodeHeight = 25;
+      const serialFontSize = 10;
+      const assetIdFontSize = 10;
+      const spacing = 3;
+      const totalContentHeight = headerFontSize + barcodeHeight + serialFontSize + assetIdFontSize + 4 * spacing;
 
-      // Position content vertically with proper margins
-      const centerX = widthPx / 2;
-      let currentY = (heightPx - totalContentHeight) / 2;
-      if (currentY < spacing * 2) {
-        currentY = spacing * 2;
-        console.warn("AssetSticker: Content height exceeds canvas, adjusting to minimum offset with margins");
+      // Position content vertically
+      const centerX = (canvas.width / (dpi / 96)) / 2;
+      const availableHeight = canvas.height / (dpi / 96);
+      let currentY = (availableHeight - totalContentHeight) / 2;
+
+      if (currentY < 1) {
+        currentY = 1;
+        console.warn("AssetSticker: Content height exceeds canvas, adjusting to minimum offset");
       }
 
-      // Header with top margin
-      ctx.font = `bold ${headerFontSize}px Arial`;
+      // Header at top
+      ctx.font = `bold ${headerFontSize}px "Arial"`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillStyle = "#000000";
-      ctx.fillText("Asset Management", centerX, Math.round(currentY));
+      ctx.fillText("Asset Management", centerX, currentY);
       currentY += headerFontSize + spacing;
 
-      // Barcode and serial number
+      // Barcode and serial number in middle
       const barcodeCanvas = document.createElement("canvas");
       const serialNumber = asset.serial_number || "NO-SERIAL";
       try {
         console.log("AssetSticker: Generating barcode with serial:", serialNumber);
         (window as any).JsBarcode(barcodeCanvas, serialNumber, {
           format: "CODE128",
-          width: 5, // Adjusted for fit and clarity
+          width: 1.5,
           height: barcodeHeight,
           displayValue: false,
           margin: 0,
           background: "#FFFFFF",
           lineColor: "#000000",
-          quietZoneSize: 0.7, // Adjusted for fit
+          quietZone: 10,
         });
-
-        const barcodeWidth = Math.min(barcodeCanvas.width * 0.85, widthPx * 0.85);
-        const x = Math.round((widthPx - barcodeWidth) / 2);
-        ctx.drawImage(barcodeCanvas, x, Math.round(currentY), barcodeWidth, barcodeHeight);
-        currentY += barcodeHeight + spacing * 1.5;
-
-        ctx.font = `bold ${serialFontSize}px Arial`;
+        console.log("AssetSticker: Barcode canvas dimensions", {
+          width: barcodeCanvas.width,
+          height: barcodeCanvas.height,
+        });
+        const barcodeWidth = Math.min(barcodeCanvas.width, (canvas.width / (dpi / 96)) * 0.85);
+        const x = ((canvas.width / (dpi / 96)) - barcodeWidth) / 2;
+        ctx.drawImage(barcodeCanvas, x, currentY, barcodeWidth, barcodeHeight);
+        currentY += barcodeHeight + 5;
+        ctx.font = `bold ${serialFontSize}px "Arial"`;
         ctx.fillStyle = "#000000";
-        ctx.fillText(serialNumber || "N/A", centerX, Math.round(currentY));
+        ctx.fillText(serialNumber || "N/A", centerX, currentY);
         currentY += serialFontSize + spacing;
       } catch (e) {
         console.error("AssetSticker: Barcode generation failed", e);
-        ctx.font = `${serialFontSize}px Arial`;
+        ctx.font = `${serialFontSize}px "Arial"`;
         ctx.fillStyle = "#000000";
-        ctx.fillText("Barcode Error", centerX, Math.round(currentY));
+        ctx.fillText("Barcode Error", centerX, currentY);
         currentY += serialFontSize + spacing;
       }
 
-      // Asset ID with bottom margin
-      ctx.font = `bold ${assetIdFontSize}px Arial`;
+      // Asset ID at bottom
+      ctx.font = `bold ${assetIdFontSize}px "Arial"`;
       ctx.fillStyle = "#000000";
-      ctx.fillText(`${asset.asset_id || "N/A"}`, centerX, Math.round(currentY));
-      currentY += assetIdFontSize + spacing * 2;
+      ctx.fillText(`${asset.asset_id || "N/A"}`, centerX, currentY);
+
+      // Reset scale
+      ctx.scale(96 / dpi, 96 / dpi);
     };
 
     loadJsBarcode();
@@ -170,30 +179,30 @@ export const AssetSticker: React.FC<AssetStickerProps> = ({ asset }) => {
                   display: flex;
                   justify-content: center;
                   align-items: center;
-                  width: 60mm;
-                  height: 40mm;
+                  width: 2.36in;
+                  height: 1.57in;
                   background: white;
                 }
                 img {
-                  width: 60mm;
-                  height: 40mm;
+                  width: 2.36in;
+                  height: 1.57in;
                   image-rendering: pixelated;
                 }
                 @media print {
                   @page {
-                    size: 60mm 40mm;
+                    size: 2.36in 1.57in;
                     margin: 0;
                   }
                   body {
                     margin: 0;
                     padding: 0;
-                    width: 60mm;
-                    height: 40mm;
+                    width: 2.36in;
+                    height: 1.57in;
                     display: block;
                   }
                   img {
-                    width: 60mm !important;
-                    height: 40mm !important;
+                    width: 2.36in !important;
+                    height: 1.57in !important;
                     display: block;
                     image-rendering: pixelated;
                   }
@@ -234,23 +243,27 @@ export const AssetSticker: React.FC<AssetStickerProps> = ({ asset }) => {
   }
 
   return (
-    <div className="flex flex-col items-center w-full max-w-[700px] p-4">
+    <div
+      className="flex flex-col items-center w-full max-w-[1000px] p-2"
+      style={{ transform: "scale(1.1)", transformOrigin: "center top" }}
+    >
       <canvas
         ref={canvasRef}
-        className="border-2 border-gray-300 bg-white shadow-md rounded"
+        className="border-2 border-red-500 bg-gray-100"
         style={{
-          width: "227px", // 60mm at 96 DPI
-          height: "151px", // 40mm at 96 DPI
-          imageRendering: "auto",
+          width: "100%",
+          height: "auto",
+          maxWidth: "1000px",
+          maxHeight: "500px",
+          imageRendering: "pixelated",
         }}
       />
       <Button
         onClick={handlePrintSticker}
-        className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2"
+        className="mt-2 bg-white border border-gray-300 hover:bg-gray-100 transition-smooth p-2"
         aria-label="Print sticker"
       >
-        <Printer className="h-5 w-5 mr-2" />
-        Print Sticker
+        <Printer className="h-6 w-6 text-black" />
       </Button>
     </div>
   );
