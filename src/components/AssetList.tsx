@@ -286,46 +286,45 @@ export const AssetList = ({
     currentPage * rowsPerPage
   );
 
-  const handleAssignAsset = async () => {
-    if (selectedAsset && userName.trim() && employeeId.trim() && employeeEmail.trim()) {
-      try {
-        const selectedAssetSerial = assets.find((asset) => asset.id === selectedAsset.id)?.serial_number;
-        const existingAssetWithSerial = assets.find(
-          (asset) => asset.serial_number === selectedAssetSerial && asset.id !== selectedAsset.id
-        );
+const handleAssignAsset = async () => {
+  if (selectedAsset && userName.trim() && employeeId.trim() && employeeEmail.trim()) {
+    try {
+      const selectedAssetSerial = assets.find((asset) => asset.id === selectedAsset.id)?.serial_number;
+      const existingAssetWithSerial = assets.find(
+        (asset) => asset.serial_number === selectedAssetSerial && asset.id !== selectedAsset.id
+      );
 
-        if (existingAssetWithSerial) {
-          setError(`Serial Number ${selectedAssetSerial} is already associated with another asset.`);
-          return;
-        }
-
-        await onAssign(selectedAsset.id, userName.trim(), employeeId.trim());
-        const assetValueRecoveryNum = assetValueRecovery ? parseFloat(assetValueRecovery) : null;
-        await onUpdateAsset(selectedAsset.id, { 
-          status: "Assigned", 
-          received_by: null, 
-          return_date: null,
-          assigned_date: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          asset_value_recovery: null
-        });
-        setShowAssignDialog(false);
-        setUserName("");
-        setEmployeeId("");
-        setEmployeeEmail("");
-        setSelectedAsset(null);
-        setError(null);
-        setAssetValueRecovery("");
-        toast.success("Asset assigned successfully");
-      } catch (error) {
-        console.error("AssetList: Assign failed:", error);
-        setError("Failed to assign asset. Please try again.");
+      if (existingAssetWithSerial) {
+        setError(`Serial Number ${selectedAssetSerial} is already associated with another asset.`);
+        return;
       }
-    } else {
-      setError("Please enter Employee ID, Name, and Email");
-    }
-  };
 
+      await onAssign(selectedAsset.id, userName.trim(), employeeId.trim());
+      const assetValueRecoveryNum = assetValueRecovery ? parseFloat(assetValueRecovery) : null;
+      await onUpdateAsset(selectedAsset.id, { 
+        status: newStatus || "Assigned", // Use newStatus if set (e.g., "Sold"), otherwise default to "Assigned"
+        received_by: null, 
+        return_date: null,
+        assigned_date: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        asset_value_recovery: null
+      });
+      setShowAssignDialog(false);
+      setUserName("");
+      setEmployeeId("");
+      setEmployeeEmail("");
+      setSelectedAsset(null);
+      setError(null);
+      setAssetValueRecovery("");
+      toast.success("Asset assigned successfully");
+    } catch (error) {
+      console.error("AssetList: Assign failed:", error);
+      setError("Failed to assign asset. Please try again.");
+    }
+  } else {
+    setError("Please enter Employee ID, Name, and Email");
+  }
+};
   const handleUpdateStatus = async () => {
     if (selectedAsset && newStatus) {
       try {
