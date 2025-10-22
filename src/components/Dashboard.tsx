@@ -14,6 +14,7 @@ import AuditView from "./AuditView";
 import AmcsView from "./AmcsView";
 import SummaryView from "./SummaryView";
 import EmployeeDetails from "./EmployeeDetails";
+import AboutView from "./AboutView";
 import { PendingRequests } from "./PendingRequests";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -38,10 +39,9 @@ export const Dashboard = () => {
   const [currentUser, setCurrentUser] = useState<string>("unknown_user");
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState<'dashboard' | 'audit' | 'amcs' | 'summary' | 'employees'>('dashboard');
+  const [currentPage, setCurrentPage] = useState<'dashboard' | 'audit' | 'amcs' | 'summary' | 'employees' | 'about'>('dashboard');
   const [pendingCount, setPendingCount] = useState(0);
 
-  // Debug logging for component state
   useEffect(() => {
     console.log("Dashboard state:", { isAuthorized, userRole, currentUser, currentPage, isLoading, error, assetsLength: assets.length });
   }, [isAuthorized, userRole, currentUser, currentPage, isLoading, error, assets]);
@@ -215,9 +215,8 @@ export const Dashboard = () => {
           return null;
         }
 
-        // Construct date string to avoid timezone shift
         const normalizedDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        return normalizedDateStr; // Return as YYYY-MM-DD without timezone adjustment
+        return normalizedDateStr;
       }
     }
     console.warn(`Unsupported date format: ${dateStr}`);
@@ -248,6 +247,7 @@ export const Dashboard = () => {
         "location": "location",
         "employee id": "employee_id",
         "employee name": "assigned_to",
+        "asset value recovery": "asset_value_recovery",
       };
 
       const requiredFields = ["asset_id", "name", "type", "brand", "serial_number", "location"];
@@ -264,8 +264,6 @@ export const Dashboard = () => {
             }
           });
 
-          // Validate required fields only for new assets
-          const existingAsset = assets.find(a => a.serial_number === asset.serial_number);
           if (!existingAsset) {
             for (const field of requiredFields) {
               if (!asset[field] || asset[field].trim() === "") {
@@ -274,12 +272,10 @@ export const Dashboard = () => {
             }
           }
 
-          // Validate location
           if (asset.location && !locations.includes(asset.location)) {
             throw new Error(`Invalid location: ${asset.location}`);
           }
 
-          // Force parse and update warranty dates
           if (asset.warranty_start !== undefined) {
             const parsedStart = parseDate(asset.warranty_start);
             console.log(`Row ${index + 2}: Parsed warranty_start "${asset.warranty_start}" to ${parsedStart}`);
@@ -291,7 +287,6 @@ export const Dashboard = () => {
             asset.warranty_end = parsedEnd;
           }
 
-          // Set derived fields
           const isAssigned = asset.employee_id && asset.assigned_to;
           asset.status = isAssigned ? "Assigned" : existingAsset?.status || "Available";
           asset.assigned_date = isAssigned ? new Date().toISOString() : existingAsset?.assigned_date || null;
@@ -306,11 +301,20 @@ export const Dashboard = () => {
           asset.return_date = asset.return_date || existingAsset?.return_date || null;
           asset.remarks = asset.remarks || existingAsset?.remarks || null;
           asset.asset_check = asset.asset_check || existingAsset?.asset_check || "";
-          asset.asset_value_recovery = asset.asset_value_recovery || existingAsset?.asset_value_recovery || null;
+          if (asset.status === "Sold") {
+            if (!asset.asset_value_recovery) {
+              throw new Error("Asset value recovery is mandatory for Sold status");
+            }
+            asset.asset_value_recovery = parseFloat(asset.asset_value_recovery);
+            if (isNaN(asset.asset_value_recovery)) {
+              throw new Error("Invalid asset value recovery for Sold status");
+            }
+          } else {
+            asset.asset_value_recovery = null;
+          }
           asset.asset_condition = asset.asset_condition || existingAsset?.asset_condition || null;
 
           if (existingAsset) {
-            // Update existing asset with all provided fields
             console.log(`Updating existing asset with serial_number: ${asset.serial_number}`);
             const validationError = validateAssetUniqueness(asset.asset_id, asset.serial_number, existingAsset.id);
             if (validationError) {
@@ -326,7 +330,6 @@ export const Dashboard = () => {
               ...updates,
             });
 
-            // Log changes
             for (const [field, newValue] of Object.entries(updates)) {
               const oldValue = existingAsset[field as keyof typeof existingAsset];
               if (oldValue !== newValue) {
@@ -336,7 +339,6 @@ export const Dashboard = () => {
 
             toast.success(`Asset with serial ${asset.serial_number} updated successfully`);
           } else {
-            // Insert new asset
             console.log(`Inserting new asset with serial_number: ${asset.serial_number}`);
             const validationError = validateAssetUniqueness(asset.asset_id, asset.serial_number);
             if (validationError) {
@@ -451,8 +453,12 @@ export const Dashboard = () => {
         asset_check: "",
         provider: newAsset.provider,
         warranty_status: warrantyStatus,
-        asset_value_recovery: newAsset.recoveryAmount || null,
+        asset_value_recovery: newAsset.status === "Sold" ? parseFloat(newAsset.recoveryAmount) : null,
       };
+
+      if (asset.status === "Sold" && !asset.asset_value_recovery) {
+        throw new Error("Asset value recovery is mandatory for Sold status");
+      }
       
       console.log("Adding asset:", asset);
       const data = await createAssetMutation.mutateAsync(asset);
@@ -466,7 +472,7 @@ export const Dashboard = () => {
     }
   };
 
-  const handleAssignAsset = async (assetId: string, userName: string, employeeId: string) => {
+  const handleAssignAsset = async (assetId: string, userName: string, employeeId: string, status: string = "Assigned", assetValueRecovery?: string) => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin' && userRole !== 'Operator') {
       console.error("Unauthorized: Insufficient permissions for assign asset.");
       toast.error("Unauthorized: Insufficient permissions.");
@@ -479,6 +485,10 @@ export const Dashboard = () => {
         throw new Error("Asset not found.");
       }
       
+      if (status === "Sold" && !assetValueRecovery) {
+        throw new Error("Asset value recovery is mandatory for Sold status");
+      }
+
       if (userRole === 'Operator') {
         const { data: emp } = await supabase.from('employees').select('email').eq('employee_id', employeeId).single();
         
@@ -489,6 +499,8 @@ export const Dashboard = () => {
           assign_to: userName,
           employee_id: employeeId,
           employee_email: emp?.email || '',
+          return_status: status,
+          asset_value_recovery: status === "Sold" ? parseFloat(assetValueRecovery) : null,
         });
         
         toast.success("Assignment request sent for approval");
@@ -496,21 +508,34 @@ export const Dashboard = () => {
         return;
       }
 
-      await updateAssetMutation.mutateAsync({
+      const updates: any = {
         id: assetId,
         assigned_to: userName,
         employee_id: employeeId,
-        status: "Assigned",
+        status,
         assigned_date: new Date().toISOString(),
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
-      });
+      };
+
+      if (status === "Sold") {
+        const recoveryNum = parseFloat(assetValueRecovery);
+        if (isNaN(recoveryNum)) {
+          throw new Error("Invalid asset value recovery for Sold status");
+        }
+        updates.asset_value_recovery = recoveryNum;
+      } else {
+        updates.asset_value_recovery = null;
+      }
+
+      await updateAssetMutation.mutateAsync(updates);
       
       await logEditHistory(assetId, "assigned_to", asset?.assigned_to || null, userName);
       await logEditHistory(assetId, "employee_id", asset?.employee_id || null, employeeId);
-      await logEditHistory(assetId, "status", asset?.status || null, "Assigned");
+      await logEditHistory(assetId, "status", asset?.status || null, status);
+      await logEditHistory(assetId, "asset_value_recovery", asset?.asset_value_recovery?.toString() || null, updates.asset_value_recovery?.toString() || null);
       refetch();
-      toast.success("Asset assigned successfully");
+      toast.success(`Asset ${status === "Sold" ? "sold" : "assigned"} successfully`);
     } catch (error: any) {
       console.error("Error assigning asset:", error);
       toast.error(error.message || "Failed to assign asset.");
@@ -530,6 +555,10 @@ export const Dashboard = () => {
         throw new Error("Asset not found.");
       }
       
+      if (status === "Sold" && !assetValueRecovery) {
+        throw new Error("Asset value recovery is mandatory for Sold status");
+      }
+
       if (userRole === 'Operator') {
         await supabase.from('pending_requests').insert({
           request_type: 'return',
@@ -540,7 +569,7 @@ export const Dashboard = () => {
           return_status: status || 'Available',
           asset_condition: assetCondition,
           received_by: receivedBy || currentUser,
-          asset_value_recovery: assetValueRecovery,
+          asset_value_recovery: status === "Sold" ? parseFloat(assetValueRecovery) : null,
         });
         
         toast.success("Return request sent for approval");
@@ -558,14 +587,14 @@ export const Dashboard = () => {
       });
       
       if (assetValueRecovery !== undefined) {
-        const recoveryNum = assetValueRecovery ? parseFloat(assetValueRecovery) : null;
+        const recoveryNum = status === "Sold" ? parseFloat(assetValueRecovery) : null;
         await updateAssetMutation.mutateAsync({
           id: assetId,
           asset_value_recovery: recoveryNum,
           updated_at: new Date().toISOString(),
           updated_by: currentUser,
         });
-        await logEditHistory(assetId, "asset_value_recovery", asset?.asset_value_recovery?.toString() || null, assetValueRecovery?.toString());
+        await logEditHistory(assetId, "asset_value_recovery", asset?.asset_value_recovery?.toString() || null, recoveryNum?.toString());
       }
       
       await logEditHistory(assetId, "assigned_to", asset?.assigned_to || null, null);
@@ -629,8 +658,16 @@ export const Dashboard = () => {
         updates.warranty_status = warrantyStatus;
       }
 
-      if (updates.asset_value_recovery !== undefined) {
-        updates.asset_value_recovery = updates.asset_value_recovery ? parseFloat(updates.asset_value_recovery) : null;
+      if (updates.status === "Sold" && !updates.asset_value_recovery) {
+        throw new Error("Asset value recovery is mandatory for Sold status");
+      }
+      if (updates.status !== "Sold") {
+        updates.asset_value_recovery = null;
+      } else if (updates.asset_value_recovery !== undefined) {
+        updates.asset_value_recovery = parseFloat(updates.asset_value_recovery);
+        if (isNaN(updates.asset_value_recovery)) {
+          throw new Error("Invalid asset value recovery for Sold status");
+        }
       }
 
       if (!updates.updated_at) {
@@ -675,14 +712,25 @@ export const Dashboard = () => {
         throw new Error("Asset not found.");
       }
 
-      await updateAssetMutation.mutateAsync({
+      const updates: any = {
         id: assetId,
         status,
         updated_by: currentUser,
         updated_at: new Date().toISOString(),
-      });
+      };
+
+      if (status !== "Sold") {
+        updates.asset_value_recovery = null;
+      } else if (!asset.asset_value_recovery) {
+        throw new Error("Asset value recovery is mandatory for Sold status");
+      }
+
+      await updateAssetMutation.mutateAsync(updates);
 
       await logEditHistory(assetId, "status", asset?.status || null, status);
+      if (status !== "Sold" && asset.asset_value_recovery) {
+        await logEditHistory(assetId, "asset_value_recovery", asset.asset_value_recovery?.toString() || null, null);
+      }
       refetch();
       toast.success("Asset status updated");
     } catch (error: any) {
@@ -742,9 +790,9 @@ export const Dashboard = () => {
   };
 
   const handleDeleteAsset = async (assetId: string) => {
-    if (userRole !== 'Super Admin' && userRole !== 'Admin') {
-      console.error("Unauthorized: Only Super Admin and Admin can delete assets.");
-      toast.error("Unauthorized: Only Super Admin and Admin can delete assets.");
+    if (userRole !== 'Super Admin') {
+      console.error("Unauthorized: Only Super Admin can delete assets.");
+      toast.error("Unauthorized: Only Super Admin can delete assets.");
       return;
     }
 
@@ -799,7 +847,6 @@ export const Dashboard = () => {
     URL.revokeObjectURL(url);
   };
 
-  // Fallback UI for debugging
   if (!isAuthorized && !isLoading && !error) {
     console.log("Rendering access denied UI");
     return (
@@ -913,6 +960,8 @@ export const Dashboard = () => {
           );
         case 'employees':
           return <EmployeeDetails />;
+        case 'about':
+          return <AboutView />;
         default:
           console.warn("Invalid currentPage value:", currentPage);
           return <div className="text-center text-gray-500">Invalid page selected.</div>;
@@ -942,6 +991,7 @@ export const Dashboard = () => {
                   <DropdownMenuItem onClick={() => setCurrentPage('amcs')}>AMCs</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setCurrentPage('summary')}>Summary</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setCurrentPage('employees')}>Employee Details</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setCurrentPage('about')}>About</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
               <img src="/logo.png" alt="LEAD GROUP" className="h-10" onError={() => console.error("Logo image failed to load")} />

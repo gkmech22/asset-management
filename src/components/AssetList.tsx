@@ -107,7 +107,7 @@ export const AssetList = ({
 
   const allStatuses = ["Available", "Scrap/Damage", "Sale", "Sold", "Lost", "Emp Damage", "Courier Damage"];
 
-  const statusesRequiringRecovery = ["Lost", "Emp Damage", "Courier Damage"];
+  const statusesRequiringRecovery: string[] = []; // Empty, as asset_value_recovery is only for "Sold"
 
   const receivedBy = React.useMemo(() => {
     try {
@@ -286,53 +286,62 @@ export const AssetList = ({
     currentPage * rowsPerPage
   );
 
-const handleAssignAsset = async () => {
-  if (selectedAsset && userName.trim() && employeeId.trim() && employeeEmail.trim()) {
-    try {
-      const selectedAssetSerial = assets.find((asset) => asset.id === selectedAsset.id)?.serial_number;
-      const existingAssetWithSerial = assets.find(
-        (asset) => asset.serial_number === selectedAssetSerial && asset.id !== selectedAsset.id
-      );
-
-      if (existingAssetWithSerial) {
-        setError(`Serial Number ${selectedAssetSerial} is already associated with another asset.`);
+  const handleAssignAsset = async () => {
+    if (selectedAsset && userName.trim() && employeeId.trim() && employeeEmail.trim()) {
+      if (newStatus === "Sold" && !assetValueRecovery.trim()) {
+        setError("Asset Value Recovery is required for Sold status.");
         return;
       }
+      try {
+        const selectedAssetSerial = assets.find((asset) => asset.id === selectedAsset.id)?.serial_number;
+        const existingAssetWithSerial = assets.find(
+          (asset) => asset.serial_number === selectedAssetSerial && asset.id !== selectedAsset.id
+        );
 
-      await onAssign(selectedAsset.id, userName.trim(), employeeId.trim());
-      const assetValueRecoveryNum = assetValueRecovery ? parseFloat(assetValueRecovery) : null;
-      await onUpdateAsset(selectedAsset.id, { 
-        status: newStatus || "Assigned", // Use newStatus if set (e.g., "Sold"), otherwise default to "Assigned"
-        received_by: null, 
-        return_date: null,
-        assigned_date: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        asset_value_recovery: null
-      });
-      setShowAssignDialog(false);
-      setUserName("");
-      setEmployeeId("");
-      setEmployeeEmail("");
-      setSelectedAsset(null);
-      setError(null);
-      setAssetValueRecovery("");
-      toast.success("Asset assigned successfully");
-    } catch (error) {
-      console.error("AssetList: Assign failed:", error);
-      setError("Failed to assign asset. Please try again.");
+        if (existingAssetWithSerial) {
+          setError(`Serial Number ${selectedAssetSerial} is already associated with another asset.`);
+          return;
+        }
+
+        await onAssign(selectedAsset.id, userName.trim(), employeeId.trim());
+        const assetValueRecoveryNum = assetValueRecovery ? parseFloat(assetValueRecovery) : null;
+        await onUpdateAsset(selectedAsset.id, { 
+          status: newStatus || "Assigned",
+          received_by: null, 
+          return_date: null,
+          assigned_date: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          asset_value_recovery: newStatus === "Sold" ? assetValueRecoveryNum : null
+        });
+        setShowAssignDialog(false);
+        setUserName("");
+        setEmployeeId("");
+        setEmployeeEmail("");
+        setSelectedAsset(null);
+        setError(null);
+        setAssetValueRecovery("");
+        toast.success("Asset assigned successfully");
+      } catch (error) {
+        console.error("AssetList: Assign failed:", error);
+        setError("Failed to assign asset. Please try again.");
+      }
+    } else {
+      setError("Please enter Employee ID, Name, and Email");
     }
-  } else {
-    setError("Please enter Employee ID, Name, and Email");
-  }
-};
+  };
+
   const handleUpdateStatus = async () => {
     if (selectedAsset && newStatus) {
+      if (newStatus === "Sold" && !assetValueRecovery.trim()) {
+        setError("Asset Value Recovery is required for Sold status.");
+        return;
+      }
       try {
         if (selectedAsset.status === "Assigned" && newStatus !== "Assigned") {
           setShowStatusDialog(false);
           setShowReturnDialog(true);
           setReturnStatus(newStatus);
-          setAssetValueRecovery(statusesRequiringRecovery.includes(newStatus) ? (selectedAsset.asset_value_recovery?.toString() || "") : "");
+          setAssetValueRecovery(newStatus === "Sold" ? (selectedAsset.asset_value_recovery?.toString() || "") : "");
           return;
         }
 
@@ -351,7 +360,7 @@ const handleAssignAsset = async () => {
           updated_at: new Date().toISOString(),
           received_by: newStatus === "Assigned" || newStatus === "Sold" ? "" : receivedByInput || receivedBy,
           return_date: newStatus === "Assigned" || newStatus === "Sold" ? "" : new Date().toISOString(),
-          asset_value_recovery: statusesRequiringRecovery.includes(newStatus) ? assetValueRecoveryNum : null,
+          asset_value_recovery: newStatus === "Sold" ? assetValueRecoveryNum : null,
           assigned_to: (newStatus === "Assigned" || newStatus === "Sold") ? selectedAsset.assigned_to : null,
           employee_id: (newStatus === "Assigned" || newStatus === "Sold") ? selectedAsset.employee_id : null
         });
@@ -381,17 +390,21 @@ const handleAssignAsset = async () => {
             setError("Please enter Buyer ID, Name, and Email");
             return;
           }
+          if (!assetValueRecovery.trim()) {
+            setError("Asset Value Recovery is required for Sold status.");
+            return;
+          }
 
           await onAssign(selectedAsset.id, returnUserName.trim(), returnEmployeeId.trim());
           await onUpdateStatus(selectedAsset.id, "Sold");
-          const assetValueRecoveryNum = assetValueRecovery ? parseFloat(assetValueRecovery) : null;
+          const assetValueRecoveryNum = parseFloat(assetValueRecovery);
           await onUpdateAsset(selectedAsset.id, { 
             status: "Sold", 
             received_by: null, 
             return_date: null,
             assigned_date: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-            asset_value_recovery: null,
+            asset_value_recovery: assetValueRecoveryNum,
             location: returnLocation || selectedAsset.location,
             asset_condition: assetCondition || null,
             remarks: returnRemarks || null
@@ -404,7 +417,6 @@ const handleAssignAsset = async () => {
           
           const finalReceivedBy = receivedByInput.trim() || receivedBy;
           const finalLocation = returnStatus !== "Available" ? (returnLocation || selectedAsset.location) : selectedAsset.location;
-          const assetValueRecoveryNum = assetValueRecovery ? parseFloat(assetValueRecovery) : null;
           
           await onUnassign(
             selectedAsset.id, 
@@ -414,12 +426,12 @@ const handleAssignAsset = async () => {
             null,
             assetCondition || null,
             returnStatus,
-            assetValueRecoveryNum !== null ? assetValueRecoveryNum.toString() : null
+            null
           );
           
           await onUpdateAsset(selectedAsset.id, {
             updated_at: new Date().toISOString(),
-            asset_value_recovery: statusesRequiringRecovery.includes(returnStatus) ? assetValueRecoveryNum : null
+            asset_value_recovery: null
           });
         }
 
@@ -449,7 +461,7 @@ const handleAssignAsset = async () => {
         await onUpdateLocation(selectedAsset.id, newLocation);
         await onUpdateAsset(selectedAsset.id, {
           updated_at: new Date().toISOString(),
-          asset_value_recovery: statusesRequiringRecovery.includes(selectedAsset.status || '') ? selectedAsset.asset_value_recovery || null : null
+          asset_value_recovery: null // Clear for non-"Sold" statuses
         });
         setShowLocationDialog(false);
         setNewLocation("");
@@ -474,7 +486,7 @@ const handleAssignAsset = async () => {
           await onUpdateAssetCheck(asset.id, "Matched");
           await onUpdateAsset(asset.id, {
             updated_at: new Date().toISOString(),
-            asset_value_recovery: statusesRequiringRecovery.includes(asset.status || '') ? asset.asset_value_recovery || null : null
+            asset_value_recovery: null // Clear for non-"Sold" statuses
           });
           setCheckedAssets(prev => new Set([...prev, assetCheckId]));
           setAssetCheckId("");
@@ -495,7 +507,7 @@ const handleAssignAsset = async () => {
       await onUpdateAssetCheck(assetId, "");
       await onUpdateAsset(assetId, {
         updated_at: new Date().toISOString(),
-        asset_value_recovery: statusesRequiringRecovery.includes(assets.find(a => a.id === assetId)?.status || '') ? assets.find(a => a.id === assetId)?.asset_value_recovery || null : null
+        asset_value_recovery: null // Clear for non-"Sold" statuses
       });
       setCheckedAssets(prev => {
         const newSet = new Set(prev);
@@ -520,7 +532,7 @@ const handleAssignAsset = async () => {
             await onUpdateAssetCheck(asset.id, "");
             await onUpdateAsset(asset.id, {
               updated_at: new Date().toISOString(),
-              asset_value_recovery: statusesRequiringRecovery.includes(asset.status || '') ? asset.asset_value_recovery || null : null
+              asset_value_recovery: null // Clear for non-"Sold" statuses
             });
           }
         }
@@ -530,7 +542,7 @@ const handleAssignAsset = async () => {
             await onUpdateAssetCheck(asset.id, "");
             await onUpdateAsset(asset.id, {
               updated_at: new Date().toISOString(),
-              asset_value_recovery: statusesRequiringRecovery.includes(asset.status || '') ? (asset.asset_value_recovery || null) : null
+              asset_value_recovery: null // Clear for non-"Sold" statuses
             });
           }
         }
@@ -1031,7 +1043,7 @@ const handleAssignAsset = async () => {
                                     onClick={() => {
                                       setSelectedAsset(asset);
                                       setNewStatus(asset.status || '');
-                                      setAssetValueRecovery(statusesRequiringRecovery.includes(asset.status || '') ? (asset.asset_value_recovery?.toString() || "") : "");
+                                      setAssetValueRecovery(asset.status === "Sold" ? (asset.asset_value_recovery?.toString() || "") : "");
                                       setShowStatusDialog(true);
                                     }}
                                   >
@@ -1362,13 +1374,15 @@ const handleAssignAsset = async () => {
             </div>
             {newStatus === "Sold" && (
               <div className="space-y-2">
-                <Label htmlFor="assetValueRecovery">Asset Value Recovery</Label>
+                <Label htmlFor="assetValueRecovery">Asset Value Recovery *</Label>
                 <Input
                   id="assetValueRecovery"
+                  type="number"
                   value={assetValueRecovery}
                   onChange={(e) => setAssetValueRecovery(e.target.value)}
-                  placeholder="Enter asset value recovery (optional)"
+                  placeholder="Enter asset value recovery"
                   className="text-sm"
+                  required
                 />
               </div>
             )}
@@ -1395,13 +1409,13 @@ const handleAssignAsset = async () => {
                     await onUpdateStatus(selectedAsset!.id, newStatus);
                     await onUpdateAsset(selectedAsset!.id, {
                       updated_at: new Date().toISOString(),
-                      asset_value_recovery: statusesRequiringRecovery.includes(newStatus) ? assetValueRecovery || null : null
+                      asset_value_recovery: newStatus === "Sold" ? parseFloat(assetValueRecovery) : null
                     });
                     setNewStatus("");
                     setAssetValueRecovery("");
                   }
                 }}
-                disabled={!userName.trim() || !employeeId.trim() || !employeeEmail.trim() || !selectedAsset || isFetchingEmployee}
+                disabled={!userName.trim() || !employeeId.trim() || !employeeEmail.trim() || !selectedAsset || isFetchingEmployee || (newStatus === "Sold" && !assetValueRecovery.trim())}
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
               >
                 {newStatus === "Sold" ? "Assign and Mark as Sold" : "Assign"}
@@ -1434,15 +1448,17 @@ const handleAssignAsset = async () => {
                 </SelectContent>
               </Select>
             </div>
-            {statusesRequiringRecovery.includes(newStatus) && (
+            {newStatus === "Sold" && (
               <div className="space-y-2">
-                <Label htmlFor="assetValueRecovery">Asset Value Recovery</Label>
+                <Label htmlFor="assetValueRecovery">Asset Value Recovery *</Label>
                 <Input
                   id="assetValueRecovery"
+                  type="number"
                   value={assetValueRecovery}
                   onChange={(e) => setAssetValueRecovery(e.target.value)}
-                  placeholder="Enter asset value recovery (optional)"
+                  placeholder="Enter asset value recovery"
                   className="text-sm"
+                  required
                 />
               </div>
             )}
@@ -1461,7 +1477,7 @@ const handleAssignAsset = async () => {
               </Button>
               <Button
                 onClick={handleUpdateStatus}
-                disabled={!newStatus || !selectedAsset}
+                disabled={!newStatus || !selectedAsset || (newStatus === "Sold" && !assetValueRecovery.trim())}
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
               >
                 {selectedAsset?.status === "Assigned" && newStatus !== "Assigned" ? "Proceed to Return" : "Update"}
@@ -1496,18 +1512,6 @@ const handleAssignAsset = async () => {
                 </SelectContent>
               </Select>
             </div>
-            {selectedAsset && statusesRequiringRecovery.includes(selectedAsset.status || '') && (
-              <div className="space-y-2">
-                <Label htmlFor="assetValueRecovery">Asset Value Recovery</Label>
-                <Input
-                  id="assetValueRecovery"
-                  value={assetValueRecovery}
-                  onChange={(e) => setAssetValueRecovery(e.target.value)}
-                  placeholder="Enter asset value recovery (optional)"
-                  className="text-sm"
-                />
-              </div>
-            )}
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -1670,6 +1674,18 @@ const handleAssignAsset = async () => {
                     disabled={returnIsFetchingEmployee}
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="assetValueRecovery">Asset Value Recovery *</Label>
+                  <Input
+                    id="assetValueRecovery"
+                    type="number"
+                    value={assetValueRecovery}
+                    onChange={(e) => setAssetValueRecovery(e.target.value)}
+                    placeholder="Enter asset value recovery"
+                    className="text-sm"
+                    required
+                  />
+                </div>
               </>
             )}
             <div className="space-y-2">
@@ -1695,18 +1711,6 @@ const handleAssignAsset = async () => {
                 placeholder="Enter asset condition (optional)"
               />
             </div>
-            {returnStatus && statusesRequiringRecovery.includes(returnStatus) && (
-              <div className="space-y-2">
-                <Label htmlFor="assetValueRecovery">Asset Value Recovery</Label>
-                <Input
-                  id="assetValueRecovery"
-                  value={assetValueRecovery}
-                  onChange={(e) => setAssetValueRecovery(e.target.value)}
-                  placeholder="Enter asset value recovery (optional)"
-                  className="text-sm"
-                />
-              </div>
-            )}
             <div className="space-y-2">
               <Label>Received By</Label>
               <Input
@@ -1747,7 +1751,7 @@ const handleAssignAsset = async () => {
               </Button>
               <Button
                 onClick={handleReturnAsset}
-                disabled={!selectedAsset || !returnStatus || (returnStatus === "Sold" && (!returnUserName.trim() || !returnEmployeeId.trim() || !returnEmployeeEmail.trim()))}
+                disabled={!selectedAsset || !returnStatus || (returnStatus === "Sold" && (!returnUserName.trim() || !returnEmployeeId.trim() || !returnEmployeeEmail.trim() || !assetValueRecovery.trim()))}
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
               >
                 Return
@@ -1777,27 +1781,6 @@ const handleAssignAsset = async () => {
         if (!open) setSelectedAsset(null);
       }}>
         <DialogContent className="w-auto max-w-[90vw] max-h-[90vh] p-4 overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Asset Sticker</DialogTitle>
-          </DialogHeader>
-          {selectedAsset ? (
-            <>
-              <p className="text-sm text-muted-foreground">Generating sticker for {selectedAsset.asset_id}</p>
-              <AssetSticker asset={selectedAsset} />
-            </>
-          ) : (
-            <div className="text-center py-4 text-destructive">
-              No asset selected for sticker generation.
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showStickerDialog} onOpenChange={(open) => {
-        setShowStickerDialog(open);
-        if (!open) setSelectedAsset(null);
-      }}>
-        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Asset Sticker</DialogTitle>
           </DialogHeader>
