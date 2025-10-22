@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { UserPlus, UserMinus, Search, Calendar, MoreVertical, ScanBarcode, Tag, Mail } from "lucide-react";
+import { UserPlus, UserMinus, Search, Calendar, MoreVertical, ScanBarcode, Tag } from "lucide-react";
 import { EditAssetDialog } from "./EditAssetDialog";
 import { AssetDetailsDialog } from "./AssetDetailsDialog";
 import { AssetSticker } from "./AssetSticker";
@@ -17,7 +17,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { EnhancedBarcodeScanner } from "./EnhancedBarcodeScanner";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { generateDispatchEmailSubject, generateDispatchEmailBody, generateReceiveEmailSubject, generateReceiveEmailBody, openGmailCompose } from "@/lib/emailTemplates";
 
 interface AssetListProps {
   assets: Asset[];
@@ -29,11 +28,10 @@ interface AssetListProps {
   onUpdateAssetCheck: (assetId: string, assetCheck: string) => Promise<void>;
   onDelete: (assetId: string) => Promise<void>;
   dateRange?: { from?: Date; to?: Date };
-  typeFilter?: string[];
-  brandFilter?: string[];
-  configFilter?: string[];
-  locationFilter?: string[];
-  statusFilter?: string[];
+  typeFilter?: string;
+  brandFilter?: string;
+  configFilter?: string;
+  statusFilter?: string;
   defaultRowsPerPage?: number;
   viewType?: 'dashboard' | 'audit' | 'amcs' | 'summary';
 }
@@ -48,11 +46,10 @@ export const AssetList = ({
   onUpdateAssetCheck,
   onDelete,
   dateRange,
-  typeFilter = [],
-  brandFilter = [],
-  configFilter = [],
-  locationFilter = [],
-  statusFilter = [],
+  typeFilter = "all",
+  brandFilter = "all",
+  configFilter = "all",
+  statusFilter = "all",
   defaultRowsPerPage = 100,
   viewType = 'dashboard',
 }: AssetListProps) => {
@@ -95,7 +92,6 @@ export const AssetList = ({
   const [showAssignedToOnly, setShowAssignedToOnly] = React.useState(false);
   const [isFetchingEmployee, setIsFetchingEmployee] = React.useState(false);
   const [showAssetConditionDialog, setShowAssetConditionDialog] = React.useState(false);
-  const [showEmailDialog, setShowEmailDialog] = React.useState(false);
 
   const { data: history = [], isLoading: historyLoading } = useAssetHistory(selectedAsset?.id);
 
@@ -247,13 +243,12 @@ export const AssetList = ({
         (new Date(asset.assigned_date) >= new Date(dateRange.from) &&
          new Date(asset.assigned_date) <= new Date(dateRange.to));
 
-      const matchesType = typeFilter.length === 0 || typeFilter.some(t => t === asset.type);
-      const matchesBrand = brandFilter.length === 0 || brandFilter.some(b => b === asset.brand);
-      const matchesConfig = configFilter.length === 0 || configFilter.some(c => c === asset.configuration);
-      const matchesLocation = locationFilter.length === 0 || locationFilter.some(l => l === asset.location);
-      const matchesStatus = statusFilter.length === 0 || statusFilter.some(s => s === asset.status);
+      const matchesType = typeFilter === "all" || asset.type === typeFilter;
+      const matchesBrand = brandFilter === "all" || asset.brand === brandFilter;
+      const matchesConfig = configFilter === "all" || asset.configuration === configFilter;
+      const matchesStatus = statusFilter === "all" || asset.status === statusFilter;
 
-      return matchesSearch && matchesDateRange && matchesType && matchesBrand && matchesConfig && matchesLocation && matchesStatus;
+      return matchesSearch && matchesDateRange && matchesType && matchesBrand && matchesConfig && matchesStatus;
     }).sort((a, b) => {
       if (a.status === "Available" && b.status !== "Available") return -1;
       if (a.status !== "Available" && b.status === "Available") return 1;
@@ -261,7 +256,7 @@ export const AssetList = ({
       const dateB = b.assigned_date ? new Date(b.assigned_date).getTime() : 0;
       return dateB - dateA;
     });
-  }, [assets, searchTerm, dateRange, typeFilter, brandFilter, configFilter, locationFilter, statusFilter, filterCheckStatus, viewType]);
+  }, [assets, searchTerm, dateRange, typeFilter, brandFilter, configFilter, statusFilter, filterCheckStatus, viewType]);
 
   React.useEffect(() => {
     const newTotalPages = Math.ceil(filteredAssets.length / rowsPerPage);
@@ -513,7 +508,7 @@ export const AssetList = ({
 
   const handleAssetCheckClear = async () => {
     try {
-      const isFiltered = searchTerm || typeFilter.length > 0 || brandFilter.length > 0 || configFilter.length > 0 || locationFilter.length > 0 || statusFilter.length > 0 || filterCheckStatus;
+      const isFiltered = searchTerm || typeFilter !== "all" || brandFilter !== "all" || configFilter !== "all" || statusFilter !== "all" || filterCheckStatus;
 
       if (isFiltered) {
         for (const asset of filteredAssets) {
@@ -1001,17 +996,6 @@ export const AssetList = ({
                                 className="text-xs h-6 w-6 p-0"
                               >
                                 <Tag className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedAsset(asset);
-                                  setShowEmailDialog(true);
-                                }}
-                                className="text-xs h-6 w-6 p-0"
-                              >
-                                <Mail className="h-4 w-4" />
                               </Button>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -1773,24 +1757,24 @@ export const AssetList = ({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showStickerDialog} onOpenChange={(open) => {
-        setShowStickerDialog(open);
-        if (!open) setSelectedAsset(null);
-      }}>
-        <DialogContent className="w-auto max-w-[90vw] max-h-[90vh] p-4 overflow-y-auto">
+      <Dialog open={showStatusCheckDialog} onOpenChange={setShowStatusCheckDialog}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Asset Sticker</DialogTitle>
+            <DialogTitle>Asset Check Status</DialogTitle>
           </DialogHeader>
-          {selectedAsset ? (
-            <>
-              <p className="text-sm text-muted-foreground">Generating sticker for {selectedAsset.asset_id}</p>
-              <AssetSticker asset={selectedAsset} />
-            </>
-          ) : (
-            <div className="text-center py-4 text-destructive">
-              No asset selected for sticker generation.
+          <div className="space-y-4">
+            <p>
+              {unmatchedCount === 0 ? (
+                <span className="text-green-600">All assets are matched.</span>
+              ) : (
+                <span className="text-red-600">{unmatchedCount} Asset{unmatchedCount === 1 ? '' : 's'} not matched.</span>
+              )}
+            </p>
+            <div className="flex gap-2">
+              <Button onClick={handleGenerateReport} variant="outline" className="flex-1">Generate Report</Button>
+              <Button variant="outline" onClick={() => setShowStatusCheckDialog(false)} className="flex-1">Close</Button>
             </div>
-          )}
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -1826,49 +1810,6 @@ export const AssetList = ({
         onClose={() => setShowAssetCheckScanner(false)}
         onScan={(result) => setAssetCheckId(result)}
       />
-
-      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Send Email</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Asset: {selectedAsset?.name || "N/A"}</Label>
-              <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id || "N/A"}</p>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Button
-                onClick={() => {
-                  if (selectedAsset) {
-                    const subject = generateDispatchEmailSubject(selectedAsset);
-                    const body = generateDispatchEmailBody(selectedAsset);
-                    openGmailCompose(subject, body);
-                    setShowEmailDialog(false);
-                  }
-                }}
-                className="w-full"
-              >
-                Dispatch (Assign)
-              </Button>
-              <Button
-                onClick={() => {
-                  if (selectedAsset) {
-                    const subject = generateReceiveEmailSubject(selectedAsset);
-                    const body = generateReceiveEmailBody(selectedAsset);
-                    openGmailCompose(subject, body);
-                    setShowEmailDialog(false);
-                  }
-                }}
-                variant="outline"
-                className="w-full"
-              >
-                Receive (Received)
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <EditAssetDialog
         asset={selectedAsset}

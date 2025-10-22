@@ -190,18 +190,21 @@ export const Dashboard = () => {
 
     dateStr = dateStr.trim().toLowerCase();
     const formats = [
-      { pattern: /^(\d{4})-(\d{2})-(\d{2})$/, order: [1, 2, 3] }, // YYYY-MM-DD
-      { pattern: /^(\d{2})[-/](\d{2})[-/](\d{4})$/, order: [3, 2, 1] }, // DD-MM-YYYY or DD/MM/YYYY
-      { pattern: /^(\d{2})[-/](\d{2})[-/](\d{2})$/, order: [3, 2, 1], adjustYear: true }, // DD-MM-YY or DD/MM/YY
-      { pattern: /^(\d{1,2})[-/]([a-zA-Z]+)[-/](\d{4})$/, order: [3, 2, 1] }, // DD-MMM-YYYY or DD/MMM/YYYY
-      { pattern: /^(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})$/, order: [3, 2, 1] }, // DD MMM YYYY
-      { pattern: /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/, order: [1, 2, 3] }, // YYYY/MM/DD or YYYY-MM-DD
+      { pattern: /^(\d{4})-(\d{2})-(\d{2})$/, format: "YYYY-MM-DD" }, // YYYY-MM-DD
+      { pattern: /^(\d{2})[-/](\d{2})[-/](\d{4})$/, format: "DD-MM-YYYY" }, // DD-MM-YYYY or DD/MM/YYYY
+      { pattern: /^(\d{2})[-/](\d{2})[-/](\d{2})$/, format: "DD-MM-YY", adjustYear: true }, // DD-MM-YY or DD/MM/YY
+      { pattern: /^(\d{1,2})[-/]([a-zA-Z]+)[-/](\d{4})$/, format: "DD-MMM-YYYY" }, // DD-MMM-YYYY or DD/MMM/YYYY
+      { pattern: /^(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})$/, format: "DD MMM YYYY" }, // DD MMM YYYY
+      { pattern: /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/, format: "YYYY/MM/DD" }, // YYYY/MM/DD or YYYY-MM-DD
     ];
 
     for (const format of formats) {
       const match = dateStr.match(format.pattern);
       if (match) {
-        let [yearStr, monthStr, dayStr] = format.order.map(i => match[i]);
+        let [dayStr, monthStr, yearStr] = format.order
+          ? format.order.map(i => match[i])
+          : [match[1], match[2], match[3]];
+
         let year = parseInt(yearStr, 10);
         let month = monthNames[monthStr] || parseInt(monthStr, 10);
         let day = parseInt(dayStr, 10);
@@ -565,7 +568,7 @@ export const Dashboard = () => {
           updated_at: new Date().toISOString(),
           updated_by: currentUser,
         });
-        await logEditHistory(assetId, "asset_value_recovery", asset?.asset_value_recovery?.toString() || null, assetValueRecovery?.toString());
+        await logEditHistory(assetId, "asset_value_recovery", asset?.asset_value_recovery?.toString() || null, assetValueRecovery);
       }
       
       await logEditHistory(assetId, "assigned_to", asset?.assigned_to || null, null);

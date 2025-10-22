@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Filter, Search } from "lucide-react";
@@ -14,7 +15,7 @@ import { Asset } from "@/hooks/useAssets";
 interface AuditViewProps {
   assets: Asset[];
   onAssign: (assetId: string, userName: string, employeeId: string) => Promise<void>;
-  onUnassign: (assetId: string, remarks?: string, receivedBy?: string, location?: string, configuration?: string | null, assetCondition?: string | null, status?: string, assetValueRecovery?: string | null) => Promise<void>;
+  onUnassign: (assetId: string, remarks?: string, receivedBy?: string, location?: string) => Promise<void>;
   onUpdateAsset: (assetId: string, updatedAsset: any) => Promise<void>;
   onUpdateStatus: (assetId: string, status: string) => Promise<void>;
   onUpdateLocation: (assetId: string, location: string) => Promise<void>;
@@ -32,60 +33,58 @@ const AuditView = ({
   onUpdateLocation,
   onUpdateAssetCheck,
   onDelete,
-  userRole,
 }: AuditViewProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [typeFilter, setTypeFilter] = useState<string[]>([]);
-  const [brandFilter, setBrandFilter] = useState<string[]>([]);
-  const [configFilter, setConfigFilter] = useState<string[]>([]);
-  const [locationFilter, setLocationFilter] = useState<string[]>([]);
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [brandFilter, setBrandFilter] = useState<string>("all");
+  const [configFilter, setConfigFilter] = useState<string>("all");
+  const [locationFilter, setLocationFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [searchQueryType, setSearchQueryType] = useState("");
   const [searchQueryBrand, setSearchQueryBrand] = useState("");
   const [searchQueryConfig, setSearchQueryConfig] = useState("");
   const [searchQueryLocation, setSearchQueryLocation] = useState("");
-  const [searchQueryStatus, setSearchQueryStatus] = useState("");
 
   // Compute filtered assets based on all active filters except the one being computed
-  const getFilteredAssets = useMemo(() => (excludeFilter: string) => {
+  const getFilteredAssets = (excludeFilter: string) => {
     return assets.filter((asset) => {
-      const typeMatch = excludeFilter === "type" || typeFilter.length === 0 || typeFilter.includes(asset.type);
-      const brandMatch = excludeFilter === "brand" || brandFilter.length === 0 || brandFilter.includes(asset.brand);
-      const configMatch = excludeFilter === "config" || configFilter.length === 0 || (asset.configuration && configFilter.includes(asset.configuration));
-      const locationMatch = excludeFilter === "location" || locationFilter.length === 0 || locationFilter.includes(asset.location);
+      const typeMatch = excludeFilter === "type" || typeFilter === "all" || asset.type === typeFilter;
+      const brandMatch = excludeFilter === "brand" || brandFilter === "all" || asset.brand === brandFilter;
+      const configMatch = excludeFilter === "config" || configFilter === "all" || asset.configuration === configFilter;
+      const locationMatch = excludeFilter === "location" || locationFilter === "all" || asset.location === locationFilter;
       const statusMatch = excludeFilter === "status" || statusFilter.length === 0 || statusFilter.includes(asset.status);
       return typeMatch && brandMatch && configMatch && locationMatch && statusMatch && asset.status !== "Assigned";
     });
-  }, [assets, typeFilter, brandFilter, configFilter, locationFilter, statusFilter]);
+  };
 
-  // Compute options for each dropdown based on all assets
-  const assetTypes = useMemo(() => [...new Set(assets.map((asset) => asset.type).filter(Boolean))].sort(), [assets]);
-  const assetBrands = useMemo(() => [...new Set(assets.map((asset) => asset.brand).filter(Boolean))].sort(), [assets]);
-  const assetConfigurations = useMemo(() => [...new Set(assets.map((asset) => asset.configuration).filter(Boolean))].sort(), [assets]);
-  const assetLocations = useMemo(() => [...new Set(assets.map((asset) => asset.location).filter(Boolean))].sort(), [assets]);
-  const assetStatuses = useMemo(() => [...new Set(assets.map((asset) => asset.status).filter((status) => status !== "Assigned" && Boolean(status)))].sort(), [assets]);
+  // Compute options for each dropdown based on filtered assets
+  const assetTypes = [...new Set(getFilteredAssets("type").map((asset) => asset.type))];
+  const assetBrands = [...new Set(getFilteredAssets("brand").map((asset) => asset.brand))];
+  const assetConfigurations = [...new Set(getFilteredAssets("config").map((asset) => asset.configuration).filter(Boolean))];
+  const assetLocations = [...new Set(getFilteredAssets("location").map((asset) => asset.location))];
+  const assetStatuses = [...new Set(getFilteredAssets("status").map((asset) => asset.status))].filter(status => status !== "Assigned");
 
   // Assets filtered by all active filters for display
-  const filteredAssets = useMemo(() => assets.filter((asset) => {
-    const typeMatch = typeFilter.length === 0 || typeFilter.includes(asset.type);
-    const brandMatch = brandFilter.length === 0 || brandFilter.includes(asset.brand);
-    const configMatch = configFilter.length === 0 || (asset.configuration && configFilter.includes(asset.configuration));
-    const locationMatch = locationFilter.length === 0 || locationFilter.includes(asset.location);
+  const filteredAssets = assets.filter((asset) => {
+    const typeMatch = typeFilter === "all" || asset.type === typeFilter;
+    const brandMatch = brandFilter === "all" || asset.brand === brandFilter;
+    const configMatch = configFilter === "all" || asset.configuration === configFilter;
+    const locationMatch = locationFilter === "all" || asset.location === locationFilter;
     const statusMatch = statusFilter.length === 0 || statusFilter.includes(asset.status);
 
     const searchMatch = searchQuery.trim() === "" ||
       [
-        asset.asset_id || "",
-        asset.name || "",
-        asset.type || "",
-        asset.brand || "",
+        asset.asset_id,
+        asset.name,
+        asset.type,
+        asset.brand,
         asset.configuration || "",
-        asset.serial_number || "",
+        asset.serial_number,
         asset.employee_id || "",
         asset.assigned_to || "",
-        asset.status || "",
-        asset.location || "",
+        asset.status,
+        asset.location,
         asset.created_by || "",
         asset.updated_by || "",
         asset.received_by || "",
@@ -95,19 +94,14 @@ const AuditView = ({
         asset.asset_check || "",
       ].some((field) => field.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    const dateMatch = !dateRange?.from || !dateRange?.to ||
-      ((asset.assigned_date || asset.return_date) &&
-        new Date(asset.assigned_date || asset.return_date) >= new Date(dateRange.from) &&
-        new Date(asset.assigned_date || asset.return_date) <= new Date(dateRange.to));
-
-    return typeMatch && brandMatch && configMatch && locationMatch && statusMatch && searchMatch && dateMatch && asset.status !== "Assigned";
-  }), [assets, searchQuery, dateRange, typeFilter, brandFilter, configFilter, locationFilter, statusFilter]);
+    return typeMatch && brandMatch && configMatch && locationMatch && statusMatch && searchMatch && asset.status !== "Assigned";
+  });
 
   const clearFilters = () => {
-    setTypeFilter([]);
-    setBrandFilter([]);
-    setConfigFilter([]);
-    setLocationFilter([]);
+    setTypeFilter("all");
+    setBrandFilter("all");
+    setConfigFilter("all");
+    setLocationFilter("all");
     setStatusFilter([]);
     setDateRange(undefined);
     setSearchQuery("");
@@ -115,17 +109,18 @@ const AuditView = ({
     setSearchQueryBrand("");
     setSearchQueryConfig("");
     setSearchQueryLocation("");
-    setSearchQueryStatus("");
   };
 
   // Reset invalid filter selections
   useEffect(() => {
-    setTypeFilter(typeFilter.filter(t => assetTypes.includes(t)));
-    setBrandFilter(brandFilter.filter(b => assetBrands.includes(b)));
-    setConfigFilter(configFilter.filter(c => assetConfigurations.includes(c)));
-    setLocationFilter(locationFilter.filter(l => assetLocations.includes(l)));
-    setStatusFilter(statusFilter.filter(s => assetStatuses.includes(s)));
-  }, [assetTypes, assetBrands, assetConfigurations, assetLocations, assetStatuses]);
+    if (typeFilter !== "all" && !assetTypes.includes(typeFilter)) setTypeFilter("all");
+    if (brandFilter !== "all" && !assetBrands.includes(brandFilter)) setBrandFilter("all");
+    if (configFilter !== "all" && !assetConfigurations.includes(configFilter)) setConfigFilter("all");
+    if (locationFilter !== "all" && !assetLocations.includes(locationFilter)) setLocationFilter("all");
+    if (statusFilter.length > 0 && !statusFilter.every(status => assetStatuses.includes(status))) {
+      setStatusFilter(statusFilter.filter(status => assetStatuses.includes(status)));
+    }
+  }, [typeFilter, brandFilter, configFilter, locationFilter, statusFilter, assets]);
 
   return (
     <>
@@ -161,15 +156,13 @@ const AuditView = ({
         <CardContent className="pt-2">
           <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
             <div className="space-y-1">
-              <Label className="text-xs font-medium">Asset Type</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="text-xs h-7 w-full justify-between">
-                    {typeFilter.length === 0 ? "All Types" : `${typeFilter.length} selected`}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56 p-0">
-                  <div className="p-2 border-b">
+              <label className="text-xs font-medium">Asset Type</label>
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="text-xs h-7">
+                  <SelectValue placeholder="All Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="p-2">
                     <Input
                       type="text"
                       placeholder="Type to search..."
@@ -180,39 +173,27 @@ const AuditView = ({
                       className="w-full h-6 text-xs"
                     />
                   </div>
-                  <div className="max-h-64 overflow-y-auto p-2">
-                    {assetTypes
-                      .filter((type: string) => type.toLowerCase().includes(searchQueryType.toLowerCase()))
-                      .map((type: string) => (
-                        <div key={type} className="flex items-center space-x-2 py-1">
-                          <Checkbox
-                            id={`type-${type}`}
-                            checked={typeFilter.includes(type)}
-                            onCheckedChange={(checked) => {
-                              setTypeFilter((prev) =>
-                                checked ? [...prev, type] : prev.filter((t) => t !== type)
-                              );
-                            }}
-                          />
-                          <Label htmlFor={`type-${type}`} className="text-xs cursor-pointer flex-1">
-                            {type}
-                          </Label>
-                        </div>
-                      ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
+                  <SelectItem value="all">All Types</SelectItem>
+                  {assetTypes
+                    .filter((type) =>
+                      String(type).toLowerCase().includes(searchQueryType.toLowerCase())
+                    )
+                    .map((type) => (
+                      <SelectItem key={String(type)} value={String(type)} className="text-xs">
+                        {String(type)}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs font-medium">Brand</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="text-xs h-7 w-full justify-between">
-                    {brandFilter.length === 0 ? "All Brands" : `${brandFilter.length} selected`}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56 p-0">
-                  <div className="p-2 border-b">
+              <label className="text-xs font-medium">Brand</label>
+              <Select value={brandFilter} onValueChange={setBrandFilter}>
+                <SelectTrigger className="text-xs h-7">
+                  <SelectValue placeholder="All Brands" />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="p-2">
                     <Input
                       type="text"
                       placeholder="Type to search..."
@@ -223,39 +204,27 @@ const AuditView = ({
                       className="w-full h-6 text-xs"
                     />
                   </div>
-                  <div className="max-h-64 overflow-y-auto p-2">
-                    {assetBrands
-                      .filter((brand: string) => brand.toLowerCase().includes(searchQueryBrand.toLowerCase()))
-                      .map((brand: string) => (
-                        <div key={brand} className="flex items-center space-x-2 py-1">
-                          <Checkbox
-                            id={`brand-${brand}`}
-                            checked={brandFilter.includes(brand)}
-                            onCheckedChange={(checked) => {
-                              setBrandFilter((prev) =>
-                                checked ? [...prev, brand] : prev.filter((b) => b !== brand)
-                              );
-                            }}
-                          />
-                          <Label htmlFor={`brand-${brand}`} className="text-xs cursor-pointer flex-1">
-                            {brand}
-                          </Label>
-                        </div>
-                      ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
+                  <SelectItem value="all">All Brands</SelectItem>
+                  {assetBrands
+                    .filter((brand) =>
+                      String(brand).toLowerCase().includes(searchQueryBrand.toLowerCase())
+                    )
+                    .map((brand) => (
+                      <SelectItem key={String(brand)} value={String(brand)} className="text-xs">
+                        {String(brand)}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs font-medium">Configuration</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="text-xs h-7 w-full justify-between">
-                    {configFilter.length === 0 ? "All Configurations" : `${configFilter.length} selected`}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56 p-0">
-                  <div className="p-2 border-b">
+              <label className="text-xs font-medium">Configuration</label>
+              <Select value={configFilter} onValueChange={setConfigFilter}>
+                <SelectTrigger className="text-xs h-7">
+                  <SelectValue placeholder="All Configurations" />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="p-2">
                     <Input
                       type="text"
                       placeholder="Type to search..."
@@ -266,39 +235,27 @@ const AuditView = ({
                       className="w-full h-6 text-xs"
                     />
                   </div>
-                  <div className="max-h-64 overflow-y-auto p-2">
-                    {assetConfigurations
-                      .filter((config: string) => config.toLowerCase().includes(searchQueryConfig.toLowerCase()))
-                      .map((config: string) => (
-                        <div key={config} className="flex items-center space-x-2 py-1">
-                          <Checkbox
-                            id={`config-${config}`}
-                            checked={configFilter.includes(config)}
-                            onCheckedChange={(checked) => {
-                              setConfigFilter((prev) =>
-                                checked ? [...prev, config] : prev.filter((c) => c !== config)
-                              );
-                            }}
-                          />
-                          <Label htmlFor={`config-${config}`} className="text-xs cursor-pointer flex-1">
-                            {config}
-                          </Label>
-                        </div>
-                      ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
+                  <SelectItem value="all">All Configurations</SelectItem>
+                  {assetConfigurations
+                    .filter((config) =>
+                      String(config).toLowerCase().includes(searchQueryConfig.toLowerCase())
+                    )
+                    .map((config) => (
+                      <SelectItem key={String(config)} value={String(config)} className="text-xs">
+                        {String(config)}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs font-medium">Asset Location</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="text-xs h-7 w-full justify-between">
-                    {locationFilter.length === 0 ? "All Locations" : `${locationFilter.length} selected`}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56 p-0">
-                  <div className="p-2 border-b">
+              <label className="text-xs font-medium">Asset Location</label>
+              <Select value={locationFilter} onValueChange={setLocationFilter}>
+                <SelectTrigger className="text-xs h-7">
+                  <SelectValue placeholder="All Locations" />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="p-2">
                     <Input
                       type="text"
                       placeholder="Type to search..."
@@ -309,74 +266,53 @@ const AuditView = ({
                       className="w-full h-6 text-xs"
                     />
                   </div>
-                  <div className="max-h-64 overflow-y-auto p-2">
-                    {assetLocations
-                      .filter((location: string) => location.toLowerCase().includes(searchQueryLocation.toLowerCase()))
-                      .map((location: string) => (
-                        <div key={location} className="flex items-center space-x-2 py-1">
-                          <Checkbox
-                            id={`location-${location}`}
-                            checked={locationFilter.includes(location)}
-                            onCheckedChange={(checked) => {
-                              setLocationFilter((prev) =>
-                                checked ? [...prev, location] : prev.filter((l) => l !== location)
-                              );
-                            }}
-                          />
-                          <Label htmlFor={`location-${location}`} className="text-xs cursor-pointer flex-1">
-                            {location}
-                          </Label>
-                        </div>
-                      ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
+                  <SelectItem value="all">All Locations</SelectItem>
+                  {assetLocations
+                    .filter((location) =>
+                      String(location).toLowerCase().includes(searchQueryLocation.toLowerCase())
+                    )
+                    .map((location) => (
+                      <SelectItem key={String(location)} value={String(location)} className="text-xs">
+                        {String(location)}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs font-medium">Status</Label>
+              <label className="text-xs font-medium">Status</label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="text-xs h-7 w-full justify-between">
-                    {statusFilter.length === 0 ? "All Statuses" : `${statusFilter.length} selected`}
+                  <Button variant="outline" className="w-full justify-between text-xs h-7">
+                    {statusFilter.length ? `${statusFilter.length} selected` : "Select statuses"}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-56 p-0">
-                  <div className="p-2 border-b">
-                    <Input
-                      type="text"
-                      placeholder="Type to search..."
-                      value={searchQueryStatus}
-                      onChange={(e) => setSearchQueryStatus(e.target.value)}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      autoFocus
-                      className="w-full h-6 text-xs"
-                    />
-                  </div>
-                  <div className="max-h-64 overflow-y-auto p-2">
-                    {assetStatuses
-                      .filter((status: string) => status.toLowerCase().includes(searchQueryStatus.toLowerCase()))
-                      .map((status: string) => (
-                        <div key={status} className="flex items-center space-x-2 py-1">
-                          <Checkbox
-                            id={`status-${status}`}
-                            checked={statusFilter.includes(status)}
-                            onCheckedChange={(checked) => {
-                              setStatusFilter((prev) =>
-                                checked ? [...prev, status] : prev.filter((s) => s !== status)
-                              );
-                            }}
-                          />
-                          <Label htmlFor={`status-${status}`} className="text-xs cursor-pointer flex-1">
-                            {status}
-                          </Label>
-                        </div>
-                      ))}
+                <PopoverContent className="w-56">
+                  <div className="space-y-2">
+                    {assetStatuses.map((status) => (
+                      <div key={String(status)} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`status-${String(status)}`}
+                          checked={statusFilter.includes(String(status))}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setStatusFilter([...statusFilter, String(status)]);
+                            } else {
+                              setStatusFilter(statusFilter.filter((s) => s !== String(status)));
+                            }
+                          }}
+                        />
+                        <Label htmlFor={`status-${String(status)}`} className="text-sm">
+                          {String(status)}
+                        </Label>
+                      </div>
+                    ))}
                   </div>
                 </PopoverContent>
               </Popover>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs font-medium">Date Range (Assigned/Returned)</Label>
+              <label className="text-xs font-medium">Allocation Date Range</label>
               <DatePickerWithRange date={dateRange} setDate={setDateRange} className="h-7" />
             </div>
           </div>
@@ -396,8 +332,6 @@ const AuditView = ({
         typeFilter={typeFilter}
         brandFilter={brandFilter}
         configFilter={configFilter}
-        locationFilter={locationFilter}
-        statusFilter={statusFilter}
         defaultRowsPerPage={10}
         viewType="audit"
       />

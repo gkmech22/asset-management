@@ -26,7 +26,7 @@ export interface Asset {
   warranty_end: string | null;
   warranty_status: string | null;
   provider: string | null;
-  asset_value_recovery?: number | null;
+  asset_value_recovery?: string | null;
   asset_condition?: string | null;
   far_code?: string | null;
 }
