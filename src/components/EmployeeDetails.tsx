@@ -30,11 +30,38 @@ const EmployeeDetails = () => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [userRole, setUserRole] = useState<string | null>(null); // Added to track user role
   const rowsPerPage = 10;
 
   useEffect(() => {
     fetchEmployees();
+    fetchUserRole(); // Fetch the user's role
   }, []);
+
+  const fetchUserRole = async () => {
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user?.email) {
+        console.error('Authentication error or no user:', authError);
+        setUserRole(null);
+        return;
+      }
+      const { data, error } = await supabase
+        .from('users')
+        .select('role')
+        .eq('email', user.email)
+        .single();
+      if (error || !data) {
+        console.error('Error fetching user role:', error);
+        setUserRole(null);
+      } else {
+        setUserRole(data.role);
+      }
+    } catch (error) {
+      console.error('Unexpected error fetching user role:', error);
+      setUserRole(null);
+    }
+  };
 
   const fetchEmployees = async () => {
     try {
@@ -132,6 +159,11 @@ const EmployeeDetails = () => {
   };
 
   const handleDelete = async (employee_id: string) => {
+    if (userRole !== 'Super Admin') {
+      toast.error('Only Super Admin can delete employee details');
+      return;
+    }
+
     if (!confirm('Are you sure you want to delete this employee? This action cannot be undone.')) {
       return;
     }
@@ -477,7 +509,7 @@ const EmployeeDetails = () => {
                         variant="destructive"
                         size="sm"
                         onClick={() => handleDelete(emp.employee_id)}
-                        disabled={loading}
+                        disabled={loading || userRole !== 'Super Admin'} // Disable if not Super Admin
                       >
                         Delete
                       </Button>

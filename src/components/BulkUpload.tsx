@@ -7,13 +7,31 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Asset } from "@/hooks/useAssets"; // Ensure this import matches your project
 
-export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }) => {
+interface BulkUploadProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onUpload: (data: { headers: string[]; dataRows: string[][] }) => Promise<void>;
+  assets: Asset[]; // Assets prop to filter and download
+}
+
+export const BulkUpload = ({ open, onOpenChange, onUpload, assets }: BulkUploadProps) => {
   const [dragActive, setDragActive] = React.useState(false);
-  const [selectedFile, setSelectedFile] = React.useState(null);
-  const [error, setError] = React.useState(null);
-  const [uploadStatus, setUploadStatus] = React.useState('idle');
-  const fileInputRef = React.useRef(null);
+  const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  const [uploadStatus, setUploadStatus] = React.useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+  const [locationFilter, setLocationFilter] = React.useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = React.useState<string[]>([]);
+  const [searchQueryLocation, setSearchQueryLocation] = React.useState("");
+  const [searchQueryStatus, setSearchQueryStatus] = React.useState("");
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const locationRef = React.useRef<HTMLDivElement>(null);
+  const statusRef = React.useRef<HTMLDivElement>(null);
 
   const requiredHeaders = [
     "Asset ID",
@@ -24,21 +42,31 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }) => {
     "Location",
   ].map(header => header.toLowerCase());
 
-  const validateCsvHeaders = (headers) => {
+  // Compute unique locations and statuses from assets
+  const assetLocations = React.useMemo(
+    () => [...new Set(assets.map((asset) => asset.location).filter(Boolean))].sort(),
+    [assets]
+  );
+  const assetStatuses = React.useMemo(
+    () => [...new Set(assets.map((asset) => asset.status).filter(Boolean))].sort(),
+    [assets]
+  );
+
+  const validateCsvHeaders = (headers: string[]) => {
     if (!headers || headers.length === 0) return "CSV file is empty or malformed.";
     const normalizedHeaders = headers.map(header => header.trim().toLowerCase());
     const missingHeaders = requiredHeaders.filter(header => !normalizedHeaders.includes(header));
     return missingHeaders.length > 0 ? `Invalid CSV format: Missing required headers: ${missingHeaders.join(", ")}.` : null;
   };
 
-  const handleDrag = (e) => {
+  const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (e.type === "dragenter" || e.type === "dragover") setDragActive(true);
     else if (e.type === "dragleave") setDragActive(false);
   };
 
-  const handleDrop = async (e) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
@@ -46,12 +74,12 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }) => {
     if (files && files[0]) handleFile(files[0]);
   };
 
-  const handleFileSelect = (e) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files[0]) handleFile(files[0]);
   };
 
-  const handleFile = async (file) => {
+  const handleFile = async (file: File) => {
     if (
       file.type === 'text/csv' ||
       file.name.endsWith('.csv') ||
@@ -68,7 +96,7 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }) => {
     }
   };
 
-  const convertToCsvData = async (file) => {
+  const convertToCsvData = async (file: File) => {
     if (file.name.endsWith('.csv')) {
       const text = await file.text();
       const parseResult = Papa.parse(text, {
@@ -76,11 +104,11 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }) => {
         skipEmptyLines: true,
         transform: (value: any) => value?.trim() || "",
       });
-      const rows = parseResult.data;
+      const rows = parseResult.data as string[][];
       const errors = parseResult.errors;
       if (errors.length > 0) throw new Error(`CSV parsing errors: ${errors.map((e: any) => e.message).join(', ')}`);
-      const headers = (rows as any[])[0];
-      const dataRows = (rows as any[]).slice(1).filter((row: any) => row.length > 0 && row.some((cell: any) => cell != null && cell.toString().trim() !== ""));
+      const headers = rows[0];
+      const dataRows = rows.slice(1).filter(row => row.length > 0 && row.some(cell => cell != null && cell.toString().trim() !== ""));
       const headerError = validateCsvHeaders(headers);
       if (headerError) throw new Error(headerError);
       return { headers, dataRows };
@@ -152,7 +180,7 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }) => {
       ["AST-003", "iPad Pro", "Tablet", "Apple", "8GB RAM, 256GB SSD", "IPAD-2023-003", "FAR-002", "Best&Buy", "", "", "Bangalore Office", "EMP002", "Jane Smith"],
     ];
 
-    const escapeCsvValue = (value) => {
+    const escapeCsvValue = (value: any) => {
       if (value == null || value === '') return '';
       const stringValue = String(value);
       if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
@@ -179,21 +207,162 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }) => {
     toast.success("Template downloaded successfully!");
   };
 
+  const handleDownload = () => {
+    // Filter assets based on selected location and status
+    const filteredAssets = assets.filter((asset) => {
+      const locationMatch = locationFilter.length === 0 || locationFilter.includes(asset.location || "");
+      const statusMatch = statusFilter.length === 0 || statusFilter.includes(asset.status || "");
+      return locationMatch && statusMatch;
+    });
+
+    // Define headers for the CSV
+    const headers = [
+      "Asset ID",
+      "Asset Name",
+      "Asset Type",
+      "Brand",
+      "Configuration",
+      "Serial Number",
+      "FAR Code",
+      "Provider",
+      "Warranty Start",
+      "Warranty End",
+      "Location",
+      "Employee ID",
+      "Employee Name",
+      "Status",
+    ];
+
+    // Convert filtered assets to CSV rows
+    const rows = filteredAssets.map((asset) => [
+      asset.asset_id || "",
+      asset.name || "",
+      asset.type || "",
+      asset.brand || "",
+      asset.configuration || "",
+      asset.serial_number || "",
+      asset.far_code || "",
+      asset.provider || "",
+      asset.warranty_start || "",
+      asset.warranty_end || "",
+      asset.location || "",
+      asset.employee_id || "",
+      asset.assigned_to || "",
+      asset.status || "",
+    ]);
+
+    // Escape CSV values
+    const escapeCsvValue = (value: any) => {
+      if (value == null || value === '') return '';
+      const stringValue = String(value);
+      if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+      }
+      return stringValue;
+    };
+
+    // Create CSV content
+    const csvContent = [
+      headers.map(escapeCsvValue).join(","),
+      ...rows.map(row => row.map(escapeCsvValue).join(",")),
+    ].join("\n");
+
+    // Create and download the CSV file
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `asset_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success("Filtered data downloaded successfully!");
+  };
+
   const getUploadStatusIndicator = () => {
     switch (uploadStatus) {
       case 'uploading':
-        return <div className="flex items-center gap-2 text-blue-600"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div><span>Uploading...</span></div>;
+        return (
+          <div className="flex items-center gap-2 text-blue-600">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+            <span>Uploading...</span>
+          </div>
+        );
       case 'success':
-        return <div className="flex items-center gap-2 text-green-600"><CheckCircle className="h-4 w-4" /><span>Upload successful!</span></div>;
+        return (
+          <div className="flex items-center gap-2 text-green-600">
+            <CheckCircle className="h-4 w-4" />
+            <span>Upload successful!</span>
+          </div>
+        );
       case 'error':
-        return <div className="flex items-center gap-2 text-red-600"><AlertCircle className="h-4 w-4" /><span>Upload failed</span></div>;
+        return (
+          <div className="flex items-center gap-2 text-red-600">
+            <AlertCircle className="h-4 w-4" />
+            <span>Upload failed</span>
+          </div>
+        );
       default:
         return null;
     }
   };
 
+  // Handle keyboard navigation and mouse wheel
+  const handleKeyDown = (e: React.KeyboardEvent, ref: React.RefObject<HTMLDivElement>, options: string[], filterSetter: React.Dispatch<React.SetStateAction<string[]>>) => {
+    if (!ref.current) return;
+    const items = ref.current.querySelectorAll('[role="checkbox"]');
+    if (items.length === 0) return;
+
+    let focusedIndex = -1;
+    items.forEach((item, index) => {
+      if (document.activeElement === item || document.activeElement === item.querySelector('input')) {
+        focusedIndex = index;
+      }
+    });
+
+    switch (e.key) {
+      case "ArrowUp":
+        e.preventDefault();
+        focusedIndex = Math.max(0, focusedIndex - 1);
+        (items[focusedIndex] as HTMLElement)?.focus();
+        break;
+      case "ArrowDown":
+        e.preventDefault();
+        focusedIndex = Math.min(items.length - 1, focusedIndex + 1);
+        (items[focusedIndex] as HTMLElement)?.focus();
+        break;
+      case "Enter":
+        e.preventDefault();
+        if (focusedIndex >= 0) {
+          const option = options[focusedIndex];
+          filterSetter(prev => 
+            prev.includes(option) ? prev.filter(o => o !== option) : [...prev, option]
+          );
+        }
+        break;
+    }
+  };
+
+  const handleWheel = (e: React.WheelEvent, ref: React.RefObject<HTMLDivElement>) => {
+    if (ref.current) {
+      ref.current.scrollTop += e.deltaY;
+      e.preventDefault(); // Prevent parent scroll
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => { onOpenChange(isOpen); setError(null); setSelectedFile(null); setUploadStatus('idle'); }}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      onOpenChange(isOpen);
+      setError(null);
+      setSelectedFile(null);
+      setUploadStatus('idle');
+      setLocationFilter([]);
+      setStatusFilter([]);
+      setSearchQueryLocation("");
+      setSearchQueryStatus("");
+    }}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">
@@ -223,16 +392,124 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }) => {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-gray-500 mb-4">
-                Export your current asset inventory or download a template to get started with bulk uploads.
+                Export your current asset inventory or download a template to get started with bulk uploads. Apply filters to download specific assets.
               </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Asset Location</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="text-xs h-7 w-full justify-between">
+                        {locationFilter.length === 0 ? "All Locations" : `${locationFilter.length} selected`}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-56 p-0 z-50"
+                      style={{ overflowY: 'auto' }}
+                      key={locationFilter.length + searchQueryLocation.length}
+                    >
+                      <div className="p-2 border-b">
+                        <Input
+                          type="text"
+                          placeholder="Type to search..."
+                          value={searchQueryLocation}
+                          onChange={(e) => setSearchQueryLocation(e.target.value)}
+                          autoFocus
+                          className="w-full h-6 text-xs"
+                          onBlur={() => locationRef.current?.focus()}
+                        />
+                      </div>
+                      <div
+                        ref={locationRef}
+                        className="max-h-64 overflow-y-auto p-2"
+                        onWheel={(e) => handleWheel(e, locationRef)}
+                        onKeyDown={(e) => handleKeyDown(e, locationRef, assetLocations, setLocationFilter)}
+                        tabIndex={0} // Make div focusable
+                      >
+                        {assetLocations
+                          .filter((location: string) => location.toLowerCase().includes(searchQueryLocation.toLowerCase()))
+                          .map((location: string) => (
+                            <div key={location} className="flex items-center space-x-2 py-1">
+                              <Checkbox
+                                id={`location-${location}`}
+                                checked={locationFilter.includes(location)}
+                                onCheckedChange={(checked) => {
+                                  setLocationFilter((prev) =>
+                                    checked ? [...prev, location] : prev.filter((l) => l !== location)
+                                  );
+                                }}
+                              />
+                              <Label htmlFor={`location-${location}`} className="text-xs cursor-pointer flex-1">
+                                {location}
+                              </Label>
+                            </div>
+                          ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Status</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="text-xs h-7 w-full justify-between">
+                        {statusFilter.length === 0 ? "All Statuses" : `${statusFilter.length} selected`}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-56 p-0 z-50"
+                      style={{ overflowY: 'auto' }}
+                      key={statusFilter.length + searchQueryStatus.length}
+                    >
+                      <div className="p-2 border-b">
+                        <Input
+                          type="text"
+                          placeholder="Type to search..."
+                          value={searchQueryStatus}
+                          onChange={(e) => setSearchQueryStatus(e.target.value)}
+                          autoFocus
+                          className="w-full h-6 text-xs"
+                          onBlur={() => statusRef.current?.focus()}
+                        />
+                      </div>
+                      <div
+                        ref={statusRef}
+                        className="max-h-64 overflow-y-auto p-2"
+                        onWheel={(e) => handleWheel(e, statusRef)}
+                        onKeyDown={(e) => handleKeyDown(e, statusRef, assetStatuses, setStatusFilter)}
+                        tabIndex={0} // Make div focusable
+                      >
+                        {assetStatuses
+                          .filter((status: string) => status.toLowerCase().includes(searchQueryStatus.toLowerCase()))
+                          .map((status: string) => (
+                            <div key={status} className="flex items-center space-x-2 py-1">
+                              <Checkbox
+                                id={`status-${status}`}
+                                checked={statusFilter.includes(status)}
+                                onCheckedChange={(checked) => {
+                                  setStatusFilter((prev) =>
+                                    checked ? [...prev, status] : prev.filter((s) => s !== status)
+                                  );
+                                }}
+                              />
+                              <Label htmlFor={`status-${status}`} className="text-xs cursor-pointer flex-1">
+                                {status}
+                              </Label>
+                            </div>
+                          ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
               <div className="flex flex-col sm:flex-row gap-2">
                 <Button
-                  onClick={onDownload}
+                  onClick={handleDownload}
                   className="flex-1 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white transition-all"
                   disabled={uploadStatus === 'uploading'}
                 >
                   <Download className="h-4 w-4 mr-2" />
-                  Download Current Data
+                  Download Filtered Data
                 </Button>
                 <Button
                   variant="outline"
@@ -258,8 +535,8 @@ export const BulkUpload = ({ open, onOpenChange, onUpload, onDownload }) => {
                 <AlertCircle className="h-4 w-4 text-blue-600" />
                 <AlertDescription className="text-blue-800">
                   <div className="space-y-1">
-                    <p><strong>Required columns:</strong> Asset ID, Asset Name, Asset Type, Brand, Serial Number, Location</p>
-                    <p><strong>Optional columns:</strong> Configuration, FAR Code, Provider, Warranty Start, Warranty End, Employee ID, Employee Name</p>
+                    <p><strong>Required columns:</strong> Asset ID, Asset Name, Asset Type, Brand, Serial Number, FAR Code, Location</p>
+                    <p><strong>Optional columns:</strong> Configuration, Provider, Warranty Start, Warranty End, Employee ID, Employee Name</p>
                     <p className="text-sm"><em>Fields with commas (e.g., "16GB RAM, 512GB SSD") are automatically handled as single fields, even without quotes. For best results, enclose such fields in double quotes in the CSV.</em></p>
                     <p className="text-sm"><em>Status is set automatically: "Assigned" if both Employee Name and Employee ID are provided, otherwise "Available".</em></p>
                     <p className="text-sm text-amber-600"><strong>Update existing:</strong> If a serial number already exists, the row will update that asset with new details from the CSV.</p>

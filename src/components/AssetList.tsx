@@ -107,7 +107,7 @@ export const AssetList = ({
 
   const allStatuses = ["Available", "Scrap/Damage", "Sale", "Sold", "Lost", "Emp Damage", "Courier Damage"];
 
-  const statusesRequiringRecovery: string[] = []; // Empty, as asset_value_recovery is only for "Sold"
+  const statusesRequiringRecovery = ["Sold"];
 
   const receivedBy = React.useMemo(() => {
     try {
@@ -288,8 +288,13 @@ export const AssetList = ({
 
   const handleAssignAsset = async () => {
     if (selectedAsset && userName.trim() && employeeId.trim() && employeeEmail.trim()) {
-      if (newStatus === "Sold" && !assetValueRecovery.trim()) {
-        setError("Asset Value Recovery is required for Sold status.");
+      if (statusesRequiringRecovery.includes(newStatus) && !assetValueRecovery.trim()) {
+        setError("Asset Value Recovery is required for this status.");
+        return;
+      }
+      const assetValueRecoveryNum = assetValueRecovery ? parseFloat(assetValueRecovery) : null;
+      if (statusesRequiringRecovery.includes(newStatus) && (isNaN(assetValueRecoveryNum) || assetValueRecoveryNum <= 0)) {
+        setError("Invalid Asset Value Recovery amount.");
         return;
       }
       try {
@@ -304,14 +309,13 @@ export const AssetList = ({
         }
 
         await onAssign(selectedAsset.id, userName.trim(), employeeId.trim());
-        const assetValueRecoveryNum = assetValueRecovery ? parseFloat(assetValueRecovery) : null;
         await onUpdateAsset(selectedAsset.id, { 
           status: newStatus || "Assigned",
           received_by: null, 
           return_date: null,
           assigned_date: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          asset_value_recovery: newStatus === "Sold" ? assetValueRecoveryNum : null
+          asset_value_recovery: statusesRequiringRecovery.includes(newStatus) ? assetValueRecoveryNum : null
         });
         setShowAssignDialog(false);
         setUserName("");
@@ -319,6 +323,7 @@ export const AssetList = ({
         setEmployeeEmail("");
         setSelectedAsset(null);
         setError(null);
+        setNewStatus("");
         setAssetValueRecovery("");
         toast.success("Asset assigned successfully");
       } catch (error) {
@@ -332,16 +337,21 @@ export const AssetList = ({
 
   const handleUpdateStatus = async () => {
     if (selectedAsset && newStatus) {
-      if (newStatus === "Sold" && !assetValueRecovery.trim()) {
-        setError("Asset Value Recovery is required for Sold status.");
+      if (statusesRequiringRecovery.includes(newStatus) && !assetValueRecovery.trim()) {
+        setError("Asset Value Recovery is required for this status.");
+        return;
+      }
+      const assetValueRecoveryNum = assetValueRecovery ? parseFloat(assetValueRecovery) : null;
+      if (statusesRequiringRecovery.includes(newStatus) && (isNaN(assetValueRecoveryNum) || assetValueRecoveryNum <= 0)) {
+        setError("Invalid Asset Value Recovery amount.");
         return;
       }
       try {
         if (selectedAsset.status === "Assigned" && newStatus !== "Assigned") {
           setShowStatusDialog(false);
-          setShowReturnDialog(true);
           setReturnStatus(newStatus);
           setAssetValueRecovery(newStatus === "Sold" ? (selectedAsset.asset_value_recovery?.toString() || "") : "");
+          setShowReturnDialog(true);
           return;
         }
 
@@ -355,14 +365,13 @@ export const AssetList = ({
         }
 
         await onUpdateStatus(selectedAsset.id, newStatus);
-        const assetValueRecoveryNum = assetValueRecovery ? parseFloat(assetValueRecovery) : null;
         await onUpdateAsset(selectedAsset.id, { 
           updated_at: new Date().toISOString(),
-          received_by: newStatus === "Assigned" || newStatus === "Sold" ? "" : receivedByInput || receivedBy,
-          return_date: newStatus === "Assigned" || newStatus === "Sold" ? "" : new Date().toISOString(),
-          asset_value_recovery: newStatus === "Sold" ? assetValueRecoveryNum : null,
-          assigned_to: (newStatus === "Assigned" || newStatus === "Sold") ? selectedAsset.assigned_to : null,
-          employee_id: (newStatus === "Assigned" || newStatus === "Sold") ? selectedAsset.employee_id : null
+          received_by: newStatus === "Assigned" || statusesRequiringRecovery.includes(newStatus) ? "" : receivedByInput || receivedBy,
+          return_date: newStatus === "Assigned" || statusesRequiringRecovery.includes(newStatus) ? "" : new Date().toISOString(),
+          asset_value_recovery: statusesRequiringRecovery.includes(newStatus) ? assetValueRecoveryNum : null,
+          assigned_to: (newStatus === "Assigned" || statusesRequiringRecovery.includes(newStatus)) ? selectedAsset.assigned_to : null,
+          employee_id: (newStatus === "Assigned" || statusesRequiringRecovery.includes(newStatus)) ? selectedAsset.employee_id : null
         });
         setShowStatusDialog(false);
         setNewStatus("");
@@ -394,10 +403,14 @@ export const AssetList = ({
             setError("Asset Value Recovery is required for Sold status.");
             return;
           }
+          const assetValueRecoveryNum = parseFloat(assetValueRecovery);
+          if (isNaN(assetValueRecoveryNum) || assetValueRecoveryNum <= 0) {
+            setError("Invalid Asset Value Recovery amount.");
+            return;
+          }
 
           await onAssign(selectedAsset.id, returnUserName.trim(), returnEmployeeId.trim());
           await onUpdateStatus(selectedAsset.id, "Sold");
-          const assetValueRecoveryNum = parseFloat(assetValueRecovery);
           await onUpdateAsset(selectedAsset.id, { 
             status: "Sold", 
             received_by: null, 
@@ -414,6 +427,15 @@ export const AssetList = ({
             setError("Location is required for this status");
             return;
           }
+          if (statusesRequiringRecovery.includes(returnStatus) && !assetValueRecovery.trim()) {
+            setError("Asset Value Recovery is required for this status.");
+            return;
+          }
+          const assetValueRecoveryNum = assetValueRecovery ? parseFloat(assetValueRecovery) : null;
+          if (statusesRequiringRecovery.includes(returnStatus) && (isNaN(assetValueRecoveryNum) || assetValueRecoveryNum <= 0)) {
+            setError("Invalid Asset Value Recovery amount.");
+            return;
+          }
           
           const finalReceivedBy = receivedByInput.trim() || receivedBy;
           const finalLocation = returnStatus !== "Available" ? (returnLocation || selectedAsset.location) : selectedAsset.location;
@@ -426,12 +448,12 @@ export const AssetList = ({
             null,
             assetCondition || null,
             returnStatus,
-            null
+            statusesRequiringRecovery.includes(returnStatus) ? assetValueRecovery : null
           );
           
           await onUpdateAsset(selectedAsset.id, {
             updated_at: new Date().toISOString(),
-            asset_value_recovery: null
+            asset_value_recovery: statusesRequiringRecovery.includes(returnStatus) ? assetValueRecoveryNum : null
           });
         }
 
@@ -461,7 +483,7 @@ export const AssetList = ({
         await onUpdateLocation(selectedAsset.id, newLocation);
         await onUpdateAsset(selectedAsset.id, {
           updated_at: new Date().toISOString(),
-          asset_value_recovery: null // Clear for non-"Sold" statuses
+          asset_value_recovery: selectedAsset.status === "Sold" ? selectedAsset.asset_value_recovery : null
         });
         setShowLocationDialog(false);
         setNewLocation("");
@@ -486,7 +508,7 @@ export const AssetList = ({
           await onUpdateAssetCheck(asset.id, "Matched");
           await onUpdateAsset(asset.id, {
             updated_at: new Date().toISOString(),
-            asset_value_recovery: null // Clear for non-"Sold" statuses
+            asset_value_recovery: asset.status === "Sold" ? asset.asset_value_recovery : null
           });
           setCheckedAssets(prev => new Set([...prev, assetCheckId]));
           setAssetCheckId("");
@@ -504,10 +526,11 @@ export const AssetList = ({
 
   const handleAssetUncheck = async (assetId: string, assetCheckId: string) => {
     try {
+      const asset = assets.find((a) => a.id === assetId);
       await onUpdateAssetCheck(assetId, "");
       await onUpdateAsset(assetId, {
         updated_at: new Date().toISOString(),
-        asset_value_recovery: null // Clear for non-"Sold" statuses
+        asset_value_recovery: asset?.status === "Sold" ? asset.asset_value_recovery : null
       });
       setCheckedAssets(prev => {
         const newSet = new Set(prev);
@@ -532,7 +555,7 @@ export const AssetList = ({
             await onUpdateAssetCheck(asset.id, "");
             await onUpdateAsset(asset.id, {
               updated_at: new Date().toISOString(),
-              asset_value_recovery: null // Clear for non-"Sold" statuses
+              asset_value_recovery: asset.status === "Sold" ? asset.asset_value_recovery : null
             });
           }
         }
@@ -542,7 +565,7 @@ export const AssetList = ({
             await onUpdateAssetCheck(asset.id, "");
             await onUpdateAsset(asset.id, {
               updated_at: new Date().toISOString(),
-              asset_value_recovery: null // Clear for non-"Sold" statuses
+              asset_value_recovery: asset.status === "Sold" ? asset.asset_value_recovery : null
             });
           }
         }
@@ -945,16 +968,16 @@ export const AssetList = ({
                           <td className="p-2 text-xs">
                             <div className="text-left">
                               <div style={{ color: '#1E90FF' }}>
-                                {(asset.status === "Assigned" || asset.status === "Sold") ? (asset.assigned_to || "-") : "-"}
+                                {(asset.status === "Assigned" || statusesRequiringRecovery.includes(asset.status)) ? (asset.assigned_to || "-") : "-"}
                               </div>
                               <div className="text-muted-foreground">
-                                {(asset.status === "Assigned" || asset.status === "Sold") ? (asset.employee_id || "-") : "-"}
+                                {(asset.status === "Assigned" || statusesRequiringRecovery.includes(asset.status)) ? (asset.employee_id || "-") : "-"}
                               </div>
                             </div>
                           </td>
                           <td className="p-2 text-xs">
                             <div className="text-left">
-                              {(asset.status === "Assigned" || asset.status === "Sold") ? "-" : (asset.received_by || "-")}
+                              {(asset.status === "Assigned" || statusesRequiringRecovery.includes(asset.status)) ? "-" : (asset.received_by || "-")}
                             </div>
                           </td>
                           <td className="p-2 text-xs">
@@ -975,6 +998,8 @@ export const AssetList = ({
                                     setUserName("");
                                     setEmployeeId("");
                                     setEmployeeEmail("");
+                                    setNewStatus("");
+                                    setAssetValueRecovery("");
                                     setShowAssignDialog(true);
                                   }}
                                   className="bg-blue-500 hover:bg-blue-600 text-white text-xs h-6"
@@ -1312,7 +1337,7 @@ export const AssetList = ({
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{newStatus === "Sold" ? "Assign Asset for Sold" : "Assign Asset"}</DialogTitle>
+            <DialogTitle>{statusesRequiringRecovery.includes(newStatus) ? "Assign Asset for Sale" : "Assign Asset"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -1320,7 +1345,7 @@ export const AssetList = ({
               <p className="text-sm text-muted-foreground">{selectedAsset?.asset_id || "N/A"}</p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="employeeId">Employee ID *</Label>
+              <Label htmlFor="employeeId">{statusesRequiringRecovery.includes(newStatus) ? "Buyer ID *" : "Employee ID *"}</Label>
               <div className="flex gap-2">
                 <Input
                   id="employeeId"
@@ -1335,7 +1360,7 @@ export const AssetList = ({
                       fetchEmployee(employeeId.trim());
                     }
                   }}
-                  placeholder="Enter employee ID"
+                  placeholder={statusesRequiringRecovery.includes(newStatus) ? "Enter buyer ID" : "Enter employee ID"}
                   className="text-sm flex-1"
                   disabled={isFetchingEmployee}
                 />
@@ -1350,29 +1375,29 @@ export const AssetList = ({
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="userName">Employee Name *</Label>
+              <Label htmlFor="userName">{statusesRequiringRecovery.includes(newStatus) ? "Buyer Name *" : "Employee Name *"}</Label>
               <Input
                 id="userName"
                 value={userName}
                 onChange={(e) => setUserName(e.target.value)}
-                placeholder="Enter employee name"
+                placeholder={statusesRequiringRecovery.includes(newStatus) ? "Enter buyer name" : "Enter employee name"}
                 className="text-sm"
                 disabled={isFetchingEmployee}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="employeeEmail">Employee Email *</Label>
+              <Label htmlFor="employeeEmail">{statusesRequiringRecovery.includes(newStatus) ? "Buyer Email *" : "Employee Email *"}</Label>
               <Input
                 id="employeeEmail"
                 type="email"
                 value={employeeEmail}
                 onChange={(e) => setEmployeeEmail(e.target.value)}
-                placeholder="Enter employee email"
+                placeholder={statusesRequiringRecovery.includes(newStatus) ? "Enter buyer email" : "Enter employee email"}
                 className="text-sm"
                 disabled={isFetchingEmployee}
               />
             </div>
-            {newStatus === "Sold" && (
+            {statusesRequiringRecovery.includes(newStatus) && (
               <div className="space-y-2">
                 <Label htmlFor="assetValueRecovery">Asset Value Recovery *</Label>
                 <Input
@@ -1386,6 +1411,19 @@ export const AssetList = ({
                 />
               </div>
             )}
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select value={newStatus} onValueChange={setNewStatus}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allStatuses.map(status => (
+                    <SelectItem key={status} value={status}>{status}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -1403,22 +1441,11 @@ export const AssetList = ({
                 Cancel
               </Button>
               <Button
-                onClick={async () => {
-                  await handleAssignAsset();
-                  if (newStatus === "Sold") {
-                    await onUpdateStatus(selectedAsset!.id, newStatus);
-                    await onUpdateAsset(selectedAsset!.id, {
-                      updated_at: new Date().toISOString(),
-                      asset_value_recovery: newStatus === "Sold" ? parseFloat(assetValueRecovery) : null
-                    });
-                    setNewStatus("");
-                    setAssetValueRecovery("");
-                  }
-                }}
-                disabled={!userName.trim() || !employeeId.trim() || !employeeEmail.trim() || !selectedAsset || isFetchingEmployee || (newStatus === "Sold" && !assetValueRecovery.trim())}
+                onClick={handleAssignAsset}
+                disabled={!userName.trim() || !employeeId.trim() || !employeeEmail.trim() || !selectedAsset || isFetchingEmployee || (statusesRequiringRecovery.includes(newStatus) && !assetValueRecovery.trim())}
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
               >
-                {newStatus === "Sold" ? "Assign and Mark as Sold" : "Assign"}
+                {statusesRequiringRecovery.includes(newStatus) ? "Assign and Mark as Sold" : "Assign"}
               </Button>
             </div>
           </div>
@@ -1448,7 +1475,7 @@ export const AssetList = ({
                 </SelectContent>
               </Select>
             </div>
-            {newStatus === "Sold" && (
+            {statusesRequiringRecovery.includes(newStatus) && (
               <div className="space-y-2">
                 <Label htmlFor="assetValueRecovery">Asset Value Recovery *</Label>
                 <Input
@@ -1477,7 +1504,7 @@ export const AssetList = ({
               </Button>
               <Button
                 onClick={handleUpdateStatus}
-                disabled={!newStatus || !selectedAsset || (newStatus === "Sold" && !assetValueRecovery.trim())}
+                disabled={!newStatus || !selectedAsset || (statusesRequiringRecovery.includes(newStatus) && !assetValueRecovery.trim())}
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
               >
                 {selectedAsset?.status === "Assigned" && newStatus !== "Assigned" ? "Proceed to Return" : "Update"}
@@ -1575,6 +1602,7 @@ export const AssetList = ({
                       await onUpdateAsset(selectedAsset.id, {
                         asset_condition: assetCondition || null,
                         updated_at: new Date().toISOString(),
+                        asset_value_recovery: selectedAsset.status === "Sold" ? selectedAsset.asset_value_recovery : null
                       });
                       setShowAssetConditionDialog(false);
                       setAssetCondition("");

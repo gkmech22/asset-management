@@ -1059,6 +1059,7 @@ export const Dashboard = () => {
           onOpenChange={setShowBulkUpload}
           onUpload={handleBulkUpload}
           onDownload={handleDownload}
+          assets={assets}
         />
       )}
 
