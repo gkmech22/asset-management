@@ -84,6 +84,7 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
   const totalInventory = filteredAssets.filter((asset: any) => asset.status !== "Sold").length;
   const allocatedAssets = filteredAssets.filter((asset: any) => asset.status === "Assigned").length;
   const currentStock = filteredAssets.filter((asset: any) => asset.status === "Available").length;
+  const scrapDamageAssets = filteredAssets.filter((asset: any) => asset.status === "Scrap/Damage").length;
   const soldAssets = filteredAssets.filter((asset: any) => asset.status === "Sold").length;
   const totalAssetValueRecovery = filteredAssets
     .filter((asset: any) => asset.status === "Sold" && asset.asset_value_recovery)
@@ -204,18 +205,19 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
         </Card>
         <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Sold</CardTitle>
+            <CardTitle className="text-sm font-medium">Scrap/Damage</CardTitle>
             <Package className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent className="pt-2">
             <div className="flex justify-between items-start">
               <div className="text-center">
-                <div className="text-2xl font-bold text-destructive">{soldAssets}</div>
-                <p className="text-xs text-muted-foreground mt-2">Total asset value recovered: Rs.{totalAssetValueRecovery}</p>
+                <div className="text-2xl font-bold text-destructive">{scrapDamageAssets}</div>
+                <p className="text-xs text-muted-foreground mt-2">Out of service</p>
+                <p className="text-xs text-muted-foreground mt-2">Sold Count: {soldAssets}, Total asset value recovered: Rs.{totalAssetValueRecovery}</p>
               </div>
               <div className="w-1/2 text-right">
                 <div className="h-24 overflow-y-auto pr-2">
-                  {Object.entries(getAssetTypeCounts("Sold"))
+                  {Object.entries(getAssetTypeCounts("Scrap/Damage"))
                     .filter(([_, count]) => count > 0)
                     .map(([type, count]) => (
                       <div key={type} className="flex justify-end mb-1 text-xs">

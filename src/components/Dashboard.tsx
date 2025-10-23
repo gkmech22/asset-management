@@ -991,7 +991,6 @@ export const Dashboard = () => {
                   <DropdownMenuItem onClick={() => setCurrentPage('amcs')}>AMCs</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setCurrentPage('summary')}>Summary</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setCurrentPage('employees')}>Employee Details</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setCurrentPage('about')}>About</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
               <img src="/logo.png" alt="LEAD GROUP" className="h-10" onError={() => console.error("Logo image failed to load")} />
