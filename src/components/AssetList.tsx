@@ -1400,19 +1400,6 @@ export const AssetList = ({
                 />
               </div>
             )}
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={newStatus} onValueChange={setNewStatus}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allStatuses.map(status => (
-                    <SelectItem key={status} value={status}>{status}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
