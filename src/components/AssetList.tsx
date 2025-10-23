@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { UserPlus, UserMinus, Search, Calendar, MoreVertical, ScanBarcode, Tag, Mail } from "lucide-react";
+import { UserPlus, UserMinus, Search, Calendar, MoreVertical, ScanBarcode, Tag } from "lucide-react";
 import { EditAssetDialog } from "./EditAssetDialog";
 import { AssetDetailsDialog } from "./AssetDetailsDialog";
 import { AssetSticker } from "./AssetSticker";
@@ -1037,17 +1037,6 @@ export const AssetList = ({
                                 className="text-xs h-6 w-6 p-0"
                               >
                                 <Tag className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedAsset(asset);
-                                  setShowEmailDialog(true);
-                                }}
-                                className="text-xs h-6 w-6 p-0"
-                              >
-                                <Mail className="h-4 w-4" />
                               </Button>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
