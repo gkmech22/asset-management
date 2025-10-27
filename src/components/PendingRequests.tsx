@@ -89,7 +89,6 @@ export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
   const [editedReturnStatus, setEditedReturnStatus] = useState("");
   const [editedAssetCondition, setEditedAssetCondition] = useState("");
   const [editedRemarks, setEditedRemarks] = useState("");
-  const [editedConfiguration, setEditedConfiguration] = useState("");
   const [approverComments, setApproverComments] = useState("");
 
   // Fetch user role and requests on mount or user change
@@ -122,44 +121,44 @@ export const PendingRequests = ({ onRefresh }: { onRefresh?: () => void }) => {
     }
   };
 
-// Fetch pending requests from Supabase
-const fetchRequests = async () => {
-  setLoading(true);
-  try {
-    let query = supabase
-      .from('pending_requests')
-      .select(`
-        *,
-        assets (
-          asset_id,
-          name,
-          type,
-          brand,
-          serial_number,
-          configuration,
-          location,
-          status,
-          assigned_to,
-          employee_id
-        )
-      `)
-      .order('requested_at', { ascending: false });
+  // Fetch pending requests from Supabase
+  const fetchRequests = async () => {
+    setLoading(true);
+    try {
+      let query = supabase
+        .from('pending_requests')
+        .select(`
+          *,
+          assets (
+            asset_id,
+            name,
+            type,
+            brand,
+            serial_number,
+            configuration,
+            location,
+            status,
+            assigned_to,
+            employee_id
+          )
+        `)
+        .order('requested_at', { ascending: false });
 
-    // Filter requests for all roles except Super Admin and Admin
-    if (userRole && user?.email && userRole !== 'Super Admin' && userRole !== 'Admin') {
-      query = query.eq('requested_by', user.email);
+      // Filter requests for all roles except Super Admin and Admin
+      if (userRole && user?.email && userRole !== 'Super Admin' && userRole !== 'Admin') {
+        query = query.eq('requested_by', user.email);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      setRequests((data || []) as PendingRequest[]);
+    } catch (error: any) {
+      console.error('Error fetching requests:', error);
+      toast.error(`Failed to fetch requests: ${error.message || 'Unknown error'}`);
+    } finally {
+      setLoading(false);
     }
-
-    const { data, error } = await query;
-
-    if (error) throw error;
-    setRequests((data || []) as PendingRequest[]);
-  } catch (error: any) {
-    console.error('Error fetching requests:', error);
-    toast.error(`Failed to fetch requests: ${error.message || 'Unknown error'}`);
-  } finally {
-    setLoading(false);
-  };
   };
 
   // Handle viewing request details
@@ -172,7 +171,6 @@ const fetchRequests = async () => {
     setEditedReturnStatus(request.return_status || request.new_status || "");
     setEditedAssetCondition(request.asset_condition || "");
     setEditedRemarks(request.return_remarks || "");
-    setEditedConfiguration(request.configuration || "");
     setApproverComments("");
     setShowDetailsDialog(true);
   };
@@ -256,7 +254,6 @@ const fetchRequests = async () => {
             location: editMode ? editedReturnLocation : selectedRequest.return_location,
             asset_condition: editMode ? editedAssetCondition : selectedRequest.asset_condition,
             remarks: editMode ? editedRemarks : selectedRequest.return_remarks,
-            configuration: editMode ? editedConfiguration : selectedRequest.configuration,
             updated_by: user.email,
             updated_at: new Date().toISOString(),
           })
@@ -657,6 +654,10 @@ const fetchRequests = async () => {
                   <Label className="text-xs text-muted-foreground">Current Status</Label>
                   <div className="text-sm">{selectedRequest.assets?.status || 'N/A'}</div>
                 </div>
+                <div className="col-span-2">
+                  <Label className="text-xs text-muted-foreground">Configuration</Label>
+                  <div className="text-sm">{selectedRequest.assets?.configuration || 'N/A'}</div>
+                </div>
               </div>
 
               {selectedRequest.request_type === 'assign' && (
@@ -746,18 +747,6 @@ const fetchRequests = async () => {
                       />
                     ) : (
                       <div className="text-sm">{selectedRequest.assets?.employee_id || 'N/A'}</div>
-                    )}
-                  </div>
-                  <div>
-                    <Label>Configuration</Label>
-                    {editMode && isAdmin ? (
-                      <Input 
-                        value={editedConfiguration} 
-                        onChange={(e) => setEditedConfiguration(e.target.value)} 
-                        aria-label="Configuration"
-                      />
-                    ) : (
-                      <div className="text-sm">{selectedRequest.configuration || 'N/A'}</div>
                     )}
                   </div>
                   <div className="col-span-2">
