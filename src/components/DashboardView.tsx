@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Filter, Search, Package, Users } from "lucide-react";
@@ -8,8 +8,40 @@ import { DateRange } from "react-day-picker";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
+import { Asset } from "@/hooks/useAssets";
 
-const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateStatus, onUpdateLocation, onUpdateAssetCheck, onDelete, userRole }: any) => {
+interface DashboardViewProps {
+  assets: Asset[];
+  onAssign: (assetId: string, userName: string, employeeId: string) => Promise<void>;
+  onUnassign: (
+    assetId: string,
+    remarks?: string,
+    receivedBy?: string,
+    location?: string,
+    configuration?: string | null,
+    assetCondition?: string | null,
+    status?: string,
+    assetValueRecovery?: string | null
+  ) => Promise<void>;
+  onUpdateAsset: (assetId: string, updatedAsset: any) => Promise<void>;
+  onUpdateStatus: (assetId: string, status: string) => Promise<void>;
+  onUpdateLocation: (assetId: string, location: string) => Promise<void>;
+  onUpdateAssetCheck: (assetId: string, assetCheck: string) => Promise<void>;
+  onDelete: (assetId: string) => Promise<void>;
+  userRole: string | null;
+}
+
+const DashboardView = ({
+  assets,
+  onAssign,
+  onUnassign,
+  onUpdateAsset,
+  onUpdateStatus,
+  onUpdateLocation,
+  onUpdateAssetCheck,
+  onDelete,
+  userRole,
+}: DashboardViewProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
@@ -23,81 +55,136 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
   const [searchQueryLocation, setSearchQueryLocation] = useState("");
   const [searchQueryStatus, setSearchQueryStatus] = useState("");
 
-  // Compute filtered assets based on all active filters except the one being computed
-  const getFilteredAssets = (excludeFilter: string) => {
-    return assets.filter((asset: any) => {
-      const typeMatch = excludeFilter === "type" || typeFilter.length === 0 || typeFilter.includes(asset.type);
-      const brandMatch = excludeFilter === "brand" || brandFilter.length === 0 || brandFilter.includes(asset.brand);
-      const configMatch = excludeFilter === "config" || configFilter.length === 0 || (asset.configuration && configFilter.includes(asset.configuration));
-      const locationMatch = excludeFilter === "location" || locationFilter.length === 0 || locationFilter.includes(asset.location);
-      const statusMatch = excludeFilter === "status" || statusFilter.length === 0 || statusFilter.includes(asset.status);
-      return typeMatch && brandMatch && configMatch && locationMatch && statusMatch;
-    });
-  };
+  // Unified filter function
+  const getFilteredAssets = useMemo(
+    () => (excludeFilter: string) => {
+      return assets.filter((asset) => {
+        const typeMatch =
+          excludeFilter === "type" || typeFilter.length === 0 || typeFilter.includes(asset.type);
+        const brandMatch =
+          excludeFilter === "brand" || brandFilter.length === 0 || brandFilter.includes(asset.brand);
+        const configMatch =
+          excludeFilter === "config" ||
+          configFilter.length === 0 ||
+          (asset.configuration && configFilter.includes(asset.configuration));
+        const locationMatch =
+          excludeFilter === "location" ||
+          locationFilter.length === 0 ||
+          locationFilter.includes(asset.location);
+        const statusMatch =
+          excludeFilter === "status" ||
+          statusFilter.length === 0 ||
+          statusFilter.includes(asset.status);
 
-  // Compute options for each dropdown based on filtered assets
-  const assetTypes = [...new Set(assets.map((asset: any) => asset.type).filter(Boolean))].sort();
-  const assetBrands = [...new Set(assets.map((asset: any) => asset.brand).filter(Boolean))].sort();
-  const assetConfigurations = [...new Set(assets.map((asset: any) => asset.configuration).filter(Boolean))].sort();
-  const assetLocations = [...new Set(assets.map((asset: any) => asset.location).filter(Boolean))].sort();
-  const assetStatuses = [...new Set(assets.map((asset: any) => asset.status).filter(Boolean))].sort();
+        const searchMatch =
+          searchQuery.trim() === "" ||
+          [
+            asset.asset_id || "",
+            asset.name || "",
+            asset.type || "",
+            asset.brand || "",
+            asset.configuration || "",
+            asset.serial_number || "",
+            asset.employee_id || "",
+            asset.assigned_to || "",
+            asset.status || "",
+            asset.location || "",
+            asset.created_by || "",
+            asset.updated_by || "",
+            asset.received_by || "",
+            asset.remarks || "",
+            asset.warranty_start || "",
+            asset.warranty_end || "",
+            asset.amc_start || "",
+            asset.amc_end || "",
+            asset.asset_check || "",
+          ].some((field) => field.toLowerCase().includes(searchQuery.toLowerCase()));
 
-  // Assets filtered by all active filters for display
-  const filteredAssets = assets.filter((asset: any) => {
-    const typeMatch = typeFilter.length === 0 || typeFilter.includes(asset.type);
-    const brandMatch = brandFilter.length === 0 || brandFilter.includes(asset.brand);
-    const configMatch = configFilter.length === 0 || (asset.configuration && configFilter.includes(asset.configuration));
-    const locationMatch = locationFilter.length === 0 || locationFilter.includes(asset.location);
-    const statusMatch = statusFilter.length === 0 || statusFilter.includes(asset.status);
+        const dateMatch =
+          excludeFilter === "date" ||
+          !dateRange?.from ||
+          !dateRange?.to ||
+          (() => {
+            const from = new Date(dateRange.from);
+            const to = new Date(dateRange.to);
+            to.setHours(23, 59, 59, 999);
 
-    const searchMatch = searchQuery.trim() === "" ||
-      [
-        asset.asset_id || "",
-        asset.name || "",
-        asset.type || "",
-        asset.brand || "",
-        asset.configuration || "",
-        asset.serial_number || "",
-        asset.employee_id || "",
-        asset.assigned_to || "",
-        asset.status || "",
-        asset.location || "",
-        asset.created_by || "",
-        asset.updated_by || "",
-        asset.received_by || "",
-        asset.remarks || "",
-        asset.warranty_start || "",
-        asset.warranty_end || "",
-        asset.amc_start || "",
-        asset.amc_end || "",
-        asset.asset_check || "",
-      ].some((field) => field.toLowerCase().includes(searchQuery.toLowerCase()));
+            const assigned = asset.assigned_date ? new Date(asset.assigned_date) : null;
+            const returned = asset.return_date ? new Date(asset.return_date) : null;
 
-    const dateMatch = !dateRange?.from || !dateRange?.to ||
-      ((asset.assigned_date || asset.return_date) &&
-        new Date(asset.assigned_date || asset.return_date) >= new Date(dateRange.from) &&
-        new Date(asset.assigned_date || asset.return_date) <= new Date(dateRange.to));
+            return (
+              (assigned && assigned >= from && assigned <= to) ||
+              (returned && returned >= from && returned <= to)
+            );
+          })();
 
-    return typeMatch && brandMatch && configMatch && locationMatch && statusMatch && searchMatch && dateMatch;
-  });
+        return typeMatch && brandMatch && configMatch && locationMatch && statusMatch && searchMatch && dateMatch;
+      });
+    },
+    [
+      assets,
+      typeFilter,
+      brandFilter,
+      configFilter,
+      locationFilter,
+      statusFilter,
+      searchQuery,
+      dateRange,
+    ]
+  );
 
-  const totalInventory = filteredAssets.filter((asset: any) => asset.status !== "Sold").length;
-  const allocatedAssets = filteredAssets.filter((asset: any) => asset.status === "Assigned").length;
-  const currentStock = filteredAssets.filter((asset: any) => asset.status === "Available").length;
-  const scrapDamageAssets = filteredAssets.filter((asset: any) => asset.status === "Scrap/Damage").length;
-  const saleAssets = filteredAssets.filter((asset: any) => asset.status === "Sale").length;  
-  const soldAssets = filteredAssets.filter((asset: any) => asset.status === "Sold").length;
-  const lostAssets = filteredAssets.filter((asset: any) => asset.status === "Lost").length;
-  const empDamageAssets = filteredAssets.filter((asset: any) => asset.status === "Emp Damage").length;
-  const courierDamageAssets = filteredAssets.filter((asset: any) => asset.status === "Courier Damage").length;
+  // Compute filtered assets for dropdowns
+  const filteredForTypes = useMemo(() => getFilteredAssets("type"), [getFilteredAssets]);
+  const filteredForBrands = useMemo(() => getFilteredAssets("brand"), [getFilteredAssets]);
+  const filteredForConfigs = useMemo(() => getFilteredAssets("config"), [getFilteredAssets]);
+  const filteredForLocations = useMemo(() => getFilteredAssets("location"), [getFilteredAssets]);
+  const filteredForStatuses = useMemo(() => getFilteredAssets("status"), [getFilteredAssets]);
+
+  // Dropdown options
+  const assetTypes = useMemo(
+    () => [...new Set(filteredForTypes.map((a) => a.type).filter(Boolean))].sort(),
+    [filteredForTypes]
+  );
+  const assetBrands = useMemo(
+    () => [...new Set(filteredForBrands.map((a) => a.brand).filter(Boolean))].sort(),
+    [filteredForBrands]
+  );
+  const assetConfigurations = useMemo(
+    () => [...new Set(filteredForConfigs.map((a) => a.configuration).filter(Boolean))].sort(),
+    [filteredForConfigs]
+  );
+  const assetLocations = useMemo(
+    () => [...new Set(filteredForLocations.map((a) => a.location).filter(Boolean))].sort(),
+    [filteredForLocations]
+  );
+  const assetStatuses = useMemo(
+    () => [...new Set(filteredForStatuses.map((a) => a.status).filter(Boolean))].sort(),
+    [filteredForStatuses]
+  );
+
+  // Final filtered assets for display and stats
+  const filteredAssets = useMemo(() => getFilteredAssets(""), [getFilteredAssets]);
+
+  // Dashboard stats
+  const totalInventory = filteredAssets.filter((a) => a.status !== "Sold").length;
+  const allocatedAssets = filteredAssets.filter((a) => a.status === "Assigned").length;
+  const currentStock = filteredAssets.filter((a) => a.status === "Available").length;
+  const scrapDamageAssets = filteredAssets.filter((a) => a.status === "Scrap/Damage").length;
+  const saleAssets = filteredAssets.filter((a) => a.status === "Sale").length;
+  const soldAssets = filteredAssets.filter((a) => a.status === "Sold").length;
+  const lostAssets = filteredAssets.filter((a) => a.status === "Lost").length;
+  const empDamageAssets = filteredAssets.filter((a) => a.status === "Emp Damage").length;
+  const courierDamageAssets = filteredAssets.filter((a) => a.status === "Courier Damage").length;
+
   const totalAssetValueRecovery = filteredAssets
-    .filter((asset: any) => asset.status === "Sold" && asset.asset_value_recovery)
-    .reduce((sum: number, asset: any) => sum + parseFloat(asset.asset_value_recovery), 0)
+    .filter((a) => a.status === "Sold" && a.asset_value_recovery)
+    .reduce((sum, a) => sum + parseFloat(a.asset_value_recovery || "0"), 0)
     .toFixed(2);
 
   const getAssetTypeCounts = (status: string) => {
+    const filtered = status === "all" ? filteredAssets : filteredAssets.filter((a) => a.status === status);
     return assetTypes.reduce((acc, type) => {
-      acc[type] = filteredAssets.filter((asset: any) => asset.type === type && (status === "all" || asset.status === status)).length;
+      acc[type] = filtered.filter((a) => a.type === type).length;
       return acc;
     }, {} as Record<string, number>);
   };
@@ -117,18 +204,20 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
     setSearchQueryStatus("");
   };
 
-  // Reset invalid filter selections
+  // Reset invalid selections
   useEffect(() => {
-    setTypeFilter(typeFilter.filter(t => assetTypes.includes(t)));
-    setBrandFilter(brandFilter.filter(b => assetBrands.includes(b)));
-    setConfigFilter(configFilter.filter(c => assetConfigurations.includes(c)));
-    setLocationFilter(locationFilter.filter(l => assetLocations.includes(l)));
-    setStatusFilter(statusFilter.filter(s => assetStatuses.includes(s)));
-  }, [assets]);
+    setTypeFilter((prev) => prev.filter((t) => assetTypes.includes(t)));
+    setBrandFilter((prev) => prev.filter((b) => assetBrands.includes(b)));
+    setConfigFilter((prev) => prev.filter((c) => assetConfigurations.includes(c)));
+    setLocationFilter((prev) => prev.filter((l) => assetLocations.includes(l)));
+    setStatusFilter((prev) => prev.filter((s) => assetStatuses.includes(s)));
+  }, [assetTypes, assetBrands, assetConfigurations, assetLocations, assetStatuses]);
 
   return (
     <>
+      {/* Dashboard Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        {/* Total Inventory */}
         <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Inventory</CardTitle>
@@ -155,6 +244,8 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
             </div>
           </CardContent>
         </Card>
+
+        {/* Allocated */}
         <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Allocated</CardTitle>
@@ -181,74 +272,82 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
             </div>
           </CardContent>
         </Card>
+
+        {/* Available Stock */}
         <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
-  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-    <CardTitle className="text-sm font-medium">Available Stock</CardTitle>
-    <Package className="h-4 w-4 text-success" />
-  </CardHeader>
-  <CardContent className="pt-2">
-    <div className="flex justify-between items-start">
-      <div className="text-center"> {/* Keep text-center for total count and Ready for allocation */}
-        <div className="text-2xl font-bold text-success">{currentStock}</div>
-        <p className="text-xs text-muted-foreground mt-2">Ready for allocation</p>
-        <div className="text-xs text-muted-foreground mt-2 text-left flex flex-wrap gap-2"> {/* text-left for inline p elements */}
-          <p>Sale: {saleAssets || 0}</p>
-        </div>
-      </div>
-      <div className="w-1/2 text-right">
-        <div className="h-24 overflow-y-auto pr-2">
-          {Object.entries(getAssetTypeCounts("Available"))
-            .filter(([_, count]) => count > 0)
-            .map(([type, count]) => (
-              <div key={type} className="flex justify-end mb-1 text-xs">
-                <span className="mr-2">{type}:</span>
-                <span className="w-6 text-right">{count}</span>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Available Stock</CardTitle>
+            <Package className="h-4 w-4 text-success" />
+          </CardHeader>
+          <CardContent className="pt-2">
+            <div className="flex justify-between items-start">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-success">{currentStock}</div>
+                <p className="text-xs text-muted-foreground mt-2">Ready for allocation</p>
+                <div className="text-xs text-muted-foreground mt-2 text-left flex flex-wrap gap-2">
+                  <p>Sale: {saleAssets}</p>
+                </div>
               </div>
-            ))}
-        </div>
-      </div>
-    </div>
-  </CardContent>
-</Card>
+              <div className="w-1/2 text-right">
+                <div className="h-24 overflow-y-auto pr-2">
+                  {Object.entries(getAssetTypeCounts("Available"))
+                    .filter(([_, count]) => count > 0)
+                    .map(([type, count]) => (
+                      <div key={type} className="flex justify-end mb-1 text-xs">
+                        <span className="mr-2">{type}:</span>
+                        <span className="w-6 text-right">{count}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Scrap/Damage */}
         <Card className="shadow-card hover:shadow-elegant transition-smooth cursor-pointer bg-gradient-card">
-  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-    <CardTitle className="text-sm font-medium">Scrap/Damage</CardTitle>
-    <Package className="h-4 w-4 text-destructive" />
-  </CardHeader>
-  <CardContent className="pt-2">
-    <div className="flex justify-between items-start">
-      <div className="text-center">
-        <div className="text-2xl font-bold text-destructive">
-          {scrapDamageAssets + empDamageAssets + courierDamageAssets}
-        </div>
-        <p className="text-xs text-muted-foreground mt-2">Out of service</p>
-        <div className="text-xs text-muted-foreground mt-2 text-left flex flex-wrap gap-2">
-        </div>
-        <div className="text-xs text-muted-foreground mt-2 text-left flex flex-wrap gap-2">
-          <p>Lost: {lostAssets}</p>
-          <p>Sold: {soldAssets}</p>
-          <p>TAV Recovered: Rs.{totalAssetValueRecovery}</p>
-        </div>
-      </div>
-      <div className="w-1/2 text-right">
-        <div className="h-24 overflow-y-auto pr-2">
-          {Object.entries(
-            getAssetTypeCounts("Scrap/Damage")
-          )
-            .filter(([_, count]) => count > 0)
-            .map(([type, count]) => (
-              <div key={type} className="flex justify-end mb-1 text-xs">
-                <span className="mr-2">{type}:</span>
-                <span className="w-6 text-right">{count}</span>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Scrap/Damage</CardTitle>
+            <Package className="h-4 w-4 text-destructive" />
+          </CardHeader>
+          <CardContent className="pt-2">
+            <div className="flex justify-between items-start">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-destructive">
+                  {scrapDamageAssets + empDamageAssets + courierDamageAssets}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">Out of service</p>
+                <div className="text-xs text-muted-foreground mt-2 text-left flex flex-wrap gap-2">
+                  <p>Lost: {lostAssets}</p>
+                  <p>Sold: {soldAssets}</p>
+                  <p>TAV Recovered: ₹{totalAssetValueRecovery}</p>
+                </div>
               </div>
-            ))}
-        </div>
-      </div>
-    </div>
-  </CardContent>
-</Card>
+              <div className="w-1/2 text-right">
+                <div className="h-24 overflow-y-auto pr-2">
+                  {Object.entries(
+                    filteredAssets.reduce((acc, a) => {
+                      if (["Scrap/Damage", "Emp Damage", "Courier Damage"].includes(a.status)) {
+                        acc[a.type] = (acc[a.type] || 0) + 1;
+                      }
+                      return acc;
+                    }, {} as Record<string, number>)
+                  )
+                    .filter(([_, count]) => count > 0)
+                    .map(([type, count]) => (
+                      <div key={type} className="flex justify-end mb-1 text-xs">
+                        <span className="mr-2">{type}:</span>
+                        <span className="w-6 text-right">{count}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
+      {/* Filters */}
       <Card className="shadow-card mb-4">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
@@ -280,6 +379,7 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
         </CardHeader>
         <CardContent className="pt-2">
           <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
+            {/* Asset Type */}
             <div className="space-y-1">
               <label className="text-xs font-medium">Asset Type</label>
               <Popover>
@@ -292,7 +392,7 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                   <div className="p-2 border-b">
                     <Input
                       type="text"
-                      placeholder="Type to search..."
+                      placeholder="Search types..."
                       value={searchQueryType}
                       onChange={(e) => setSearchQueryType(e.target.value)}
                       onKeyDown={(e) => e.stopPropagation()}
@@ -302,8 +402,8 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                   </div>
                   <div className="max-h-64 overflow-y-auto p-2">
                     {assetTypes
-                      .filter((type: string) => type.toLowerCase().includes(searchQueryType.toLowerCase()))
-                      .map((type: string) => (
+                      .filter((type) => type.toLowerCase().includes(searchQueryType.toLowerCase()))
+                      .map((type) => (
                         <div key={type} className="flex items-center space-x-2 py-1">
                           <Checkbox
                             id={`type-${type}`}
@@ -323,6 +423,8 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                 </PopoverContent>
               </Popover>
             </div>
+
+            {/* Brand */}
             <div className="space-y-1">
               <label className="text-xs font-medium">Brand</label>
               <Popover>
@@ -335,7 +437,7 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                   <div className="p-2 border-b">
                     <Input
                       type="text"
-                      placeholder="Type to search..."
+                      placeholder="Search brands..."
                       value={searchQueryBrand}
                       onChange={(e) => setSearchQueryBrand(e.target.value)}
                       onKeyDown={(e) => e.stopPropagation()}
@@ -345,8 +447,8 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                   </div>
                   <div className="max-h-64 overflow-y-auto p-2">
                     {assetBrands
-                      .filter((brand: string) => brand.toLowerCase().includes(searchQueryBrand.toLowerCase()))
-                      .map((brand: string) => (
+                      .filter((brand) => brand.toLowerCase().includes(searchQueryBrand.toLowerCase()))
+                      .map((brand) => (
                         <div key={brand} className="flex items-center space-x-2 py-1">
                           <Checkbox
                             id={`brand-${brand}`}
@@ -366,19 +468,23 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                 </PopoverContent>
               </Popover>
             </div>
+
+            {/* Configuration */}
             <div className="space-y-1">
               <label className="text-xs font-medium">Configuration</label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="text-xs h-7 w-full justify-between">
-                    {configFilter.length === 0 ? "All Configurations" : `${configFilter.length} selected`}
+                    {configFilter.length === 0
+                      ? "All Configurations"
+                      : `${configFilter.length} selected`}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-56 p-0">
                   <div className="p-2 border-b">
                     <Input
                       type="text"
-                      placeholder="Type to search..."
+                      placeholder="Search configs..."
                       value={searchQueryConfig}
                       onChange={(e) => setSearchQueryConfig(e.target.value)}
                       onKeyDown={(e) => e.stopPropagation()}
@@ -388,8 +494,10 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                   </div>
                   <div className="max-h-64 overflow-y-auto p-2">
                     {assetConfigurations
-                      .filter((config: string) => config.toLowerCase().includes(searchQueryConfig.toLowerCase()))
-                      .map((config: string) => (
+                      .filter((config) =>
+                        config.toLowerCase().includes(searchQueryConfig.toLowerCase())
+                      )
+                      .map((config) => (
                         <div key={config} className="flex items-center space-x-2 py-1">
                           <Checkbox
                             id={`config-${config}`}
@@ -409,19 +517,23 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                 </PopoverContent>
               </Popover>
             </div>
+
+            {/* Location */}
             <div className="space-y-1">
               <label className="text-xs font-medium">Asset Location</label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="text-xs h-7 w-full justify-between">
-                    {locationFilter.length === 0 ? "All Locations" : `${locationFilter.length} selected`}
+                    {locationFilter.length === 0
+                      ? "All Locations"
+                      : `${locationFilter.length} selected`}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-56 p-0">
                   <div className="p-2 border-b">
                     <Input
                       type="text"
-                      placeholder="Type to search..."
+                      placeholder="Search locations..."
                       value={searchQueryLocation}
                       onChange={(e) => setSearchQueryLocation(e.target.value)}
                       onKeyDown={(e) => e.stopPropagation()}
@@ -431,8 +543,10 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                   </div>
                   <div className="max-h-64 overflow-y-auto p-2">
                     {assetLocations
-                      .filter((location: string) => location.toLowerCase().includes(searchQueryLocation.toLowerCase()))
-                      .map((location: string) => (
+                      .filter((location) =>
+                        location.toLowerCase().includes(searchQueryLocation.toLowerCase())
+                      )
+                      .map((location) => (
                         <div key={location} className="flex items-center space-x-2 py-1">
                           <Checkbox
                             id={`location-${location}`}
@@ -443,7 +557,10 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                               );
                             }}
                           />
-                          <label htmlFor={`location-${location}`} className="text-xs cursor-pointer flex-1">
+                          <label
+                            htmlFor={`location-${location}`}
+                            className="text-xs cursor-pointer flex-1"
+                          >
                             {location}
                           </label>
                         </div>
@@ -452,6 +569,8 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                 </PopoverContent>
               </Popover>
             </div>
+
+            {/* Status */}
             <div className="space-y-1">
               <label className="text-xs font-medium">Status</label>
               <Popover>
@@ -464,7 +583,7 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                   <div className="p-2 border-b">
                     <Input
                       type="text"
-                      placeholder="Type to search..."
+                      placeholder="Search statuses..."
                       value={searchQueryStatus}
                       onChange={(e) => setSearchQueryStatus(e.target.value)}
                       onKeyDown={(e) => e.stopPropagation()}
@@ -474,8 +593,10 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                   </div>
                   <div className="max-h-64 overflow-y-auto p-2">
                     {assetStatuses
-                      .filter((status: string) => status.toLowerCase().includes(searchQueryStatus.toLowerCase()))
-                      .map((status: string) => (
+                      .filter((status) =>
+                        status.toLowerCase().includes(searchQueryStatus.toLowerCase())
+                      )
+                      .map((status) => (
                         <div key={status} className="flex items-center space-x-2 py-1">
                           <Checkbox
                             id={`status-${status}`}
@@ -495,6 +616,8 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
                 </PopoverContent>
               </Popover>
             </div>
+
+            {/* Date Range */}
             <div className="space-y-1">
               <label className="text-xs font-medium">Date Range (Assigned/Returned)</label>
               <DatePickerWithRange date={dateRange} setDate={setDateRange} className="h-7" />
@@ -503,6 +626,7 @@ const DashboardView = ({ assets, onAssign, onUnassign, onUpdateAsset, onUpdateSt
         </CardContent>
       </Card>
 
+      {/* Asset List */}
       <AssetList
         assets={filteredAssets}
         onAssign={onAssign}

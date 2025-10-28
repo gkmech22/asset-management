@@ -214,54 +214,60 @@ export const AssetList = ({
   };
 
   const filteredAssets = React.useMemo(() => {
-    return assets.filter((asset) => {
-      if (!asset) return false;
-      if (viewType === 'audit' && asset.status === 'Assigned') {
+  return assets.filter((asset) => {
+    if (!asset) return false;
+    if (viewType === 'audit' && asset.status === 'Assigned') {
+      return false;
+    }
+
+    if (filterCheckStatus) {
+      if (filterCheckStatus === "Matched" && asset.asset_check !== "Matched") {
         return false;
       }
-
-      if (filterCheckStatus) {
-        if (filterCheckStatus === "Matched" && asset.asset_check !== "Matched") {
-          return false;
-        }
-        if (filterCheckStatus === "Unmatched" && asset.asset_check === "Matched") {
-          return false;
-        }
+      if (filterCheckStatus === "Unmatched" && asset.asset_check === "Matched") {
+        return false;
       }
+    }
 
-      const matchesSearch = !searchTerm || [
-        asset.name || '', asset.asset_id || '', asset.brand || '',
-        asset.serial_number || '', asset.assigned_to || '', asset.employee_id || '',
-        asset.received_by || '', asset.assigned_date || '', asset.return_date || '',
-        asset.status || '', asset.location || '', asset.warranty_start || '',
-        asset.warranty_end || '', asset.provider || '', asset.warranty_status || '',
-        asset.remarks || '',
-      ].some(field => 
-        field && field.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+    const matchesSearch = !searchTerm || [
+      asset.name || '', asset.asset_id || '', asset.brand || '',
+      asset.serial_number || '', asset.assigned_to || '', asset.employee_id || '',
+      asset.received_by || '', asset.assigned_date || '', asset.return_date || '',
+      asset.status || '', asset.location || '', asset.warranty_start || '',
+      asset.warranty_end || '', asset.provider || '', asset.warranty_status || '',
+      asset.remarks || '',
+    ].some(field => 
+      field && field.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
-      const matchesDateRange =
-        !dateRange?.from ||
-        !dateRange?.to ||
-        !asset.assigned_date ||
-        (new Date(asset.assigned_date) >= new Date(dateRange.from) &&
-         new Date(asset.assigned_date) <= new Date(dateRange.to));
+    // Fixed Date Range Logic
+    const matchesDateRange = !dateRange?.from || !dateRange?.to || (() => {
+      const from = new Date(dateRange.from);
+      const to = new Date(dateRange.to);
+      to.setHours(23, 59, 59, 999); // End of day
 
-      const matchesType = typeFilter.length === 0 || typeFilter.some(t => t === asset.type);
-      const matchesBrand = brandFilter.length === 0 || brandFilter.some(b => b === asset.brand);
-      const matchesConfig = configFilter.length === 0 || configFilter.some(c => c === asset.configuration);
-      const matchesLocation = locationFilter.length === 0 || locationFilter.some(l => l === asset.location);
-      const matchesStatus = statusFilter.length === 0 || statusFilter.some(s => s === asset.status);
+      const assignedDate = asset.assigned_date ? new Date(asset.assigned_date) : null;
+      const returnDate = asset.return_date ? new Date(asset.return_date) : null;
+      const eventDate = assignedDate || returnDate;
 
-      return matchesSearch && matchesDateRange && matchesType && matchesBrand && matchesConfig && matchesLocation && matchesStatus;
-    }).sort((a, b) => {
-      if (a.status === "Available" && b.status !== "Available") return -1;
-      if (a.status !== "Available" && b.status === "Available") return 1;
-      const dateA = a.assigned_date ? new Date(a.assigned_date).getTime() : 0;
-      const dateB = b.assigned_date ? new Date(b.assigned_date).getTime() : 0;
-      return dateB - dateA;
-    });
-  }, [assets, searchTerm, dateRange, typeFilter, brandFilter, configFilter, locationFilter, statusFilter, filterCheckStatus, viewType]);
+      return eventDate && eventDate >= from && eventDate <= to;
+    })();
+
+    const matchesType = typeFilter.length === 0 || typeFilter.some(t => t === asset.type);
+    const matchesBrand = brandFilter.length === 0 || brandFilter.some(b => b === asset.brand);
+    const matchesConfig = configFilter.length === 0 || configFilter.some(c => c === asset.configuration);
+    const matchesLocation = locationFilter.length === 0 || locationFilter.some(l => l === asset.location);
+    const matchesStatus = statusFilter.length === 0 || statusFilter.some(s => s === asset.status);
+
+    return matchesSearch && matchesDateRange && matchesType && matchesBrand && matchesConfig && matchesLocation && matchesStatus;
+  }).sort((a, b) => {
+    if (a.status === "Available" && b.status !== "Available") return -1;
+    if (a.status !== "Available" && b.status === "Available") return 1;
+    const dateA = a.assigned_date ? new Date(a.assigned_date).getTime() : 0;
+    const dateB = b.assigned_date ? new Date(b.assigned_date).getTime() : 0;
+    return dateB - dateA;
+  });
+}, [assets, searchTerm, dateRange, typeFilter, brandFilter, configFilter, locationFilter, statusFilter, filterCheckStatus, viewType]);
 
   React.useEffect(() => {
     const newTotalPages = Math.ceil(filteredAssets.length / rowsPerPage);
