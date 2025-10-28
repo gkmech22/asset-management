@@ -1,10 +1,20 @@
+/*  SummaryView.tsx  –  Location → Type → Brand Summary + CSV  */
 import React, { useState, useEffect, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Asset } from "@/hooks/useAssets";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Search, Download } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { DatePickerWithRange } from "./DatePickerWithRange";
@@ -15,6 +25,7 @@ interface SummaryViewProps {
 }
 
 const SummaryView = ({ assets }: SummaryViewProps) => {
+  /* ---------- STATE (all filters) ---------- */
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [brandFilter, setBrandFilter] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
@@ -26,6 +37,8 @@ const SummaryView = ({ assets }: SummaryViewProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Dropdown search
   const [searchQueryType, setSearchQueryType] = useState("");
   const [searchQueryBrand, setSearchQueryBrand] = useState("");
   const [searchQueryStatus, setSearchQueryStatus] = useState("");
@@ -34,59 +47,86 @@ const SummaryView = ({ assets }: SummaryViewProps) => {
   const [searchQueryConfig, setSearchQueryConfig] = useState("");
   const [searchQueryWarranty, setSearchQueryWarranty] = useState("");
   const [searchQueryAssetCheck, setSearchQueryAssetCheck] = useState("");
+
   const rowsPerPage = 15;
 
-  // Unified filter function with excludeFilter for dynamic dropdowns
+  /* ---------- FILTER LOGIC ---------- */
   const getFilteredAssets = useMemo(
     () => (excludeFilter: string) => {
       return assets.filter((asset) => {
-        const typeMatch = excludeFilter === "type" || typeFilter.length === 0 || typeFilter.includes(asset.type);
-        const brandMatch = excludeFilter === "brand" || brandFilter.length === 0 || brandFilter.includes(asset.brand);
-        const statusMatch = excludeFilter === "status" || statusFilter.length === 0 || statusFilter.includes(asset.status);
-        const locationMatch = excludeFilter === "location" || locationFilter.length === 0 || locationFilter.includes(asset.location);
-        const conditionMatch = excludeFilter === "condition" || conditionFilter.length === 0 || conditionFilter.includes(asset.asset_condition || "Unknown");
-        const configMatch = excludeFilter === "config" || configFilter.length === 0 || (asset.configuration && configFilter.includes(asset.configuration));
-        const warrantyMatch = excludeFilter === "warranty" || warrantyFilter.length === 0 || warrantyFilter.includes(asset.warranty_status || "Unknown");
-        const assetCheckMatch = excludeFilter === "assetCheck" || assetCheckFilter.length === 0 || assetCheckFilter.includes(asset.asset_check || "Unknown");
+        const typeMatch =
+          excludeFilter === "type" ||
+          typeFilter.length === 0 ||
+          typeFilter.includes(asset.type);
+        const brandMatch =
+          excludeFilter === "brand" ||
+          brandFilter.length === 0 ||
+          brandFilter.includes(asset.brand);
+        const statusMatch =
+          excludeFilter === "status" ||
+          statusFilter.length === 0 ||
+          statusFilter.includes(asset.status);
+        const locationMatch =
+          excludeFilter === "location" ||
+          locationFilter.length === 0 ||
+          locationFilter.includes(asset.location);
+        const conditionMatch =
+          excludeFilter === "condition" ||
+          conditionFilter.length === 0 ||
+          conditionFilter.includes(asset.asset_condition || "Unknown");
+        const configMatch =
+          excludeFilter === "config" ||
+          configFilter.length === 0 ||
+          (asset.configuration && configFilter.includes(asset.configuration));
+        const warrantyMatch =
+          excludeFilter === "warranty" ||
+          warrantyFilter.length === 0 ||
+          warrantyFilter.includes(asset.warranty_status || "Unknown");
+        const assetCheckMatch =
+          excludeFilter === "assetCheck" ||
+          assetCheckFilter.length === 0 ||
+          assetCheckFilter.includes(asset.asset_check || "Unknown");
 
-        const searchMatch = !searchTerm ||
+        const searchMatch =
+          !searchTerm ||
           [
-            asset.employee_id || "",
-            asset.assigned_to || "",
-            asset.asset_id || "",
-            asset.name || "",
-            asset.type || "",
-            asset.brand || "",
-            asset.configuration || "",
-            asset.serial_number || "",
-            asset.status || "",
-            asset.location || "",
-            asset.created_by || "",
-            asset.updated_by || "",
-            asset.received_by || "",
-            asset.remarks || "",
-            asset.warranty_start || "",
-            asset.warranty_end || "",
-            asset.amc_start || "",
-            asset.amc_end || "",
-            asset.asset_check || "",
-            asset.asset_condition || "",
-            asset.warranty_status || "",
-            asset.asset_value_recovery?.toString() || "",
-          ].some((val) => val.toLowerCase().includes(searchTerm.toLowerCase()));
+            asset.employee_id ?? "",
+            asset.assigned_to ?? "",
+            asset.asset_id ?? "",
+            asset.name ?? "",
+            asset.type ?? "",
+            asset.brand ?? "",
+            asset.configuration ?? "",
+            asset.serial_number ?? "",
+            asset.status ?? "",
+            asset.location ?? "",
+            asset.created_by ?? "",
+            asset.updated_by ?? "",
+            asset.received_by ?? "",
+            asset.remarks ?? "",
+            asset.warranty_start ?? "",
+            asset.warranty_end ?? "",
+            asset.amc_start ?? "",
+            asset.amc_end ?? "",
+            asset.asset_check ?? "",
+            asset.asset_condition ?? "",
+            asset.warranty_status ?? "",
+            asset.asset_value_recovery?.toString() ?? "",
+          ].some((v) => v.toLowerCase().includes(searchTerm.toLowerCase()));
 
-        // CORRECTED: Include full end day
         const dateMatch =
           !dateRange?.from ||
           !dateRange?.to ||
           (() => {
             const from = new Date(dateRange.from!);
             const to = new Date(dateRange.to!);
-            to.setHours(23, 59, 59, 999); // Include entire end day
-
-            const assigned = asset.assigned_date ? new Date(asset.assigned_date) : null;
-            const returned = asset.return_date ? new Date(asset.return_date) : null;
-
+            to.setHours(23, 59, 59, 999);
+            const assigned = asset.assigned_date
+              ? new Date(asset.assigned_date)
+              : null;
+            const returned = asset.return_date
+              ? new Date(asset.return_date)
+              : null;
             return (
               (assigned && assigned >= from && assigned <= to) ||
               (returned && returned >= from && returned <= to)
@@ -94,9 +134,16 @@ const SummaryView = ({ assets }: SummaryViewProps) => {
           })();
 
         return (
-          typeMatch && brandMatch && statusMatch && locationMatch &&
-          conditionMatch && configMatch && warrantyMatch && assetCheckMatch &&
-          searchMatch && dateMatch
+          typeMatch &&
+          brandMatch &&
+          statusMatch &&
+          locationMatch &&
+          conditionMatch &&
+          configMatch &&
+          warrantyMatch &&
+          assetCheckMatch &&
+          searchMatch &&
+          dateMatch
         );
       });
     },
@@ -115,7 +162,7 @@ const SummaryView = ({ assets }: SummaryViewProps) => {
     ]
   );
 
-  // Compute filtered assets for each dropdown
+  /* ---------- DROPDOWN OPTIONS ---------- */
   const filteredForTypes = useMemo(() => getFilteredAssets("type"), [getFilteredAssets]);
   const filteredForBrands = useMemo(() => getFilteredAssets("brand"), [getFilteredAssets]);
   const filteredForStatuses = useMemo(() => getFilteredAssets("status"), [getFilteredAssets]);
@@ -125,7 +172,6 @@ const SummaryView = ({ assets }: SummaryViewProps) => {
   const filteredForWarranties = useMemo(() => getFilteredAssets("warranty"), [getFilteredAssets]);
   const filteredForAssetChecks = useMemo(() => getFilteredAssets("assetCheck"), [getFilteredAssets]);
 
-  // Dropdown options
   const assetTypes = useMemo(() => [...new Set(filteredForTypes.map(a => a.type).filter(Boolean))].sort(), [filteredForTypes]);
   const assetBrands = useMemo(() => [...new Set(filteredForBrands.map(a => a.brand).filter(Boolean))].sort(), [filteredForBrands]);
   const assetStatuses = useMemo(() => [...new Set(filteredForStatuses.map(a => a.status).filter(Boolean))].sort(), [filteredForStatuses]);
@@ -135,69 +181,84 @@ const SummaryView = ({ assets }: SummaryViewProps) => {
   const warrantyStatuses = useMemo(() => [...new Set(filteredForWarranties.map(a => a.warranty_status || "Unknown").filter(Boolean))].sort(), [filteredForWarranties]);
   const assetChecks = useMemo(() => [...new Set(filteredForAssetChecks.map(a => a.asset_check || "Unknown").filter(Boolean))].sort(), [filteredForAssetChecks]);
 
-  // Final filtered assets
   const filteredAssets = useMemo(() => getFilteredAssets(""), [getFilteredAssets]);
 
-  // Total recovery
+  /* ---------- TOTAL RECOVERY ---------- */
   const totalRecovery = useMemo(() => {
-    return filteredAssets.reduce((sum, asset) => sum + (Number(asset.asset_value_recovery) || 0), 0);
+    return filteredAssets.reduce((s, a) => s + (Number(a.asset_value_recovery) || 0), 0);
   }, [filteredAssets]);
 
-  // Summary data
+  /* ---------- GROUPED SUMMARY: Location → Type → Brand ---------- */
+  type Row = {
+    location: string;
+    assetType: string;
+    brand: string;
+    counts: Record<string, number>;
+  };
+
   const summaryData = useMemo(() => {
-    return filteredAssets.reduce((acc, asset) => {
-      const key = `${asset.type}|${asset.brand}`;
-      if (!acc[key]) {
-        acc[key] = {
+    const map = new Map<string, Row>();
+
+    filteredAssets.forEach((asset) => {
+      const key = `${asset.location}|${asset.type}|${asset.brand}`;
+      let row = map.get(key);
+      if (!row) {
+        row = {
+          location: asset.location,
           assetType: asset.type,
           brand: asset.brand,
-          counts: Object.fromEntries(assetStatuses.map(status => [status, 0])),
+          counts: Object.fromEntries(assetStatuses.map(s => [s, 0])),
         };
+        map.set(key, row);
       }
       if (assetStatuses.includes(asset.status)) {
-        acc[key].counts[asset.status] += 1;
+        row.counts[asset.status] += 1;
       }
-      return acc;
-    }, {} as Record<string, { assetType: string; brand: string; counts: Record<string, number> }>);
+    });
+
+    return Array.from(map.values()).sort((a, b) => {
+      if (a.location !== b.location) return a.location.localeCompare(b.location);
+      if (a.assetType !== b.assetType) return a.assetType.localeCompare(b.assetType);
+      return a.brand.localeCompare(b.brand);
+    });
   }, [filteredAssets, assetStatuses]);
 
   const grandTotals = useMemo(() => {
-    const totals = Object.fromEntries(assetStatuses.map(status => [status, 0]));
-    Object.values(summaryData).forEach(row => {
-      assetStatuses.forEach(status => {
-        totals[status] += row.counts[status];
-      });
+    const totals = Object.fromEntries(assetStatuses.map(s => [s, 0]));
+    summaryData.forEach(r => {
+      assetStatuses.forEach(st => (totals[st] += r.counts[st]));
     });
     return totals;
   }, [summaryData, assetStatuses]);
 
-  const tableData = useMemo(() => Object.values(summaryData).sort((a, b) => a.assetType.localeCompare(b.assetType)), [summaryData]);
+  const tableData = summaryData;
   const totalPages = Math.ceil(tableData.length / rowsPerPage);
   const paginatedData = useMemo(() => {
     return tableData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
   }, [tableData, currentPage]);
 
+  /* ---------- PAGINATION ---------- */
   const getPageNumbers = () => {
-    const pageNumbers = [];
-    const maxPagesToShow = 5;
-    let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
-    let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
-    if (endPage - startPage + 1 < maxPagesToShow) {
-      startPage = Math.max(1, endPage - maxPagesToShow + 1);
-    }
-    for (let i = startPage; i <= endPage; i++) pageNumbers.push(i);
-    return { startPage, endPage, pageNumbers };
+    const pageNumbers: number[] = [];
+    const max = 5;
+    let start = Math.max(1, currentPage - Math.floor(max / 2));
+    let end = Math.min(totalPages, start + max - 1);
+    if (end - start + 1 < max) start = Math.max(1, end - max + 1);
+    for (let i = start; i <= end; i++) pageNumbers.push(i);
+    return { startPage: start, endPage: end, pageNumbers };
   };
   const { startPage, endPage, pageNumbers } = getPageNumbers();
 
+  /* ---------- COLORS ---------- */
   const statusColors: Record<string, string> = {
     Available: "bg-green-600",
     Assigned: "bg-yellow-600",
     "Scrap/Damage": "bg-red-600",
     Sold: "bg-blue-800",
   };
-  const getStatusColor = (status: string) => statusColors[status] || "bg-gray-500";
+  const getStatusColor = (s: string) => statusColors[s] ?? "bg-gray-500";
 
+  /* ---------- CLEAR FILTERS ---------- */
   const clearFilters = () => {
     setTypeFilter([]);
     setBrandFilter([]);
@@ -220,47 +281,112 @@ const SummaryView = ({ assets }: SummaryViewProps) => {
     setCurrentPage(1);
   };
 
+  /* ---------- SYNC FILTERS ---------- */
   useEffect(() => {
-    setTypeFilter(prev => prev.filter(t => assetTypes.includes(t)));
-    setBrandFilter(prev => prev.filter(b => assetBrands.includes(b)));
-    setStatusFilter(prev => prev.filter(s => assetStatuses.includes(s)));
-    setLocationFilter(prev => prev.filter(l => assetLocations.includes(l)));
-    setConditionFilter(prev => prev.filter(c => assetConditions.includes(c)));
-    setConfigFilter(prev => prev.filter(c => assetConfigurations.includes(c)));
-    setWarrantyFilter(prev => prev.filter(w => warrantyStatuses.includes(w)));
-    setAssetCheckFilter(prev => prev.filter(a => assetChecks.includes(a)));
-  }, [assetTypes, assetBrands, assetStatuses, assetLocations, assetConditions, assetConfigurations, warrantyStatuses, assetChecks]);
+    setTypeFilter(p => p.filter(v => assetTypes.includes(v)));
+    setBrandFilter(p => p.filter(v => assetBrands.includes(v)));
+    setStatusFilter(p => p.filter(v => assetStatuses.includes(v)));
+    setLocationFilter(p => p.filter(v => assetLocations.includes(v)));
+    setConditionFilter(p => p.filter(v => assetConditions.includes(v)));
+    setConfigFilter(p => p.filter(v => assetConfigurations.includes(v)));
+    setWarrantyFilter(p => p.filter(v => warrantyStatuses.includes(v)));
+    setAssetCheckFilter(p => p.filter(v => assetChecks.includes(v)));
+  }, [
+    assetTypes,
+    assetBrands,
+    assetStatuses,
+    assetLocations,
+    assetConditions,
+    assetConfigurations,
+    warrantyStatuses,
+    assetChecks,
+  ]);
 
+  /* ---------- CSV EXPORT: Location → Type → Brand ---------- */
+  const downloadSummaryCSV = () => {
+    if (tableData.length === 0) return;
+
+    const headers = ["Location", "Asset Type", "Brand", ...assetStatuses];
+    const rows: string[] = [];
+
+    rows.push(headers.map(h => `"${h}"`).join(","));
+
+    tableData.forEach(r => {
+      const line = [
+        `"${r.location}"`,
+        `"${r.assetType}"`,
+        `"${r.brand}"`,
+        ...assetStatuses.map(st => r.counts[st]),
+      ];
+      rows.push(line.join(","));
+    });
+
+    const totalLine = [
+      '"Grand Total"',
+      '""',
+      '""',
+      ...assetStatuses.map(st => grandTotals[st]),
+    ];
+    rows.push(totalLine.join(","));
+
+    const csv = rows.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `asset-summary-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  /* --------------------------------------------------------------- */
   return (
     <Card className="shadow-card">
       <CardHeader>
-        <div className="flex justify-between items-center">
-          <CardTitle className="text-xl flex items-center gap-2">
-            Asset Summary ({filteredAssets.length} items)
-          </CardTitle>
+        {/* TITLE + RED DOWNLOAD ICON */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-xl">
+              Asset Summary ({filteredAssets.length} items)
+            </CardTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={downloadSummaryCSV}
+              disabled={filteredAssets.length === 0}
+              className="h-7 w-7 text-red-600 hover:bg-red-50 hover:text-red-700"
+              title="Download CSV"
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+          </div>
+
           <div className="text-sm font-medium text-primary">
             Asset Value Recovery = Rs. {totalRecovery.toLocaleString()}
           </div>
         </div>
 
-        {/* SINGLE ROW FILTER BAR */}
+        {/* FILTER BAR – ALL FILTERS */}
         <div className="mt-4 overflow-x-auto">
           <div className="flex gap-2 items-end min-w-max">
             {/* Global Search */}
             <div className="space-y-1 min-w-48">
               <Label className="text-xs font-medium">Search</Label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search assets..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={e => setSearchTerm(e.target.value)}
                   className="pl-10 h-7 text-xs"
                 />
               </div>
             </div>
 
-            {/* Asset Type */}
+            {/* Type */}
             <div className="space-y-1 min-w-40">
               <Label className="text-xs font-medium">Type</Label>
               <Popover>
@@ -272,29 +398,28 @@ const SummaryView = ({ assets }: SummaryViewProps) => {
                 <PopoverContent className="w-56 p-0">
                   <div className="p-2 border-b">
                     <Input
-                      type="text"
                       placeholder="Search..."
                       value={searchQueryType}
-                      onChange={(e) => setSearchQueryType(e.target.value)}
-                      onKeyDown={(e) => e.stopPropagation()}
+                      onChange={e => setSearchQueryType(e.target.value)}
+                      onKeyDown={e => e.stopPropagation()}
                       autoFocus
-                      className="w-full h-6 text-xs"
+                      className="h-6 text-xs"
                     />
                   </div>
                   <div className="max-h-64 overflow-y-auto p-2">
                     {assetTypes
                       .filter(t => t.toLowerCase().includes(searchQueryType.toLowerCase()))
-                      .map((type) => (
-                        <div key={type} className="flex items-center space-x-2 py-1">
+                      .map(t => (
+                        <div key={t} className="flex items-center space-x-2 py-1">
                           <Checkbox
-                            id={`type-${type}`}
-                            checked={typeFilter.includes(type)}
-                            onCheckedChange={(checked) => {
-                              setTypeFilter(prev => checked ? [...prev, type] : prev.filter(t => t !== type));
-                            }}
+                            id={`type-${t}`}
+                            checked={typeFilter.includes(t)}
+                            onCheckedChange={c =>
+                              setTypeFilter(p => (c ? [...p, t] : p.filter(x => x !== t)))
+                            }
                           />
-                          <Label htmlFor={`type-${type}`} className="text-xs cursor-pointer flex-1">
-                            {type}
+                          <Label htmlFor={`type-${t}`} className="text-xs cursor-pointer flex-1">
+                            {t}
                           </Label>
                         </div>
                       ))}
@@ -315,29 +440,28 @@ const SummaryView = ({ assets }: SummaryViewProps) => {
                 <PopoverContent className="w-56 p-0">
                   <div className="p-2 border-b">
                     <Input
-                      type="text"
                       placeholder="Search..."
                       value={searchQueryBrand}
-                      onChange={(e) => setSearchQueryBrand(e.target.value)}
-                      onKeyDown={(e) => e.stopPropagation()}
+                      onChange={e => setSearchQueryBrand(e.target.value)}
+                      onKeyDown={e => e.stopPropagation()}
                       autoFocus
-                      className="w-full h-6 text-xs"
+                      className="h-6 text-xs"
                     />
                   </div>
                   <div className="max-h-64 overflow-y-auto p-2">
                     {assetBrands
                       .filter(b => b.toLowerCase().includes(searchQueryBrand.toLowerCase()))
-                      .map((brand) => (
-                        <div key={brand} className="flex items-center space-x-2 py-1">
+                      .map(b => (
+                        <div key={b} className="flex items-center space-x-2 py-1">
                           <Checkbox
-                            id={`brand-${brand}`}
-                            checked={brandFilter.includes(brand)}
-                            onCheckedChange={(checked) => {
-                              setBrandFilter(prev => checked ? [...prev, brand] : prev.filter(b => b !== brand));
-                            }}
+                            id={`brand-${b}`}
+                            checked={brandFilter.includes(b)}
+                            onCheckedChange={c =>
+                              setBrandFilter(p => (c ? [...p, b] : p.filter(x => x !== b)))
+                            }
                           />
-                          <Label htmlFor={`brand-${brand}`} className="text-xs cursor-pointer flex-1">
-                            {brand}
+                          <Label htmlFor={`brand-${b}`} className="text-xs cursor-pointer flex-1">
+                            {b}
                           </Label>
                         </div>
                       ))}
@@ -358,29 +482,28 @@ const SummaryView = ({ assets }: SummaryViewProps) => {
                 <PopoverContent className="w-56 p-0">
                   <div className="p-2 border-b">
                     <Input
-                      type="text"
                       placeholder="Search..."
                       value={searchQueryStatus}
-                      onChange={(e) => setSearchQueryStatus(e.target.value)}
-                      onKeyDown={(e) => e.stopPropagation()}
+                      onChange={e => setSearchQueryStatus(e.target.value)}
+                      onKeyDown={e => e.stopPropagation()}
                       autoFocus
-                      className="w-full h-6 text-xs"
+                      className="h-6 text-xs"
                     />
                   </div>
                   <div className="max-h-64 overflow-y-auto p-2">
                     {assetStatuses
                       .filter(s => s.toLowerCase().includes(searchQueryStatus.toLowerCase()))
-                      .map((status) => (
-                        <div key={status} className="flex items-center space-x-2 py-1">
+                      .map(s => (
+                        <div key={s} className="flex items-center space-x-2 py-1">
                           <Checkbox
-                            id={`status-${status}`}
-                            checked={statusFilter.includes(status)}
-                            onCheckedChange={(checked) => {
-                              setStatusFilter(prev => checked ? [...prev, status] : prev.filter(s => s !== status));
-                            }}
+                            id={`status-${s}`}
+                            checked={statusFilter.includes(s)}
+                            onCheckedChange={c =>
+                              setStatusFilter(p => (c ? [...p, s] : p.filter(x => x !== s)))
+                            }
                           />
-                          <Label htmlFor={`status-${status}`} className="text-xs cursor-pointer flex-1">
-                            {status}
+                          <Label htmlFor={`status-${s}`} className="text-xs cursor-pointer flex-1">
+                            {s}
                           </Label>
                         </div>
                       ))}
@@ -401,29 +524,28 @@ const SummaryView = ({ assets }: SummaryViewProps) => {
                 <PopoverContent className="w-56 p-0">
                   <div className="p-2 border-b">
                     <Input
-                      type="text"
                       placeholder="Search..."
                       value={searchQueryLocation}
-                      onChange={(e) => setSearchQueryLocation(e.target.value)}
-                      onKeyDown={(e) => e.stopPropagation()}
+                      onChange={e => setSearchQueryLocation(e.target.value)}
+                      onKeyDown={e => e.stopPropagation()}
                       autoFocus
-                      className="w-full h-6 text-xs"
+                      className="h-6 text-xs"
                     />
                   </div>
                   <div className="max-h-64 overflow-y-auto p-2">
                     {assetLocations
                       .filter(l => l.toLowerCase().includes(searchQueryLocation.toLowerCase()))
-                      .map((location) => (
-                        <div key={location} className="flex items-center space-x-2 py-1">
+                      .map(l => (
+                        <div key={l} className="flex items-center space-x-2 py-1">
                           <Checkbox
-                            id={`location-${location}`}
-                            checked={locationFilter.includes(location)}
-                            onCheckedChange={(checked) => {
-                              setLocationFilter(prev => checked ? [...prev, location] : prev.filter(l => l !== location));
-                            }}
+                            id={`location-${l}`}
+                            checked={locationFilter.includes(l)}
+                            onCheckedChange={c =>
+                              setLocationFilter(p => (c ? [...p, l] : p.filter(x => x !== l)))
+                            }
                           />
-                          <Label htmlFor={`location-${location}`} className="text-xs cursor-pointer flex-1">
-                            {location}
+                          <Label htmlFor={`location-${l}`} className="text-xs cursor-pointer flex-1">
+                            {l}
                           </Label>
                         </div>
                       ))}
@@ -444,29 +566,28 @@ const SummaryView = ({ assets }: SummaryViewProps) => {
                 <PopoverContent className="w-56 p-0">
                   <div className="p-2 border-b">
                     <Input
-                      type="text"
                       placeholder="Search..."
                       value={searchQueryCondition}
-                      onChange={(e) => setSearchQueryCondition(e.target.value)}
-                      onKeyDown={(e) => e.stopPropagation()}
+                      onChange={e => setSearchQueryCondition(e.target.value)}
+                      onKeyDown={e => e.stopPropagation()}
                       autoFocus
-                      className="w-full h-6 text-xs"
+                      className="h-6 text-xs"
                     />
                   </div>
                   <div className="max-h-64 overflow-y-auto p-2">
                     {assetConditions
                       .filter(c => c.toLowerCase().includes(searchQueryCondition.toLowerCase()))
-                      .map((condition) => (
-                        <div key={condition} className="flex items-center space-x-2 py-1">
+                      .map(c => (
+                        <div key={c} className="flex items-center space-x-2 py-1">
                           <Checkbox
-                            id={`condition-${condition}`}
-                            checked={conditionFilter.includes(condition)}
-                            onCheckedChange={(checked) => {
-                              setConditionFilter(prev => checked ? [...prev, condition] : prev.filter(c => c !== condition));
-                            }}
+                            id={`condition-${c}`}
+                            checked={conditionFilter.includes(c)}
+                            onCheckedChange={chk =>
+                              setConditionFilter(p => (chk ? [...p, c] : p.filter(x => x !== c)))
+                            }
                           />
-                          <Label htmlFor={`condition-${condition}`} className="text-xs cursor-pointer flex-1">
-                            {condition}
+                          <Label htmlFor={`condition-${c}`} className="text-xs cursor-pointer flex-1">
+                            {c}
                           </Label>
                         </div>
                       ))}
@@ -476,7 +597,7 @@ const SummaryView = ({ assets }: SummaryViewProps) => {
             </div>
 
             {/* Configuration */}
-            <div className="space-y-1 min-w-40">
+            <div className="space|y-1 min-w-40">
               <Label className="text-xs font-medium">Configuration</Label>
               <Popover>
                 <PopoverTrigger asChild>
@@ -487,29 +608,28 @@ const SummaryView = ({ assets }: SummaryViewProps) => {
                 <PopoverContent className="w-56 p-0">
                   <div className="p-2 border-b">
                     <Input
-                      type="text"
                       placeholder="Search..."
                       value={searchQueryConfig}
-                      onChange={(e) => setSearchQueryConfig(e.target.value)}
-                      onKeyDown={(e) => e.stopPropagation()}
+                      onChange={e => setSearchQueryConfig(e.target.value)}
+                      onKeyDown={e => e.stopPropagation()}
                       autoFocus
-                      className="w-full h-6 text-xs"
+                      className="h-6 text-xs"
                     />
                   </div>
                   <div className="max-h-64 overflow-y-auto p-2">
                     {assetConfigurations
                       .filter(c => c.toLowerCase().includes(searchQueryConfig.toLowerCase()))
-                      .map((config) => (
-                        <div key={config} className="flex items-center space-x-2 py-1">
+                      .map(c => (
+                        <div key={c} className="flex items-center space-x-2 py-1">
                           <Checkbox
-                            id={`config-${config}`}
-                            checked={configFilter.includes(config)}
-                            onCheckedChange={(checked) => {
-                              setConfigFilter(prev => checked ? [...prev, config] : prev.filter(c => c !== config));
-                            }}
+                            id={`config-${c}`}
+                            checked={configFilter.includes(c)}
+                            onCheckedChange={chk =>
+                              setConfigFilter(p => (chk ? [...p, c] : p.filter(x => x !== c)))
+                            }
                           />
-                          <Label htmlFor={`config-${config}`} className="text-xs cursor-pointer flex-1">
-                            {config}
+                          <Label htmlFor={`config-${c}`} className="text-xs cursor-pointer flex-1">
+                            {c}
                           </Label>
                         </div>
                       ))}
@@ -530,29 +650,28 @@ const SummaryView = ({ assets }: SummaryViewProps) => {
                 <PopoverContent className="w-56 p-0">
                   <div className="p-2 border-b">
                     <Input
-                      type="text"
                       placeholder="Search..."
                       value={searchQueryWarranty}
-                      onChange={(e) => setSearchQueryWarranty(e.target.value)}
-                      onKeyDown={(e) => e.stopPropagation()}
+                      onChange={e => setSearchQueryWarranty(e.target.value)}
+                      onKeyDown={e => e.stopPropagation()}
                       autoFocus
-                      className="w-full h-6 text-xs"
+                      className="h-6 text-xs"
                     />
                   </div>
                   <div className="max-h-64 overflow-y-auto p-2">
                     {warrantyStatuses
                       .filter(w => w.toLowerCase().includes(searchQueryWarranty.toLowerCase()))
-                      .map((warranty) => (
-                        <div key={warranty} className="flex items-center space-x-2 py-1">
+                      .map(w => (
+                        <div key={w} className="flex items-center space-x-2 py-1">
                           <Checkbox
-                            id={`warranty-${warranty}`}
-                            checked={warrantyFilter.includes(warranty)}
-                            onCheckedChange={(checked) => {
-                              setWarrantyFilter(prev => checked ? [...prev, warranty] : prev.filter(w => w !== warranty));
-                            }}
+                            id={`warranty-${w}`}
+                            checked={warrantyFilter.includes(w)}
+                            onCheckedChange={chk =>
+                              setWarrantyFilter(p => (chk ? [...p, w] : p.filter(x => x !== w)))
+                            }
                           />
-                          <Label htmlFor={`warranty-${warranty}`} className="text-xs cursor-pointer flex-1">
-                            {warranty}
+                          <Label htmlFor={`warranty-${w}`} className="text-xs cursor-pointer flex-1">
+                            {w}
                           </Label>
                         </div>
                       ))}
@@ -573,29 +692,28 @@ const SummaryView = ({ assets }: SummaryViewProps) => {
                 <PopoverContent className="w-56 p-0">
                   <div className="p-2 border-b">
                     <Input
-                      type="text"
                       placeholder="Search..."
                       value={searchQueryAssetCheck}
-                      onChange={(e) => setSearchQueryAssetCheck(e.target.value)}
-                      onKeyDown={(e) => e.stopPropagation()}
+                      onChange={e => setSearchQueryAssetCheck(e.target.value)}
+                      onKeyDown={e => e.stopPropagation()}
                       autoFocus
-                      className="w-full h-6 text-xs"
+                      className="h-6 text-xs"
                     />
                   </div>
                   <div className="max-h-64 overflow-y-auto p-2">
                     {assetChecks
                       .filter(c => c.toLowerCase().includes(searchQueryAssetCheck.toLowerCase()))
-                      .map((check) => (
-                        <div key={check} className="flex items-center space-x-2 py-1">
+                      .map(c => (
+                        <div key={c} className="flex items-center space-x-2 py-1">
                           <Checkbox
-                            id={`check-${check}`}
-                            checked={assetCheckFilter.includes(check)}
-                            onCheckedChange={(checked) => {
-                              setAssetCheckFilter(prev => checked ? [...prev, check] : prev.filter(a => a !== check));
-                            }}
+                            id={`check-${c}`}
+                            checked={assetCheckFilter.includes(c)}
+                            onCheckedChange={chk =>
+                              setAssetCheckFilter(p => (chk ? [...p, c] : p.filter(x => x !== c)))
+                            }
                           />
-                          <Label htmlFor={`check-${check}`} className="text-xs cursor-pointer flex-1">
-                            {check}
+                          <Label htmlFor={`check-${c}`} className="text-xs cursor-pointer flex-1">
+                            {c}
                           </Label>
                         </div>
                       ))}
@@ -615,7 +733,7 @@ const SummaryView = ({ assets }: SummaryViewProps) => {
               />
             </div>
 
-            {/* Clear Filters */}
+            {/* Clear */}
             <div className="space-y-1">
               <Button
                 variant="outline"
@@ -633,57 +751,73 @@ const SummaryView = ({ assets }: SummaryViewProps) => {
       <CardContent>
         {filteredAssets.length === 0 ? (
           <div className="text-center py-12">
-            <h3 className="text-lg font-semibold text-muted-foreground mb-2">No Assets Found</h3>
-            <p className="text-sm text-muted-foreground">Try adjusting your filters.</p>
+            <h3 className="text-lg font-semibold text-muted-foreground mb-2">
+              No Assets Found
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Try adjusting your filters.
+            </p>
           </div>
         ) : (
           <>
+            {/* TABLE: Location → Type → Brand */}
             <div className="overflow-x-auto max-h-[60vh] relative">
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="text-xs text-white sticky top-0 z-10">
+                    <th className="p-2 text-left bg-blue-600">Location</th>
                     <th className="p-2 text-left bg-blue-600">Asset Type</th>
                     <th className="p-2 text-left bg-blue-600">Brand</th>
-                    {assetStatuses.map((status) => (
-                      <th key={status} className={`p-2 text-left ${getStatusColor(status)}`}>
-                        {status}
+                    {assetStatuses.map(st => (
+                      <th key={st} className={`p-2 text-left ${getStatusColor(st)}`}>
+                        {st}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedData.map((row, index) => (
-                    <tr key={`${row.assetType}-${row.brand}-${index}`} className="border-b hover:bg-muted/50">
+                  {paginatedData.map((row, idx) => (
+                    <tr
+                      key={`${row.location}-${row.assetType}-${row.brand}-${idx}`}
+                      className="border-b hover:bg-muted/50"
+                    >
+                      <td className="p-2 text-xs">{row.location}</td>
                       <td className="p-2 text-xs">{row.assetType}</td>
                       <td className="p-2 text-xs">{row.brand}</td>
-                      {assetStatuses.map((status) => (
-                        <td key={status} className="p-2 text-xs">{row.counts[status]}</td>
+                      {assetStatuses.map(st => (
+                        <td key={st} className="p-2 text-xs">
+                          {row.counts[st]}
+                        </td>
                       ))}
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr className="border-t font-semibold bg-gray-100">
-                    <td className="p-2 text-xs">Grand Total</td>
-                    <td className="p-2 text-xs"></td>
-                    {assetStatuses.map((status) => (
-                      <td key={status} className="p-2 text-xs">{grandTotals[status]}</td>
+                    <td className="p-2 text-xs" colSpan={3}>
+                      Grand Total
+                    </td>
+                    {assetStatuses.map(st => (
+                      <td key={st} className="p-2 text-xs">
+                        {grandTotals[st]}
+                      </td>
                     ))}
                   </tr>
                 </tfoot>
               </table>
             </div>
 
+            {/* PAGINATION */}
             <div className="flex flex-col sm:flex-row justify-between items-center mt-4 gap-4">
               <div className="text-sm text-muted-foreground">
                 Showing {(currentPage - 1) * rowsPerPage + 1} to{" "}
                 {Math.min(currentPage * rowsPerPage, tableData.length)} of {tableData.length} rows
               </div>
-              <div className="flex items-center gap-2 justify-center">
+              <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
                   disabled={currentPage === 1}
                   className="h-8 w-8 p-0"
                 >
@@ -695,15 +829,15 @@ const SummaryView = ({ assets }: SummaryViewProps) => {
                     {startPage > 2 && <span className="text-sm px-2">...</span>}
                   </>
                 )}
-                {pageNumbers.map((page) => (
+                {pageNumbers.map(p => (
                   <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
+                    key={p}
+                    variant={currentPage === p ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setCurrentPage(page)}
-                    className={`h-8 w-8 p-0 ${currentPage === page ? "bg-primary text-primary-foreground" : ""}`}
+                    onClick={() => setCurrentPage(p)}
+                    className={`h-8 w-8 p-0 ${currentPage === p ? "bg-primary text-primary-foreground" : ""}`}
                   >
-                    {page}
+                    {p}
                   </Button>
                 ))}
                 {endPage < totalPages && (
@@ -717,7 +851,7 @@ const SummaryView = ({ assets }: SummaryViewProps) => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
                   disabled={currentPage === totalPages}
                   className="h-8 w-8 p-0"
                 >
