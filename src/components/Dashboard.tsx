@@ -1,3 +1,4 @@
+// Updated Dashboard.tsx
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import AmcsView from "./AmcsView";
 import SummaryView from "./SummaryView";
 import EmployeeDetails from "./EmployeeDetails";
 import AboutView from "./AboutView";
+import OrdersView from "./OrdersView"; // New import
 import { PendingRequests } from "./PendingRequests";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -39,7 +41,7 @@ export const Dashboard = () => {
   const [currentUser, setCurrentUser] = useState<string>("unknown_user");
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState<'dashboard' | 'audit' | 'amcs' | 'summary' | 'employees' | 'about'>('dashboard');
+  const [currentPage, setCurrentPage] = useState<'dashboard' | 'audit' | 'amcs' | 'summary' | 'orders' | 'employees' | 'about'>('dashboard'); // Updated type
   const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
@@ -958,6 +960,13 @@ export const Dashboard = () => {
               userRole={userRole}
             />
           );
+        case 'orders':
+          return (
+            <OrdersView 
+              userRole={userRole}
+              currentUser={currentUser}
+            />
+          );
         case 'employees':
           return <EmployeeDetails />;
         case 'about':
@@ -990,6 +999,7 @@ export const Dashboard = () => {
                   <DropdownMenuItem onClick={() => setCurrentPage('audit')}>Audit</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setCurrentPage('amcs')}>AMCs</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setCurrentPage('summary')}>Summary</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setCurrentPage('orders')}>Orders</DropdownMenuItem> {/* New menu item */}
                   <DropdownMenuItem onClick={() => setCurrentPage('employees')}>Employee Details</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
