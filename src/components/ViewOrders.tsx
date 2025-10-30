@@ -72,37 +72,35 @@ const ViewOrders: React.FC<ViewOrdersProps> = ({ currentUser, userRole }) => {
   };
 
   const fetchOrders = async () => {
-    if (!currentUser) return;
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          id,
-          order_type,
-          asset_type,
-          model,
-          quantity,
-          warehouse,
-          sales_order,
-          employee_id,
-          employee_name,
-          serial_numbers,
-          order_date,
-          created_by
-        `)
-        .eq('created_by', currentUser)
-        .order('order_date', { ascending: false });
+  try {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('orders')
+      .select(`
+        id,
+        order_type,
+        asset_type,
+        model,
+        quantity,
+        warehouse,
+        sales_order,
+        employee_id,
+        employee_name,
+        serial_numbers,
+        order_date,
+        created_by
+      `)
+      .order('order_date', { ascending: false });
 
-      if (error) throw error;
-      setOrders(data || []);
-      setCurrentPage(1); // Reset to first page on new fetch
-    } catch (err: any) {
-      alert('Error loading orders: ' + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (error) throw error;
+    setOrders(data || []);
+    setCurrentPage(1); // Reset to first page on new fetch
+  } catch (err: any) {
+    alert('Error loading orders: ' + err.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     fetchOrders();
