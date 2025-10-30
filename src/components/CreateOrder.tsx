@@ -1,5 +1,6 @@
+// CreateOrder.tsx (Updated - Removed 'Other' from mainAssetTypes, validation, and renderAssetFields)
 import React, { useState, useEffect } from 'react';
-import { Plus, Minus, Trash2, Camera, Download } from 'lucide-react';
+import { Plus, Minus, Trash2, Camera, Download, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   orderTypes,
@@ -11,11 +12,12 @@ import {
   sdCardSizes,
   coverModels,
   pendriveSizes,
-  otherMaterials,
   locations,
   assetStatuses,
   assetGroups,
   assetTypes,
+  assetModels,
+  additionalAssetTypes,
 } from './constants';
 
 interface AssetItem {
@@ -51,6 +53,7 @@ const CreateOrder: React.FC<CreateOrderProps> = ({ currentUser, userRole }) => {
   const [assetErrors, setAssetErrors] = useState<Record<string, (string | null)[]>>({});
   const [showBulk, setShowBulk] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
+  const [showAdditional, setShowAdditional] = useState(false);
 
   // Role-based access control
   if (!['Super Admin', 'Admin', 'Operator'].includes(userRole || '')) {
@@ -71,7 +74,11 @@ const CreateOrder: React.FC<CreateOrderProps> = ({ currentUser, userRole }) => {
   };
 
   const defaultHasSerials = (assetType: string) => {
-    return ['Tablet', 'TV', 'Pendrive'].includes(assetType);
+    return ['Tablet', 'TV', 'Pendrive', 'Sim Router', 'Hybrid Router'].includes(assetType);
+  };
+
+  const hasModels = (assetType: string): boolean => {
+    return assetModels[assetType] && assetModels[assetType].length > 0;
   };
 
   const addAsset = (assetType: string) => {
@@ -337,7 +344,12 @@ const CreateOrder: React.FC<CreateOrderProps> = ({ currentUser, userRole }) => {
         toast({ title: 'Error', description: `Location is required for ${asset.assetType}`, variant: 'destructive' });
         return false;
       }
-      if (['Tablet', 'TV', 'SD Card', 'Cover', 'Pendrive', 'Other'].includes(asset.assetType) && !asset.model) {
+      // Updated: Model required for main types or if hasModels for additional
+      if (assetTypes.includes(asset.assetType as any) && !asset.model) {
+        toast({ title: 'Error', description: `Model is required for ${asset.assetType}`, variant: 'destructive' });
+        return false;
+      }
+      if (additionalAssetTypes.includes(asset.assetType) && hasModels(asset.assetType) && !asset.model) {
         toast({ title: 'Error', description: `Model is required for ${asset.assetType}`, variant: 'destructive' });
         return false;
       }
@@ -654,7 +666,8 @@ const CreateOrder: React.FC<CreateOrderProps> = ({ currentUser, userRole }) => {
               </div>
             </>
           )}
-          {asset.assetType === 'Other' && (
+          {/* Updated: Dynamic handling for additional asset types (no 'Other' block) */}
+          {additionalAssetTypes.includes(asset.assetType) && (
             <>
               <div>
                 <label style={{ fontSize: '12px', display: 'block', marginBottom: '4px' }}>Model *</label>
@@ -664,7 +677,7 @@ const CreateOrder: React.FC<CreateOrderProps> = ({ currentUser, userRole }) => {
                   style={{ width: '100%', padding: '8px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '14px' }}
                 >
                   <option value="">Select Model</option>
-                  {otherMaterials.map(m => <option key={m} value={m}>{m}</option>)}
+                  {hasModels(asset.assetType) ? assetModels[asset.assetType].map(m => <option key={m} value={m}>{m}</option>) : null}
                 </select>
               </div>
               <div>
@@ -952,6 +965,9 @@ const CreateOrder: React.FC<CreateOrderProps> = ({ currentUser, userRole }) => {
     toast({ title: 'Info', description: 'Bulk update processing (implement full logic)' });
   };
 
+  // Updated: Main asset types without 'Other'
+  const mainAssetTypes = ['Tablet', 'TV', 'SD Card', 'Cover', 'Pendrive'];
+
   return (
     <div style={{ padding: '16px', maxWidth: '1200px', margin: '0 auto' }}>
       <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '16px' }}>Create Order</h2>
@@ -1002,7 +1018,7 @@ const CreateOrder: React.FC<CreateOrderProps> = ({ currentUser, userRole }) => {
       <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '16px', marginBottom: '16px', background: '#fff' }}>
         <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '12px' }}>Add Assets</h3>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-          {assetTypes.map(type => (
+          {mainAssetTypes.map(type => (
             <button
               key={type}
               onClick={() => addAsset(type)}
@@ -1019,7 +1035,48 @@ const CreateOrder: React.FC<CreateOrderProps> = ({ currentUser, userRole }) => {
               + {type}
             </button>
           ))}
+          <button
+            onClick={() => setShowAdditional(!showAdditional)}
+            style={{
+              padding: '8px 16px',
+              border: '1px solid #3b82f6',
+              borderRadius: '4px',
+              background: '#3b82f6',
+              color: '#fff',
+              fontSize: '14px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            + More {showAdditional ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
         </div>
+        {showAdditional && (
+          <div style={{ marginTop: '8px', padding: '8px', background: '#f3f4f6', borderRadius: '4px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {additionalAssetTypes.map(type => (
+              <button
+                key={type}
+                onClick={() => {
+                  addAsset(type);
+                  setShowAdditional(false);
+                }}
+                style={{
+                  padding: '6px 12px',
+                  border: '1px solid #6b7280',
+                  borderRadius: '4px',
+                  background: '#fff',
+                  color: '#374151',
+                  fontSize: '12px',
+                  cursor: 'pointer'
+                }}
+              >
+                + {type}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <div>
         {assets.map(asset => renderAssetFields(asset))}

@@ -1,3 +1,4 @@
+// constants.ts (Updated - Removed 'Other' from assetTypes)
 export const orderTypes = [
   'Inward',
   'Outward',
@@ -78,6 +79,7 @@ export const pendriveSizes = [
   '128 GB',
 ];
 
+// Kept for reference, but no longer used since 'Other' is removed
 export const otherMaterials = [
   'Dongle',
   'USB Wall Adapter',
@@ -96,6 +98,25 @@ export const otherMaterials = [
   'Tablet Charger - Micro USB',
   'SD Card Box',
   'Envelope'
+];
+
+export const additionalAssetTypes = [
+  'Dongle',
+  'USB Wall Adapter',
+  'Synology NAS',
+  'Netgear NAS',
+  '1 TB HDD',
+  'Access Point',
+  'Hybrid Router',
+  'Sim Router',
+  'NAS Power Adapter',
+  'Router Power Adapter',
+  'HDMI Cable',
+  'Mini VGA Gender Changer',
+  'HDMI to VGA Converter',
+  'Tablet Charger - C Type',
+  'Tablet Charger - Micro USB',
+  'Laptop Charger',
 ];
 
 export const locations = [
@@ -127,8 +148,28 @@ export const assetTypes = [
   'SD Card',
   'Cover',
   'Pendrive',
-  'Other',
 ] as const;
+
+// Model options per additional asset type
+export const assetModels: Record<string, string[]> = {
+  'Synology NAS': ['1 Bay', '2 Bay'],
+  'Netgear NAS': ['1 Bay', '2 Bay'],
+  'Dongle': ['Dongle'],
+  'USB Wall Adapter': ['USB Wall Adapter'],
+  'HDD': ['1 TB', '2 TB', '4 TB', '8 TB', '10 TB'],
+  'Access Point': ['Asus', 'LB Link'],
+  'Hybrid Router': ['CP Plus'],
+  'Sim Router': ['Sim Router'],
+  'NAS Power Adapter': ['NAS Power Adapter'],
+  'Router Power Adapter': ['Router Power Adapter'],
+  'HDMI Cable': ['1m', '2m', '3m', '4m', '5m'],
+  'Mini VGA Gender Changer': ['Mini VGA Gender Changer'],
+  'HDMI to VGA Converter': ['HDMI to VGA Converter'],
+  'Tablet Charger - C Type': ['Tablet Charger - C Type'],
+  'Tablet Charger - Micro USB': ['Tablet Charger - Micro USB'],
+  'Laptop Charger': ['DeLL', 'Lenovo', 'Hp', 'Apple'],  
+  // Defaults to empty for others
+};
 
 export const deviceStatuses = [
   'Available',
