@@ -57,7 +57,7 @@ const EditOrderDialog: React.FC<EditOrderDialogProps> = ({
       .map((s) => s.trim())
       .filter(Boolean);
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('orders')
       .update({
         sales_order: form.sales_order,

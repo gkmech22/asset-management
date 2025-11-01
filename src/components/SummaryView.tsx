@@ -729,7 +729,6 @@ const SummaryView = ({ assets }: SummaryViewProps) => {
                 date={dateRange}
                 setDate={setDateRange}
                 className="h-7 text-xs"
-                placeholder="Pick range"
               />
             </div>
 

@@ -74,7 +74,7 @@ const ViewOrders: React.FC<ViewOrdersProps> = ({ currentUser, userRole }) => {
   const fetchOrders = async () => {
   try {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('orders')
       .select(`
         id,
@@ -108,14 +108,17 @@ const ViewOrders: React.FC<ViewOrdersProps> = ({ currentUser, userRole }) => {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    const { error } = await supabase.from('orders').delete().eq('id', deleteId);
+    const { error } = await (supabase as any).from('orders').delete().eq('id', deleteId);
     if (error) {
       alert('Failed to delete: ' + error.message);
     } else {
-      setOrders(prev => prev.filter(o => o.id !== deleteId));
-      if (currentPage > Math.ceil((prev.length - 1) / rowsPerPage)) {
-        setCurrentPage(prev => Math.max(1, prev - 1));
-      }
+      setOrders((prevOrders) => {
+        const filtered = prevOrders.filter(o => o.id !== deleteId);
+        if (currentPage > Math.ceil(filtered.length / rowsPerPage)) {
+          setCurrentPage((prevPage) => Math.max(1, prevPage - 1));
+        }
+        return filtered;
+      });
     }
     setDeleteId(null);
   };

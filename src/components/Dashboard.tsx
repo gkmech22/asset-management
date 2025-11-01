@@ -912,7 +912,6 @@ export const Dashboard = () => {
           return (
             <DashboardView
               assets={assets}
-              isLoading={isLoading}
               onAssign={handleAssignAsset}
               onUnassign={handleUnassignAsset}
               onUpdateAsset={handleUpdateAsset}
@@ -955,14 +954,6 @@ export const Dashboard = () => {
           return (
             <SummaryView 
               assets={assets}
-              onAssign={handleAssignAsset}
-              onUnassign={handleUnassignAsset}
-              onUpdateAsset={handleUpdateAsset}
-              onUpdateStatus={handleUpdateStatus}
-              onUpdateLocation={handleUpdateLocation}
-              onUpdateAssetCheck={handleUpdateAssetCheck}
-              onDelete={handleDeleteAsset}
-              userRole={userRole}
             />
           );
         case 'orders':
@@ -1072,7 +1063,6 @@ export const Dashboard = () => {
           open={showBulkUpload}
           onOpenChange={setShowBulkUpload}
           onUpload={handleBulkUpload}
-          onDownload={handleDownload}
           assets={assets}
         />
       )}

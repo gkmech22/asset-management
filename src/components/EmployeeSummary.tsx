@@ -48,7 +48,7 @@ const EmployeeSummary: React.FC<EmployeeSummaryProps> = ({ currentUser }) => {
     setLoading(true);
     setError(null);
     try {
-      const { data, error } = await supabase.rpc('employee_summary');
+      const { data, error } = await (supabase as any).rpc('employee_summary');
 
       if (error) {
         console.error('RPC Error:', error);

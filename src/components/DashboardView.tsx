@@ -176,7 +176,12 @@ const DashboardView = ({
 
   const totalAssetValueRecovery = filteredAssets
     .filter((a) => a.status === "Sold" && a.asset_value_recovery)
-    .reduce((sum, a) => sum + (typeof a.asset_value_recovery === 'number' ? a.asset_value_recovery : parseFloat(a.asset_value_recovery?.toString() || "0")), 0)
+    .reduce((sum, a) => {
+      const value = typeof a.asset_value_recovery === 'number' 
+        ? a.asset_value_recovery 
+        : parseFloat(String(a.asset_value_recovery || '0'));
+      return sum + value;
+    }, 0)
     .toFixed(2);
 
   const getAssetTypeCounts = (status: string) => {

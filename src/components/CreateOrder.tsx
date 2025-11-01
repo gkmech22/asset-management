@@ -193,7 +193,7 @@ const CreateOrder: React.FC<CreateOrderProps> = ({ currentUser, userRole }) => {
 
   const fetchAssetDetails = async (asset: AssetItem, index: number, serialNumber: string) => {
     if (!serialNumber || !asset.hasSerials) return;
-    const { data: deviceData, error: deviceError } = await supabase
+    const { data: deviceData, error: deviceError } = await (supabase as any)
       .from('devices')
       .select('asset_status, asset_group, far_code')
       .eq('serial_number', serialNumber)
@@ -261,7 +261,7 @@ const CreateOrder: React.FC<CreateOrderProps> = ({ currentUser, userRole }) => {
         }
       }
       if (allSerials.length > 0) {
-        const { data: deviceData, error: deviceError } = await supabase
+        const { data: deviceData, error: deviceError } = await (supabase as any)
           .from('devices')
           .select('id, serial_number, asset_type, material_type, warehouse, asset_status, asset_group, far_code, updated_at')
           .eq('asset_type', asset.assetType)
@@ -369,7 +369,7 @@ const CreateOrder: React.FC<CreateOrderProps> = ({ currentUser, userRole }) => {
   };
 
   const logHistory = async (tableName: string, recordId: string, fieldName: string, newData: string, userEmail: string, salesOrder: string | null) => {
-    await supabase.from('history').insert({
+    await (supabase as any).from('history').insert({
       record_id: recordId,
       sales_order: salesOrder,
       table_name: tableName,
@@ -389,7 +389,7 @@ const CreateOrder: React.FC<CreateOrderProps> = ({ currentUser, userRole }) => {
       for (const asset of assets) {
         const salesOrderId = salesOrder || generateSalesOrder();
         const assetSerials = asset.hasSerials ? asset.serialNumbers.filter(sn => sn && sn.trim()) : [];
-        const { data: orderData, error: orderError } = await supabase
+        const { data: orderData, error: orderError } = await (supabase as any)
           .from('orders')
           .insert({
             order_type: orderType,
@@ -421,7 +421,7 @@ const CreateOrder: React.FC<CreateOrderProps> = ({ currentUser, userRole }) => {
           const assetGroup = asset.assetGroups[i] || 'FA';
           const assetCondition = asset.asset_conditions[i] || null;
           const farCode = asset.farCodes[i] || null;
-          await supabase.from('devices').insert({
+          await (supabase as any).from('devices').insert({
             asset_type: asset.assetType,
             model: asset.model,
             serial_number: serialNumber,
