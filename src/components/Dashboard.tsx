@@ -266,6 +266,11 @@ export const Dashboard = () => {
             }
           });
 
+          // Check if asset already exists by serial_number
+          const existingAsset = asset.serial_number 
+            ? assets.find(a => a.serial_number === asset.serial_number)
+            : null;
+
           if (!existingAsset) {
             for (const field of requiredFields) {
               if (!asset[field] || asset[field].trim() === "") {

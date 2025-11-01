@@ -29,6 +29,8 @@ export interface Asset {
   asset_value_recovery?: number | null;
   asset_condition?: string | null;
   far_code?: string | null;
+  amc_start?: string | null;
+  amc_end?: string | null;
 }
 
 export const useAssets = () => {

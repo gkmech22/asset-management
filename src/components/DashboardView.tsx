@@ -95,8 +95,6 @@ const DashboardView = ({
             asset.remarks || "",
             asset.warranty_start || "",
             asset.warranty_end || "",
-            asset.amc_start || "",
-            asset.amc_end || "",
             asset.asset_check || "",
           ].some((field) => field.toLowerCase().includes(searchQuery.toLowerCase()));
 
@@ -178,7 +176,7 @@ const DashboardView = ({
 
   const totalAssetValueRecovery = filteredAssets
     .filter((a) => a.status === "Sold" && a.asset_value_recovery)
-    .reduce((sum, a) => sum + parseFloat(a.asset_value_recovery || "0"), 0)
+    .reduce((sum, a) => sum + (typeof a.asset_value_recovery === 'number' ? a.asset_value_recovery : parseFloat(a.asset_value_recovery?.toString() || "0")), 0)
     .toFixed(2);
 
   const getAssetTypeCounts = (status: string) => {

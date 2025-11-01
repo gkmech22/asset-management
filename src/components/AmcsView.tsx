@@ -92,8 +92,6 @@ const AmcsView = ({
         asset.remarks || "",
         asset.warranty_start || "",
         asset.warranty_end || "",
-        asset.amc_start || "",
-        asset.amc_end || "",
         asset.asset_check || "",
       ].some((field) => field.toLowerCase().includes(searchQuery.toLowerCase()));
 
