@@ -79,33 +79,12 @@ export const pendriveSizes = [
   '128 GB',
 ];
 
-// Kept for reference, but no longer used since 'Other' is removed
-export const otherMaterials = [
-  'Dongle',
-  'USB Wall Adapter',
-  'Synology NAS',
-  'Netgear NAS',
-  '1 TB HDD',
-  'Access Point',
-  'Hybrid Router',
-  'Sim Router',
-  'NAS Power Adapter',
-  'Router Power Adapter',
-  'HDMI Cable',
-  'Mini VGA Gender Changer',
-  'HDMI to VGA Converter',
-  'Tablet Charger - C Type',
-  'Tablet Charger - Micro USB',
-  'SD Card Box',
-  'Envelope'
-];
-
 export const additionalAssetTypes = [
   'Dongle',
   'USB Wall Adapter',
   'Synology NAS',
   'Netgear NAS',
-  '1 TB HDD',
+  'HDD',
   'Access Point',
   'Hybrid Router',
   'Sim Router',
