@@ -105,6 +105,12 @@ export const DocumentsDialog = ({ open, onOpenChange, ownerType, ownerId, ownerL
     window.open(data.signedUrl, "_blank");
   };
 
+  const handlePreview = async (doc: DocRow) => {
+    const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(doc.file_path, 300);
+    if (error || !data) return toast.error("Could not generate link");
+    setPreview({ url: data.signedUrl, mime: doc.mime_type || "", name: doc.file_name });
+  };
+
   const handleDelete = async (doc: DocRow) => {
     if (!confirm(`Delete ${doc.file_name}?`)) return;
     await supabase.storage.from(BUCKET).remove([doc.file_path]);
