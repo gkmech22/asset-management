@@ -14,7 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, RefreshCw, Edit, Trash2, ChevronDown, ChevronUp, Download, Calendar } from "lucide-react";
+import { Search, RefreshCw, Edit, Trash2, ChevronDown, ChevronUp, Download, Calendar, FileText } from "lucide-react";
+import { DocumentsDialog } from "./DocumentsDialog";
 import {
   AlertDialog,
   AlertDialogAction,
