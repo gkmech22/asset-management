@@ -56,6 +56,7 @@ const ViewOrders: React.FC<ViewOrdersProps> = ({ currentUser, userRole }) => {
   const [dateTo, setDateTo] = useState('');
   const [editOrder, setEditOrder] = useState<Order | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [docsOrder, setDocsOrder] = useState<Order | null>(null);
   const [expandedSerials, setExpandedSerials] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
