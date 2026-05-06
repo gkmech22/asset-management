@@ -312,6 +312,9 @@ const ViewOrders: React.FC<ViewOrdersProps> = ({ currentUser, userRole }) => {
                             <Button size="sm" variant="ghost" onClick={() => setEditOrder(o)}>
                               <Edit className="h-4 w-4" />
                             </Button>
+                            <Button size="sm" variant="ghost" onClick={() => setDocsOrder(o)} title="Documents">
+                              <FileText className="h-4 w-4" />
+                            </Button>
                             <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => setDeleteId(o.id)}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
