@@ -18,6 +18,7 @@ import { EnhancedBarcodeScanner } from "./EnhancedBarcodeScanner";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { generateDispatchEmailSubject, generateDispatchEmailBody, generateReceiveEmailSubject, generateReceiveEmailBody, openGmailCompose } from "@/lib/emailTemplates";
+import { DocumentsDialog } from "./DocumentsDialog";
 
 interface AssetListProps {
   assets: Asset[];
