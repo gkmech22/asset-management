@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, FileText, Trash2, Download, Loader2 } from "lucide-react";
+import { Upload, FileText, Trash2, Download, Loader2, Eye } from "lucide-react";
 
 const BUCKET = "asset-documents";
 const MAX_BYTES = 3 * 1024 * 1024;
