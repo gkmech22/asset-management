@@ -1896,6 +1896,18 @@ export const AssetList = ({
         showAssignedToOnly={showAssignedToOnly}
       />
 
+      <DocumentsDialog
+        open={showDocumentsDialog}
+        onOpenChange={(o) => {
+          setShowDocumentsDialog(o);
+          if (!o) setSelectedAsset(null);
+        }}
+        ownerType="asset"
+        ownerId={selectedAsset?.id || ""}
+        ownerLabel={selectedAsset?.asset_id}
+        uploadedBy={user?.email || undefined}
+      />
+
       <Dialog open={showHistoryDialog} onOpenChange={(open) => {
         setShowHistoryDialog(open);
         if (!open) setSelectedAsset(null);
