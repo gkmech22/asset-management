@@ -192,10 +192,13 @@ export const DocumentsDialog = ({ open, onOpenChange, ownerType, ownerId, ownerL
                       {d.file_size ? (d.file_size / 1024).toFixed(0) + " KB" : ""} · {new Date(d.created_at).toLocaleDateString()}
                     </p>
                   </div>
-                  <Button size="sm" variant="ghost" onClick={() => handleDownload(d)}>
+                  <Button size="sm" variant="ghost" onClick={() => handlePreview(d)} title="Preview">
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => handleDownload(d)} title="Download">
                     <Download className="h-4 w-4" />
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => handleDelete(d)}>
+                  <Button size="sm" variant="ghost" onClick={() => handleDelete(d)} title="Delete">
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 </li>
@@ -204,6 +207,21 @@ export const DocumentsDialog = ({ open, onOpenChange, ownerType, ownerId, ownerL
           )}
         </div>
       </DialogContent>
+
+      <Dialog open={!!preview} onOpenChange={(o) => !o && setPreview(null)}>
+        <DialogContent className="max-w-4xl w-[90vw] h-[85vh] flex flex-col p-4">
+          <DialogHeader>
+            <DialogTitle className="text-foreground truncate pr-8">{preview?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto bg-muted rounded">
+            {preview && (preview.mime.startsWith("image/") ? (
+              <img src={preview.url} alt={preview.name} className="max-w-full max-h-full mx-auto" />
+            ) : (
+              <iframe src={preview.url} title={preview.name} className="w-full h-full" />
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 };
