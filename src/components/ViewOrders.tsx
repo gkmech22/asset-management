@@ -404,6 +404,14 @@ const ViewOrders: React.FC<ViewOrdersProps> = ({ currentUser, userRole }) => {
         />
       )}
 
+      <DocumentsDialog
+        open={!!docsOrder}
+        onOpenChange={(o) => !o && setDocsOrder(null)}
+        ownerType="order"
+        ownerId={docsOrder?.id || ""}
+        ownerLabel={docsOrder?.sales_order}
+      />
+
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
