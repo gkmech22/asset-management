@@ -148,13 +148,13 @@ export const Dashboard = () => {
 
   const logEditHistory = async (assetId: string, field: string, oldValue: string | null, newValue: string | null) => {
     try {
-      await supabase.from("asset_edit_history").insert({
+      await (supabase.from("asset_edit_history") as any).insert({
         asset_id: assetId,
         field_changed: field,
         old_value: oldValue,
         new_value: newValue,
         changed_by: currentUser,
-        changed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       });
     } catch (error) {
       console.error("Failed to log edit history:", error);

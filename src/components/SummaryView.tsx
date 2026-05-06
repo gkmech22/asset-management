@@ -106,8 +106,6 @@ const SummaryView = ({ assets }: SummaryViewProps) => {
             asset.remarks ?? "",
             asset.warranty_start ?? "",
             asset.warranty_end ?? "",
-            asset.amc_start ?? "",
-            asset.amc_end ?? "",
             asset.asset_check ?? "",
             asset.asset_condition ?? "",
             asset.warranty_status ?? "",
