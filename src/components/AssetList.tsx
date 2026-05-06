@@ -1094,6 +1094,14 @@ export const AssetList = ({
                                   <DropdownMenuItem
                                     onClick={() => {
                                       setSelectedAsset(asset);
+                                      setShowDocumentsDialog(true);
+                                    }}
+                                  >
+                                    Documents
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setSelectedAsset(asset);
                                       setShowHistoryDialog(true);
                                     }}
                                   >
