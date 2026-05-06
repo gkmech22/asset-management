@@ -145,6 +145,95 @@ export type Database = {
         }
         Relationships: []
       }
+      devices: {
+        Row: {
+          asset_condition: string | null
+          asset_group: string
+          asset_status: string
+          asset_type: string
+          configuration: string | null
+          created_at: string
+          created_by: string
+          employee_id: string
+          employee_name: string
+          far_code: string | null
+          id: string
+          is_deleted: boolean
+          material_type: string
+          model: string | null
+          order_id: string | null
+          product: string | null
+          profile_id: string | null
+          sales_order: string
+          sd_card_size: string | null
+          serial_number: string | null
+          status: string
+          updated_at: string
+          updated_by: string
+          warehouse: string
+        }
+        Insert: {
+          asset_condition?: string | null
+          asset_group?: string
+          asset_status?: string
+          asset_type: string
+          configuration?: string | null
+          created_at?: string
+          created_by: string
+          employee_id: string
+          employee_name: string
+          far_code?: string | null
+          id?: string
+          is_deleted?: boolean
+          material_type: string
+          model?: string | null
+          order_id?: string | null
+          product?: string | null
+          profile_id?: string | null
+          sales_order: string
+          sd_card_size?: string | null
+          serial_number?: string | null
+          status?: string
+          updated_at?: string
+          updated_by: string
+          warehouse: string
+        }
+        Update: {
+          asset_condition?: string | null
+          asset_group?: string
+          asset_status?: string
+          asset_type?: string
+          configuration?: string | null
+          created_at?: string
+          created_by?: string
+          employee_id?: string
+          employee_name?: string
+          far_code?: string | null
+          id?: string
+          is_deleted?: boolean
+          material_type?: string
+          model?: string | null
+          order_id?: string | null
+          product?: string | null
+          profile_id?: string | null
+          sales_order?: string
+          sd_card_size?: string | null
+          serial_number?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string
+          warehouse?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "devices_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employees: {
         Row: {
           created_at: string | null
@@ -175,6 +264,123 @@ export type Database = {
         }
         Relationships: []
       }
+      history: {
+        Row: {
+          created_at: string
+          field_name: string
+          id: string
+          new_data: string | null
+          old_data: string | null
+          operation: string
+          record_id: string
+          sales_order: string | null
+          table_name: string
+          updated_by: string
+        }
+        Insert: {
+          created_at?: string
+          field_name: string
+          id?: string
+          new_data?: string | null
+          old_data?: string | null
+          operation: string
+          record_id: string
+          sales_order?: string | null
+          table_name: string
+          updated_by: string
+        }
+        Update: {
+          created_at?: string
+          field_name?: string
+          id?: string
+          new_data?: string | null
+          old_data?: string | null
+          operation?: string
+          record_id?: string
+          sales_order?: string | null
+          table_name?: string
+          updated_by?: string
+        }
+        Relationships: []
+      }
+      orders: {
+        Row: {
+          asset_type: string
+          configuration: string | null
+          created_at: string | null
+          created_by: string
+          deal_id: string | null
+          employee_id: string | null
+          employee_name: string | null
+          id: string
+          material_type: string
+          model: string
+          nucleus_id: string | null
+          order_date: string | null
+          order_type: string
+          product: string | null
+          profile_id: string | null
+          quantity: number
+          sales_order: string
+          school_name: string | null
+          sd_card_size: string | null
+          serial_numbers: string[] | null
+          updated_at: string | null
+          updated_by: string
+          warehouse: string
+        }
+        Insert: {
+          asset_type: string
+          configuration?: string | null
+          created_at?: string | null
+          created_by: string
+          deal_id?: string | null
+          employee_id?: string | null
+          employee_name?: string | null
+          id?: string
+          material_type: string
+          model: string
+          nucleus_id?: string | null
+          order_date?: string | null
+          order_type: string
+          product?: string | null
+          profile_id?: string | null
+          quantity?: number
+          sales_order: string
+          school_name?: string | null
+          sd_card_size?: string | null
+          serial_numbers?: string[] | null
+          updated_at?: string | null
+          updated_by: string
+          warehouse: string
+        }
+        Update: {
+          asset_type?: string
+          configuration?: string | null
+          created_at?: string | null
+          created_by?: string
+          deal_id?: string | null
+          employee_id?: string | null
+          employee_name?: string | null
+          id?: string
+          material_type?: string
+          model?: string
+          nucleus_id?: string | null
+          order_date?: string | null
+          order_type?: string
+          product?: string | null
+          profile_id?: string | null
+          quantity?: number
+          sales_order?: string
+          school_name?: string | null
+          sd_card_size?: string | null
+          serial_numbers?: string[] | null
+          updated_at?: string | null
+          updated_by?: string
+          warehouse?: string
+        }
+        Relationships: []
+      }
       pending_requests: {
         Row: {
           approved_at: string | null
@@ -182,6 +388,7 @@ export type Database = {
           approver_comments: string | null
           asset_condition: string | null
           asset_id: string
+          asset_value_recovery: number | null
           assign_to: string | null
           cancelled_at: string | null
           cancelled_by: string | null
@@ -210,6 +417,7 @@ export type Database = {
           approver_comments?: string | null
           asset_condition?: string | null
           asset_id: string
+          asset_value_recovery?: number | null
           assign_to?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
@@ -238,6 +446,7 @@ export type Database = {
           approver_comments?: string | null
           asset_condition?: string | null
           asset_id?: string
+          asset_value_recovery?: number | null
           assign_to?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
@@ -302,7 +511,29 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      employee_summary: {
+        Args: never
+        Returns: {
+          asset_type: string
+          dispatched: number
+          employee_id: string
+          employee_name: string
+          model: string
+          pending: number
+          received: number
+        }[]
+      }
+      stock_summary: {
+        Args: never
+        Returns: {
+          asset_type: string
+          inward: number
+          model: string
+          outward: number
+          stock: number
+          warehouse: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
