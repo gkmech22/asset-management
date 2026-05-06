@@ -69,6 +69,7 @@ export const AssetList = ({
   const [showEditDialog, setShowEditDialog] = React.useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = React.useState(false);
   const [showHistoryDialog, setShowHistoryDialog] = React.useState(false);
+  const [showDocumentsDialog, setShowDocumentsDialog] = React.useState(false);
   const [showReturnDialog, setShowReturnDialog] = React.useState(false);
   const [showStickerDialog, setShowStickerDialog] = React.useState(false);
   const [returnRemarks, setReturnRemarks] = React.useState("");
