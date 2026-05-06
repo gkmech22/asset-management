@@ -562,6 +562,7 @@ export type Database = {
           received: number
         }[]
       }
+      is_admin: { Args: { _email: string }; Returns: boolean }
       stock_summary: {
         Args: never
         Returns: {
