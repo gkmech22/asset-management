@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, FileText, Trash2, Download, Loader2 } from "lucide-react";
+import { Upload, FileText, Trash2, Download, Loader2, Eye } from "lucide-react";
 
 const BUCKET = "asset-documents";
 const MAX_BYTES = 3 * 1024 * 1024;
@@ -35,6 +35,7 @@ export const DocumentsDialog = ({ open, onOpenChange, ownerType, ownerId, ownerL
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [monthFilter, setMonthFilter] = useState<string>("all");
+  const [preview, setPreview] = useState<{ url: string; mime: string; name: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const fetchDocs = useCallback(async () => {
@@ -102,6 +103,12 @@ export const DocumentsDialog = ({ open, onOpenChange, ownerType, ownerId, ownerL
     const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(doc.file_path, 60);
     if (error || !data) return toast.error("Could not generate link");
     window.open(data.signedUrl, "_blank");
+  };
+
+  const handlePreview = async (doc: DocRow) => {
+    const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(doc.file_path, 300);
+    if (error || !data) return toast.error("Could not generate link");
+    setPreview({ url: data.signedUrl, mime: doc.mime_type || "", name: doc.file_name });
   };
 
   const handleDelete = async (doc: DocRow) => {
@@ -185,10 +192,13 @@ export const DocumentsDialog = ({ open, onOpenChange, ownerType, ownerId, ownerL
                       {d.file_size ? (d.file_size / 1024).toFixed(0) + " KB" : ""} · {new Date(d.created_at).toLocaleDateString()}
                     </p>
                   </div>
-                  <Button size="sm" variant="ghost" onClick={() => handleDownload(d)}>
+                  <Button size="sm" variant="ghost" onClick={() => handlePreview(d)} title="Preview">
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => handleDownload(d)} title="Download">
                     <Download className="h-4 w-4" />
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => handleDelete(d)}>
+                  <Button size="sm" variant="ghost" onClick={() => handleDelete(d)} title="Delete">
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 </li>
@@ -197,6 +207,21 @@ export const DocumentsDialog = ({ open, onOpenChange, ownerType, ownerId, ownerL
           )}
         </div>
       </DialogContent>
+
+      <Dialog open={!!preview} onOpenChange={(o) => !o && setPreview(null)}>
+        <DialogContent className="max-w-4xl w-[90vw] h-[85vh] flex flex-col p-4">
+          <DialogHeader>
+            <DialogTitle className="text-foreground truncate pr-8">{preview?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto bg-muted rounded">
+            {preview && (preview.mime.startsWith("image/") ? (
+              <img src={preview.url} alt={preview.name} className="max-w-full max-h-full mx-auto" />
+            ) : (
+              <iframe src={preview.url} title={preview.name} className="w-full h-full" />
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 };
