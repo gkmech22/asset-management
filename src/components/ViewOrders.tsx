@@ -14,7 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, RefreshCw, Edit, Trash2, ChevronDown, ChevronUp, Download, Calendar } from "lucide-react";
+import { Search, RefreshCw, Edit, Trash2, ChevronDown, ChevronUp, Download, Calendar, FileText } from "lucide-react";
+import { DocumentsDialog } from "./DocumentsDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,6 +56,7 @@ const ViewOrders: React.FC<ViewOrdersProps> = ({ currentUser, userRole }) => {
   const [dateTo, setDateTo] = useState('');
   const [editOrder, setEditOrder] = useState<Order | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [docsOrder, setDocsOrder] = useState<Order | null>(null);
   const [expandedSerials, setExpandedSerials] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -310,6 +312,9 @@ const ViewOrders: React.FC<ViewOrdersProps> = ({ currentUser, userRole }) => {
                             <Button size="sm" variant="ghost" onClick={() => setEditOrder(o)}>
                               <Edit className="h-4 w-4" />
                             </Button>
+                            <Button size="sm" variant="ghost" onClick={() => setDocsOrder(o)} title="Documents">
+                              <FileText className="h-4 w-4" />
+                            </Button>
                             <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => setDeleteId(o.id)}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -398,6 +403,14 @@ const ViewOrders: React.FC<ViewOrdersProps> = ({ currentUser, userRole }) => {
           }}
         />
       )}
+
+      <DocumentsDialog
+        open={!!docsOrder}
+        onOpenChange={(o) => !o && setDocsOrder(null)}
+        ownerType="order"
+        ownerId={docsOrder?.id || ""}
+        ownerLabel={docsOrder?.sales_order}
+      />
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>

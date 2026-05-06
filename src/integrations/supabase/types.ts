@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      asset_documents: {
+        Row: {
+          created_at: string
+          doc_month: string | null
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          mime_type: string | null
+          owner_id: string
+          owner_type: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          doc_month?: string | null
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          owner_id: string
+          owner_type: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          doc_month?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          owner_id?: string
+          owner_type?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       asset_edit_history: {
         Row: {
           asset_id: string

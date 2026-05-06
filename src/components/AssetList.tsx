@@ -18,6 +18,7 @@ import { EnhancedBarcodeScanner } from "./EnhancedBarcodeScanner";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { generateDispatchEmailSubject, generateDispatchEmailBody, generateReceiveEmailSubject, generateReceiveEmailBody, openGmailCompose } from "@/lib/emailTemplates";
+import { DocumentsDialog } from "./DocumentsDialog";
 
 interface AssetListProps {
   assets: Asset[];
@@ -68,6 +69,7 @@ export const AssetList = ({
   const [showEditDialog, setShowEditDialog] = React.useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = React.useState(false);
   const [showHistoryDialog, setShowHistoryDialog] = React.useState(false);
+  const [showDocumentsDialog, setShowDocumentsDialog] = React.useState(false);
   const [showReturnDialog, setShowReturnDialog] = React.useState(false);
   const [showStickerDialog, setShowStickerDialog] = React.useState(false);
   const [returnRemarks, setReturnRemarks] = React.useState("");
@@ -1092,6 +1094,14 @@ export const AssetList = ({
                                   <DropdownMenuItem
                                     onClick={() => {
                                       setSelectedAsset(asset);
+                                      setShowDocumentsDialog(true);
+                                    }}
+                                  >
+                                    Documents
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setSelectedAsset(asset);
                                       setShowHistoryDialog(true);
                                     }}
                                   >
@@ -1884,6 +1894,18 @@ export const AssetList = ({
           }
         }}
         showAssignedToOnly={showAssignedToOnly}
+      />
+
+      <DocumentsDialog
+        open={showDocumentsDialog}
+        onOpenChange={(o) => {
+          setShowDocumentsDialog(o);
+          if (!o) setSelectedAsset(null);
+        }}
+        ownerType="asset"
+        ownerId={selectedAsset?.id || ""}
+        ownerLabel={selectedAsset?.asset_id}
+        uploadedBy={user?.email || undefined}
       />
 
       <Dialog open={showHistoryDialog} onOpenChange={(open) => {
