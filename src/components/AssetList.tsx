@@ -1797,40 +1797,52 @@ export const AssetList = ({
       </Dialog>
 
       <Dialog open={showStatusCheckDialog} onOpenChange={setShowStatusCheckDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Asset Check — Status Summary</DialogTitle>
+            <DialogTitle>Asset Check Status</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-2 text-sm font-semibold border-b pb-2">
-              <div>Status</div>
-              <div className="text-green-600 text-right">Matched</div>
-              <div className="text-red-600 text-right">Unmatched</div>
-            </div>
-            {(() => {
-              const groups: Record<string, { matched: number; unmatched: number }> = {};
-              filteredAssets.forEach((a) => {
-                const s = a.status || "Unknown";
-                if (!groups[s]) groups[s] = { matched: 0, unmatched: 0 };
-                if (a.asset_check === "Matched") groups[s].matched++;
-                else groups[s].unmatched++;
-              });
-              const rows = Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
-              if (rows.length === 0) {
-                return <p className="text-sm text-muted-foreground text-center py-4">No assets in current filter</p>;
-              }
-              return rows.map(([status, c]) => (
-                <div key={status} className="grid grid-cols-3 gap-2 text-sm py-1 border-b last:border-0">
-                  <div className="font-medium">{status}</div>
-                  <div className="text-green-600 text-right">{c.matched}</div>
-                  <div className="text-red-600 text-right">{c.unmatched}</div>
+          {(() => {
+            const matched = filteredAssets.filter((a) => a.asset_check === "Matched").length;
+            const unmatched = filteredAssets.length - matched;
+            const handleGenerateReport = () => {
+              const headers = ["Asset ID", "Serial Number", "Name", "Type", "Brand", "Status", "Location", "Asset Check"];
+              const rows = filteredAssets.map((a) => [
+                a.asset_id || "",
+                a.serial_number || "",
+                a.name || "",
+                a.type || "",
+                a.brand || "",
+                a.status || "",
+                a.location || "",
+                a.asset_check || "Unmatched",
+              ]);
+              const csv = [headers, ...rows]
+                .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
+                .join("\n");
+              const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement("a");
+              link.href = url;
+              link.download = `asset-check-status-${new Date().toISOString().split("T")[0]}.csv`;
+              link.click();
+              URL.revokeObjectURL(url);
+            };
+            return (
+              <div className="space-y-4">
+                <p className="text-sm text-destructive font-medium">
+                  Matched: {matched}, Unmatched: {unmatched}
+                </p>
+                <div className="flex justify-between gap-2">
+                  <Button variant="outline" size="sm" onClick={handleGenerateReport}>
+                    Generate Report
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setShowStatusCheckDialog(false)}>
+                    Close
+                  </Button>
                 </div>
-              ));
-            })()}
-            <div className="flex justify-end pt-2">
-              <Button variant="outline" size="sm" onClick={() => setShowStatusCheckDialog(false)}>Close</Button>
-            </div>
-          </div>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
