@@ -1032,6 +1032,7 @@ export const Dashboard = () => {
                   </Badge>
                 )}
               </Button>
+              <OnlineUsers />
               <UserProfile />
             </div>
           </div>
