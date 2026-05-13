@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Menu, Upload, Plus, Bell, Download } from "lucide-react";
 import { UserProfile } from "@/components/auth/UserProfile";
+import { OnlineUsers } from "@/components/OnlineUsers";
 import { AssetForm } from "./AssetForm";
 import { BulkUpload } from "./BulkUpload";
 import { useAssets, useCreateAsset, useUpdateAsset, useUnassignAsset, useDeleteAsset } from "@/hooks/useAssets";
@@ -1032,6 +1033,7 @@ export const Dashboard = () => {
                   </Badge>
                 )}
               </Button>
+              <OnlineUsers />
               <UserProfile />
             </div>
           </div>
