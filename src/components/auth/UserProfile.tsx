@@ -120,47 +120,35 @@ export const UserProfile = () => {
     e.preventDefault();
     if (userRole !== 'Super Admin' && userRole !== 'Admin') return;
     setIsLoading(true);
+    setErrorMessage('');
     try {
       if (userRole === 'Admin' && (role === 'Super Admin' || role === 'Admin')) {
         setErrorMessage('Admins can only create users with Operator or Reporter roles.');
         return;
       }
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password: 'defaultPassword123',
-        options: {
-          data: {
-            department,
-            role,
-            account_type: accountType || 'Standard',
-          },
-        },
-      });
-      if (error) throw error;
-      if (data.user) {
-        const { error: insertError } = await supabase.from('users').insert({
-          id: data.user.id,
+      const { error } = await supabase.functions.invoke('create-user-admin', {
+        body: {
           email,
+          password: 'defaultPassword123',
           department,
           role,
           account_type: accountType || 'Standard',
-        });
-        if (insertError) throw insertError;
-        await fetchUsers();
-        alert('User created successfully! Please ask the new user to check their email and log in.');
-      }
-    } catch (error) {
+        },
+      });
+      if (error) throw error;
+
+      await fetchUsers();
+      alert('User created successfully! Please share the default password with the new user.');
+      setOpenCreateUser(false);
+      setEmail('');
+      setDepartment('');
+      setRole('');
+      setAccountType('');
+    } catch (error: any) {
       console.error('Error creating user:', error);
-      setErrorMessage('Failed to create user. Please try again.');
+      setErrorMessage(error?.message || 'Failed to create user. Please try again.');
     } finally {
       setIsLoading(false);
-      if (!isLoading) {
-        setOpenCreateUser(false);
-        setEmail('');
-        setDepartment('');
-        setRole('');
-        setAccountType('');
-      }
     }
   };
 

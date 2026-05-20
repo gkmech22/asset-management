@@ -55,29 +55,16 @@ export const CreateUserDialog = ({ onSuccess }: CreateUserDialogProps) => {
 
   const handleCreate = async () => {
     try {
-      // Create auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: name, // Optional: Store in user_metadata if needed elsewhere
-            department,
-            role,
-          },
+      const { error } = await supabase.functions.invoke('create-user-admin', {
+        body: {
+          email,
+          password,
+          department,
+          role,
+          account_type: 'Standard',
         },
       });
-      if (authError) throw authError;
-
-      // Insert into users table to make it appear in the list
-      const { error: insertError } = await supabase.from('users').insert({
-        id: authData.user?.id,
-        email,
-        department,
-        role,
-        account_type: 'Standard',
-      });
-      if (insertError) throw insertError;
+      if (error) throw error;
 
       onSuccess();
       setOpen(false);
