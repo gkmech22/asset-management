@@ -152,54 +152,6 @@ export const UserProfile = () => {
     }
   };
 
-  /* const handleCreateUserLegacy = async (e) => {
-    e.preventDefault();
-    if (userRole !== 'Super Admin' && userRole !== 'Admin') return;
-    setIsLoading(true);
-    try {
-      if (userRole === 'Admin' && (role === 'Super Admin' || role === 'Admin')) {
-        setErrorMessage('Admins can only create users with Operator or Reporter roles.');
-        return;
-      }
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password: 'defaultPassword123',
-        options: {
-          data: {
-            department,
-            role,
-            account_type: accountType || 'Standard',
-          },
-        },
-      });
-      if (error) throw error;
-      if (data.user) {
-        const { error: insertError } = await supabase.from('users').insert({
-          id: data.user.id,
-          email,
-          department,
-          role,
-          account_type: accountType || 'Standard',
-        });
-        if (insertError) throw insertError;
-        await fetchUsers();
-        alert('User created successfully! Please ask the new user to check their email and log in.');
-      }
-    } catch (error) {
-      console.error('Error creating user:', error);
-      setErrorMessage('Failed to create user. Please try again.');
-    } finally {
-      setIsLoading(false);
-      if (!isLoading) {
-        setOpenCreateUser(false);
-        setEmail('');
-        setDepartment('');
-        setRole('');
-        setAccountType('');
-      }
-    }
-  }; */
-
   const handleEditUser = (user) => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin') return;
     if (userRole === 'Admin' && (user.role === 'Super Admin' || user.role === 'Admin')) {
