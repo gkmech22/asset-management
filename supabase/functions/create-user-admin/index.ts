@@ -131,18 +131,27 @@ serve(async (req: Request): Promise<Response> => {
       throw new Error("Unable to create or locate the auth user.");
     }
 
-    const { error: upsertError } = await adminClient.from("users").upsert(
-      {
-        id: authUserId,
-        email,
-        department,
-        role,
-        account_type: accountType,
-      },
-      { onConflict: "email" }
-    );
+    const userRow = {
+      id: authUserId,
+      email,
+      department,
+      role,
+      account_type: accountType,
+    };
 
-    if (upsertError) throw upsertError;
+    const { data: existingProfile, error: existingProfileError } = await adminClient
+      .from("users")
+      .select("id")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (existingProfileError) throw existingProfileError;
+
+    const { error: profileWriteError } = existingProfile
+      ? await adminClient.from("users").update(userRow).eq("id", existingProfile.id)
+      : await adminClient.from("users").insert(userRow);
+
+    if (profileWriteError) throw profileWriteError;
 
     return new Response(JSON.stringify({ id: authUserId, email }), {
       status: 200,
