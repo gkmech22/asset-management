@@ -120,6 +120,42 @@ export const UserProfile = () => {
     e.preventDefault();
     if (userRole !== 'Super Admin' && userRole !== 'Admin') return;
     setIsLoading(true);
+    setErrorMessage('');
+    try {
+      if (userRole === 'Admin' && (role === 'Super Admin' || role === 'Admin')) {
+        setErrorMessage('Admins can only create users with Operator or Reporter roles.');
+        return;
+      }
+      const { error } = await supabase.functions.invoke('create-user-admin', {
+        body: {
+          email,
+          password: 'defaultPassword123',
+          department,
+          role,
+          account_type: accountType || 'Standard',
+        },
+      });
+      if (error) throw error;
+
+      await fetchUsers();
+      alert('User created successfully! Please share the default password with the new user.');
+      setOpenCreateUser(false);
+      setEmail('');
+      setDepartment('');
+      setRole('');
+      setAccountType('');
+    } catch (error: any) {
+      console.error('Error creating user:', error);
+      setErrorMessage(error?.message || 'Failed to create user. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /* const handleCreateUserLegacy = async (e) => {
+    e.preventDefault();
+    if (userRole !== 'Super Admin' && userRole !== 'Admin') return;
+    setIsLoading(true);
     try {
       if (userRole === 'Admin' && (role === 'Super Admin' || role === 'Admin')) {
         setErrorMessage('Admins can only create users with Operator or Reporter roles.');
@@ -162,7 +198,7 @@ export const UserProfile = () => {
         setAccountType('');
       }
     }
-  };
+  }; */
 
   const handleEditUser = (user) => {
     if (userRole !== 'Super Admin' && userRole !== 'Admin') return;
