@@ -79,6 +79,7 @@ serve(async (req: Request): Promise<Response> => {
       .from("users")
       .select("role, account_type")
       .eq("email", normalizeEmail(callerData.user.email))
+      .limit(1)
       .maybeSingle();
 
     if (profileError) throw profileError;
@@ -113,7 +114,10 @@ serve(async (req: Request): Promise<Response> => {
       const alreadyExists = createError.message.toLowerCase().includes("already") || createError.status === 422;
       if (!alreadyExists) throw createError;
 
-      const { data: existingUsers, error: listError } = await adminClient.auth.admin.listUsers();
+      const { data: existingUsers, error: listError } = await adminClient.auth.admin.listUsers({
+        page: 1,
+        perPage: 1000,
+      });
       if (listError) throw listError;
       authUserId = existingUsers.users.find((existingUser) => normalizeEmail(existingUser.email || "") === email)?.id;
 
@@ -143,6 +147,7 @@ serve(async (req: Request): Promise<Response> => {
       .from("users")
       .select("id")
       .eq("email", email)
+      .limit(1)
       .maybeSingle();
 
     if (existingProfileError) throw existingProfileError;
