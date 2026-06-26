@@ -221,9 +221,26 @@ export const DocumentsDialog = ({ open, onOpenChange, ownerType, ownerId, ownerL
                   <FileText className="h-4 w-4 text-primary shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">{d.file_name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {d.file_size ? (d.file_size / 1024).toFixed(0) + " KB" : ""} · {new Date(d.created_at).toLocaleDateString()}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                      <span>{d.file_size ? (d.file_size / 1024).toFixed(0) + " KB" : ""}</span>
+                      <span>·</span>
+                      <span>{new Date(d.created_at).toLocaleDateString()}</span>
+                      {ownerLabel && (
+                        <>
+                          <span>·</span>
+                          <span className="font-medium text-blue-600 bg-blue-50 px-1 rounded">SN: {ownerLabel}</span>
+                        </>
+                      )}
+                      {d.employee_id && (
+                        <>
+                          <span>·</span>
+                          <span className="font-medium text-amber-700 bg-amber-50 px-1 rounded">
+                            Emp: {d.employee_id}
+                            {d.employee_id === employeeId && employeeName ? ` (${employeeName})` : ""}
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </div>
                   <Button size="sm" variant="ghost" onClick={() => handlePreview(d)} title="Preview">
                     <Eye className="h-4 w-4" />

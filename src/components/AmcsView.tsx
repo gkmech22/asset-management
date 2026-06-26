@@ -41,11 +41,13 @@ const AmcsView = ({
   const [configFilter, setConfigFilter] = useState<string[]>([]);
   const [locationFilter, setLocationFilter] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [employeeFilter, setEmployeeFilter] = useState<string[]>([]);
   const [searchQueryType, setSearchQueryType] = useState("");
   const [searchQueryBrand, setSearchQueryBrand] = useState("");
   const [searchQueryConfig, setSearchQueryConfig] = useState("");
   const [searchQueryLocation, setSearchQueryLocation] = useState("");
   const [searchQueryStatus, setSearchQueryStatus] = useState("");
+  const [searchQueryEmployee, setSearchQueryEmployee] = useState("");
 
   // Compute filtered assets based on all active filters except the one being computed
   const getFilteredAssets = useMemo(() => (excludeFilter: string) => {
@@ -55,9 +57,10 @@ const AmcsView = ({
       const configMatch = excludeFilter === "config" || configFilter.length === 0 || (asset.configuration && configFilter.includes(asset.configuration));
       const locationMatch = excludeFilter === "location" || locationFilter.length === 0 || locationFilter.includes(asset.location);
       const statusMatch = excludeFilter === "status" || statusFilter.length === 0 || statusFilter.includes(asset.status);
-      return typeMatch && brandMatch && configMatch && locationMatch && statusMatch;
+      const employeeMatch = excludeFilter === "employee" || employeeFilter.length === 0 || (asset.assigned_to && employeeFilter.includes(asset.assigned_to));
+      return typeMatch && brandMatch && configMatch && locationMatch && statusMatch && employeeMatch;
     });
-  }, [assets, typeFilter, brandFilter, configFilter, locationFilter, statusFilter]);
+  }, [assets, typeFilter, brandFilter, configFilter, locationFilter, statusFilter, employeeFilter]);
 
   // Compute options for each dropdown based on filtered assets
   const assetTypes = useMemo(() => [...new Set(assets.map((asset) => asset.type).filter(Boolean))].sort(), [assets]);
@@ -65,6 +68,7 @@ const AmcsView = ({
   const assetConfigurations = useMemo(() => [...new Set(assets.map((asset) => asset.configuration).filter(Boolean))].sort(), [assets]);
   const assetLocations = useMemo(() => [...new Set(assets.map((asset) => asset.location).filter(Boolean))].sort(), [assets]);
   const assetStatuses = useMemo(() => [...new Set(assets.map((asset) => asset.status).filter(Boolean))].sort(), [assets]);
+  const assetEmployees = useMemo(() => [...new Set(assets.map((asset) => asset.assigned_to).filter(Boolean))].sort(), [assets]);
 
   // Assets filtered by all active filters for display
   const filteredAssets = useMemo(() => assets.filter((asset) => {
@@ -73,6 +77,7 @@ const AmcsView = ({
     const configMatch = configFilter.length === 0 || (asset.configuration && configFilter.includes(asset.configuration));
     const locationMatch = locationFilter.length === 0 || locationFilter.includes(asset.location);
     const statusMatch = statusFilter.length === 0 || statusFilter.includes(asset.status);
+    const employeeMatch = employeeFilter.length === 0 || (asset.assigned_to && employeeFilter.includes(asset.assigned_to));
 
     const searchMatch = searchQuery.trim() === "" ||
       [
@@ -100,8 +105,8 @@ const AmcsView = ({
         new Date(asset.assigned_date || asset.return_date) >= new Date(dateRange.from) &&
         new Date(asset.assigned_date || asset.return_date) <= new Date(dateRange.to));
 
-    return typeMatch && brandMatch && configMatch && locationMatch && statusMatch && searchMatch && dateMatch;
-  }), [assets, searchQuery, dateRange, typeFilter, brandFilter, configFilter, locationFilter, statusFilter]);
+    return typeMatch && brandMatch && configMatch && locationMatch && statusMatch && employeeMatch && searchMatch && dateMatch;
+  }), [assets, searchQuery, dateRange, typeFilter, brandFilter, configFilter, locationFilter, statusFilter, employeeFilter]);
 
   const clearFilters = () => {
     setTypeFilter([]);
@@ -109,6 +114,7 @@ const AmcsView = ({
     setConfigFilter([]);
     setLocationFilter([]);
     setStatusFilter([]);
+    setEmployeeFilter([]);
     setDateRange(undefined);
     setSearchQuery("");
     setSearchQueryType("");
@@ -116,6 +122,7 @@ const AmcsView = ({
     setSearchQueryConfig("");
     setSearchQueryLocation("");
     setSearchQueryStatus("");
+    setSearchQueryEmployee("");
   };
 
   // Reset invalid filter selections
@@ -125,7 +132,8 @@ const AmcsView = ({
     setConfigFilter(configFilter.filter(c => assetConfigurations.includes(c)));
     setLocationFilter(locationFilter.filter(l => assetLocations.includes(l)));
     setStatusFilter(statusFilter.filter(s => assetStatuses.includes(s)));
-  }, [assetTypes, assetBrands, assetConfigurations, assetLocations, assetStatuses]);
+    setEmployeeFilter(employeeFilter.filter(e => assetEmployees.includes(e)));
+  }, [assetTypes, assetBrands, assetConfigurations, assetLocations, assetStatuses, assetEmployees]);
 
   return (
     <>
@@ -159,7 +167,7 @@ const AmcsView = ({
           </div>
         </CardHeader>
         <CardContent className="pt-2">
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-7 gap-2">
             <div className="space-y-1">
               <Label className="text-xs font-medium">Asset Type</Label>
               <Popover>
@@ -283,6 +291,50 @@ const AmcsView = ({
                           <label htmlFor={`config-${config}`} className="text-xs cursor-pointer flex-1">
                             {config}
                           </label>
+                        </div>
+                      ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+            {/* Employee */}
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Employee</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="text-xs h-7 w-full justify-between">
+                    {employeeFilter.length === 0 ? "All Employees" : `${employeeFilter.length} selected`}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-0">
+                  <div className="p-2 border-b">
+                    <Input
+                      type="text"
+                      placeholder="Search employees..."
+                      value={searchQueryEmployee}
+                      onChange={(e) => setSearchQueryEmployee(e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      autoFocus
+                      className="w-full h-6 text-xs"
+                    />
+                  </div>
+                  <div className="max-h-64 overflow-y-auto p-2">
+                    {assetEmployees
+                      .filter((emp: string) => emp.toLowerCase().includes(searchQueryEmployee.toLowerCase()))
+                      .map((emp: string) => (
+                        <div key={emp} className="flex items-center space-x-2 py-1">
+                          <Checkbox
+                            id={`employee-${emp}`}
+                            checked={employeeFilter.includes(emp)}
+                            onCheckedChange={(checked) => {
+                              setEmployeeFilter((prev) =>
+                                checked ? [...prev, emp] : prev.filter((e) => e !== emp)
+                              );
+                            }}
+                          />
+                          <Label htmlFor={`employee-${emp}`} className="text-xs cursor-pointer flex-1">
+                            {emp}
+                          </Label>
                         </div>
                       ))}
                   </div>

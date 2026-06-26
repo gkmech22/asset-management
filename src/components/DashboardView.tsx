@@ -49,11 +49,13 @@ const DashboardView = ({
   const [configFilter, setConfigFilter] = useState<string[]>([]);
   const [locationFilter, setLocationFilter] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [employeeFilter, setEmployeeFilter] = useState<string[]>([]);
   const [searchQueryType, setSearchQueryType] = useState("");
   const [searchQueryBrand, setSearchQueryBrand] = useState("");
   const [searchQueryConfig, setSearchQueryConfig] = useState("");
   const [searchQueryLocation, setSearchQueryLocation] = useState("");
   const [searchQueryStatus, setSearchQueryStatus] = useState("");
+  const [searchQueryEmployee, setSearchQueryEmployee] = useState("");
 
   // Unified filter function
   const getFilteredAssets = useMemo(
@@ -75,6 +77,10 @@ const DashboardView = ({
           excludeFilter === "status" ||
           statusFilter.length === 0 ||
           statusFilter.includes(asset.status);
+        const employeeMatch =
+          excludeFilter === "employee" ||
+          employeeFilter.length === 0 ||
+          (asset.assigned_to && employeeFilter.includes(asset.assigned_to));
 
         const searchMatch =
           searchQuery.trim() === "" ||
@@ -116,7 +122,7 @@ const DashboardView = ({
             );
           })();
 
-        return typeMatch && brandMatch && configMatch && locationMatch && statusMatch && searchMatch && dateMatch;
+        return typeMatch && brandMatch && configMatch && locationMatch && statusMatch && employeeMatch && searchMatch && dateMatch;
       });
     },
     [
@@ -126,6 +132,7 @@ const DashboardView = ({
       configFilter,
       locationFilter,
       statusFilter,
+      employeeFilter,
       searchQuery,
       dateRange,
     ]
@@ -137,6 +144,7 @@ const DashboardView = ({
   const filteredForConfigs = useMemo(() => getFilteredAssets("config"), [getFilteredAssets]);
   const filteredForLocations = useMemo(() => getFilteredAssets("location"), [getFilteredAssets]);
   const filteredForStatuses = useMemo(() => getFilteredAssets("status"), [getFilteredAssets]);
+  const filteredForEmployees = useMemo(() => getFilteredAssets("employee"), [getFilteredAssets]);
 
   // Dropdown options
   const assetTypes = useMemo(
@@ -158,6 +166,10 @@ const DashboardView = ({
   const assetStatuses = useMemo(
     () => [...new Set(filteredForStatuses.map((a) => a.status).filter(Boolean))].sort(),
     [filteredForStatuses]
+  );
+  const assetEmployees = useMemo(
+    () => [...new Set(filteredForEmployees.map((a) => a.assigned_to).filter(Boolean))].sort(),
+    [filteredForEmployees]
   );
 
   // Final filtered assets for display and stats
@@ -198,6 +210,7 @@ const DashboardView = ({
     setConfigFilter([]);
     setLocationFilter([]);
     setStatusFilter([]);
+    setEmployeeFilter([]);
     setDateRange(undefined);
     setSearchQuery("");
     setSearchQueryType("");
@@ -205,6 +218,7 @@ const DashboardView = ({
     setSearchQueryConfig("");
     setSearchQueryLocation("");
     setSearchQueryStatus("");
+    setSearchQueryEmployee("");
   };
 
   // Reset invalid selections
@@ -214,7 +228,8 @@ const DashboardView = ({
     setConfigFilter((prev) => prev.filter((c) => assetConfigurations.includes(c)));
     setLocationFilter((prev) => prev.filter((l) => assetLocations.includes(l)));
     setStatusFilter((prev) => prev.filter((s) => assetStatuses.includes(s)));
-  }, [assetTypes, assetBrands, assetConfigurations, assetLocations, assetStatuses]);
+    setEmployeeFilter((prev) => prev.filter((e) => assetEmployees.includes(e)));
+  }, [assetTypes, assetBrands, assetConfigurations, assetLocations, assetStatuses, assetEmployees]);
 
   return (
     <>
@@ -381,7 +396,7 @@ const DashboardView = ({
           </div>
         </CardHeader>
         <CardContent className="pt-2">
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-7 gap-2">
             {/* Asset Type */}
             <div className="space-y-1">
               <label className="text-xs font-medium">Asset Type</label>
@@ -521,7 +536,52 @@ const DashboardView = ({
               </Popover>
             </div>
 
-            {/* Location */}
+            {/* Employee */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Employee</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="text-xs h-7 w-full justify-between">
+                    {employeeFilter.length === 0 ? "All Employees" : `${employeeFilter.length} selected`}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-0">
+                  <div className="p-2 border-b">
+                    <Input
+                      type="text"
+                      placeholder="Search employees..."
+                      value={searchQueryEmployee}
+                      onChange={(e) => setSearchQueryEmployee(e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      autoFocus
+                      className="w-full h-6 text-xs"
+                    />
+                  </div>
+                  <div className="max-h-64 overflow-y-auto p-2">
+                    {assetEmployees
+                      .filter((emp) => emp.toLowerCase().includes(searchQueryEmployee.toLowerCase()))
+                      .map((emp) => (
+                        <div key={emp} className="flex items-center space-x-2 py-1">
+                          <Checkbox
+                            id={`employee-${emp}`}
+                            checked={employeeFilter.includes(emp)}
+                            onCheckedChange={(checked) => {
+                              setEmployeeFilter((prev) =>
+                                checked ? [...prev, emp] : prev.filter((e) => e !== emp)
+                              );
+                            }}
+                          />
+                          <label htmlFor={`employee-${emp}`} className="text-xs cursor-pointer flex-1">
+                            {emp}
+                          </label>
+                        </div>
+                      ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Asset Location */}
             <div className="space-y-1">
               <label className="text-xs font-medium">Asset Location</label>
               <Popover>
