@@ -39,8 +39,10 @@ export const DocumentsDialog = ({ open, onOpenChange, ownerType, ownerId, ownerL
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [monthFilter, setMonthFilter] = useState<string>("all");
+  const [empFilter, setEmpFilter] = useState<string>("all");
   const [preview, setPreview] = useState<{ url: string; mime: string; name: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
 
   const fetchDocs = useCallback(async () => {
     setLoading(true);
