@@ -1954,7 +1954,7 @@ export const AssetList = ({
         }}
         ownerType="asset"
         ownerId={selectedAsset?.id || ""}
-        ownerLabel={selectedAsset?.asset_id}
+        ownerLabel={(selectedAsset as any)?.serial_number || selectedAsset?.asset_id}
         uploadedBy={user?.email || undefined}
         employeeId={(selectedAsset as any)?.employee_id || null}
         employeeName={(selectedAsset as any)?.assigned_to || null}
