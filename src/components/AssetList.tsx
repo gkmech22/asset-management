@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { UserPlus, UserMinus, Search, Calendar, MoreVertical, ScanBarcode, Tag } from "lucide-react";
+import { UserPlus, UserMinus, Search, Calendar, MoreVertical, ScanBarcode, Tag, Mail } from "lucide-react";
 import { EditAssetDialog } from "./EditAssetDialog";
 import { AssetDetailsDialog } from "./AssetDetailsDialog";
 import { AssetSticker } from "./AssetSticker";
@@ -1043,9 +1043,30 @@ export const AssetList = ({
                                 variant="outline"
                                 onClick={() => handleOpenStickerDialog(asset)}
                                 className="text-xs h-6 w-6 p-0"
+                                title="Sticker"
                               >
                                 <Tag className="h-4 w-4" />
                               </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button size="sm" variant="outline" className="text-xs h-6 w-6 p-0" title="Email">
+                                    <Mail className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                  <DropdownMenuItem
+                                    onClick={() => openGmailCompose(generateDispatchEmailSubject(asset), generateDispatchEmailBody(asset))}
+                                  >
+                                    Dispatch
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => openGmailCompose(generateReceiveEmailSubject(asset), generateReceiveEmailBody(asset))}
+                                  >
+                                    Receive
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button size="sm" variant="outline" className="text-xs h-6 w-6 p-0">
