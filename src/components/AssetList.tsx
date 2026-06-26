@@ -1043,9 +1043,30 @@ export const AssetList = ({
                                 variant="outline"
                                 onClick={() => handleOpenStickerDialog(asset)}
                                 className="text-xs h-6 w-6 p-0"
+                                title="Sticker"
                               >
                                 <Tag className="h-4 w-4" />
                               </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button size="sm" variant="outline" className="text-xs h-6 w-6 p-0" title="Email">
+                                    <Mail className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                  <DropdownMenuItem
+                                    onClick={() => openGmailCompose(generateDispatchEmailSubject(asset), generateDispatchEmailBody(asset))}
+                                  >
+                                    Dispatch
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => openGmailCompose(generateReceiveEmailSubject(asset), generateReceiveEmailBody(asset))}
+                                  >
+                                    Receive
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button size="sm" variant="outline" className="text-xs h-6 w-6 p-0">
