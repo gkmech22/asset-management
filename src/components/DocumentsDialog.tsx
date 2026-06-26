@@ -88,7 +88,9 @@ export const DocumentsDialog = ({ open, onOpenChange, ownerType, ownerId, ownerL
           file_size: file.size,
           doc_month: month,
           uploaded_by: uploadedBy || null,
+          employee_id: employeeId || null,
         });
+
         if (insErr) {
           toast.error(`Save failed: ${file.name}`);
           await supabase.storage.from(BUCKET).remove([path]);
