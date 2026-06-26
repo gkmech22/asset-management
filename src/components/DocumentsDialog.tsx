@@ -18,6 +18,7 @@ interface DocRow {
   file_size: number | null;
   doc_month: string | null;
   uploaded_by: string | null;
+  employee_id: string | null;
   created_at: string;
 }
 
@@ -28,9 +29,12 @@ interface DocumentsDialogProps {
   ownerId: string;
   ownerLabel?: string;
   uploadedBy?: string;
+  employeeId?: string | null;
+  employeeName?: string | null;
 }
 
-export const DocumentsDialog = ({ open, onOpenChange, ownerType, ownerId, ownerLabel, uploadedBy }: DocumentsDialogProps) => {
+export const DocumentsDialog = ({ open, onOpenChange, ownerType, ownerId, ownerLabel, uploadedBy, employeeId, employeeName }: DocumentsDialogProps) => {
+
   const [docs, setDocs] = useState<DocRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
