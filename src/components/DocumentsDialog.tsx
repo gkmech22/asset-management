@@ -129,7 +129,10 @@ export const DocumentsDialog = ({ open, onOpenChange, ownerType, ownerId, ownerL
   };
 
   const months = Array.from(new Set(docs.map((d) => d.doc_month).filter(Boolean))) as string[];
-  const visible = monthFilter === "all" ? docs : docs.filter((d) => d.doc_month === monthFilter);
+  const employees = Array.from(new Set(docs.map((d) => d.employee_id).filter(Boolean))) as string[];
+  const visible = docs.filter(
+    (d) => (monthFilter === "all" || d.doc_month === monthFilter) && (empFilter === "all" || d.employee_id === empFilter)
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -142,7 +145,6 @@ export const DocumentsDialog = ({ open, onOpenChange, ownerType, ownerId, ownerL
               : "No employee assigned · "}
             Upload PDF or image files (max 3MB each). No limit on number of uploads.
           </DialogDescription>
-
         </DialogHeader>
 
         <div
@@ -171,22 +173,41 @@ export const DocumentsDialog = ({ open, onOpenChange, ownerType, ownerId, ownerL
           <p className="text-xs text-muted-foreground">PDF, JPG, PNG, WEBP — Max 3MB each</p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-foreground">View Month</span>
-          <Select value={monthFilter} onValueChange={setMonthFilter}>
-            <SelectTrigger className="w-40 h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Months</SelectItem>
-              {months.map((m) => (
-                <SelectItem key={m} value={m}>
-                  {m}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-foreground">Month</span>
+            <Select value={monthFilter} onValueChange={setMonthFilter}>
+              <SelectTrigger className="w-36 h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Months</SelectItem>
+                {months.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {m}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-foreground">Employee</span>
+            <Select value={empFilter} onValueChange={setEmpFilter}>
+              <SelectTrigger className="w-40 h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Employees</SelectItem>
+                {employees.map((e) => (
+                  <SelectItem key={e} value={e}>
+                    {e}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
+
 
         <div className="max-h-72 overflow-y-auto">
           {loading ? (
