@@ -135,8 +135,12 @@ export const DocumentsDialog = ({ open, onOpenChange, ownerType, ownerId, ownerL
         <DialogHeader>
           <DialogTitle className="text-foreground">Documents {ownerLabel ? `— ${ownerLabel}` : ""}</DialogTitle>
           <DialogDescription className="text-muted-foreground">
+            {employeeId
+              ? `Employee: ${employeeId}${employeeName ? ` · ${employeeName}` : ""} · `
+              : "No employee assigned · "}
             Upload PDF or image files (max 3MB each). No limit on number of uploads.
           </DialogDescription>
+
         </DialogHeader>
 
         <div
