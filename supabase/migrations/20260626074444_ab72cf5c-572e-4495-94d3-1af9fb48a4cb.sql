@@ -1,0 +1,1 @@
+ALTER TABLE public.asset_documents ADD COLUMN IF NOT EXISTS employee_id TEXT; CREATE INDEX IF NOT EXISTS idx_asset_documents_employee_id ON public.asset_documents(employee_id);

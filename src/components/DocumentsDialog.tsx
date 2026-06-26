@@ -18,6 +18,7 @@ interface DocRow {
   file_size: number | null;
   doc_month: string | null;
   uploaded_by: string | null;
+  employee_id: string | null;
   created_at: string;
 }
 
@@ -28,9 +29,12 @@ interface DocumentsDialogProps {
   ownerId: string;
   ownerLabel?: string;
   uploadedBy?: string;
+  employeeId?: string | null;
+  employeeName?: string | null;
 }
 
-export const DocumentsDialog = ({ open, onOpenChange, ownerType, ownerId, ownerLabel, uploadedBy }: DocumentsDialogProps) => {
+export const DocumentsDialog = ({ open, onOpenChange, ownerType, ownerId, ownerLabel, uploadedBy, employeeId, employeeName }: DocumentsDialogProps) => {
+
   const [docs, setDocs] = useState<DocRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -84,7 +88,9 @@ export const DocumentsDialog = ({ open, onOpenChange, ownerType, ownerId, ownerL
           file_size: file.size,
           doc_month: month,
           uploaded_by: uploadedBy || null,
+          employee_id: employeeId || null,
         });
+
         if (insErr) {
           toast.error(`Save failed: ${file.name}`);
           await supabase.storage.from(BUCKET).remove([path]);
@@ -129,8 +135,12 @@ export const DocumentsDialog = ({ open, onOpenChange, ownerType, ownerId, ownerL
         <DialogHeader>
           <DialogTitle className="text-foreground">Documents {ownerLabel ? `— ${ownerLabel}` : ""}</DialogTitle>
           <DialogDescription className="text-muted-foreground">
+            {employeeId
+              ? `Employee: ${employeeId}${employeeName ? ` · ${employeeName}` : ""} · `
+              : "No employee assigned · "}
             Upload PDF or image files (max 3MB each). No limit on number of uploads.
           </DialogDescription>
+
         </DialogHeader>
 
         <div

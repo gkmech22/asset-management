@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           created_at: string
           doc_month: string | null
+          employee_id: string | null
           file_name: string
           file_path: string
           file_size: number | null
@@ -30,6 +31,7 @@ export type Database = {
         Insert: {
           created_at?: string
           doc_month?: string | null
+          employee_id?: string | null
           file_name: string
           file_path: string
           file_size?: number | null
@@ -42,6 +44,7 @@ export type Database = {
         Update: {
           created_at?: string
           doc_month?: string | null
+          employee_id?: string | null
           file_name?: string
           file_path?: string
           file_size?: number | null

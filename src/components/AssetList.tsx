@@ -1956,7 +1956,10 @@ export const AssetList = ({
         ownerId={selectedAsset?.id || ""}
         ownerLabel={selectedAsset?.asset_id}
         uploadedBy={user?.email || undefined}
+        employeeId={(selectedAsset as any)?.employee_id || null}
+        employeeName={(selectedAsset as any)?.assigned_to || null}
       />
+
 
       <Dialog open={showHistoryDialog} onOpenChange={(open) => {
         setShowHistoryDialog(open);
